@@ -62,6 +62,25 @@ export default function AdminAttendancePage() {
     },
   });
 
+  const filteredShifts = shifts.filter((s) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const name = `${s.lecturers?.first_name || ''} ${s.lecturers?.last_name || ''}`.toLowerCase();
+    const id = (s.lecturers?.staff_id || '').toLowerCase();
+    const dept = (s.lecturers?.departments?.abbreviation || '').toLowerCase();
+    return name.includes(q) || id.includes(q) || dept.includes(q);
+  });
+
+  const filteredSessions = sessions.filter((s) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const courseCode = (s.batch_courses?.courses?.code || '').toLowerCase();
+    const courseName = (s.batch_courses?.courses?.name || '').toLowerCase();
+    const batchName = (s.batch_courses?.batches?.name || '').toLowerCase();
+    const lec = `${s.lecturers?.first_name || ''} ${s.lecturers?.last_name || ''}`.toLowerCase();
+    return courseCode.includes(q) || courseName.includes(q) || batchName.includes(q) || lec.includes(q);
+  });
+
   return (
     <AppLayout pageTitle="Attendance & Presence">
       <div className="page-header">
@@ -87,6 +106,31 @@ export default function AdminAttendancePage() {
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <div className="card-body" style={{ padding: '0.75rem 1rem' }}>
+          <div style={{ position: 'relative', maxWidth: '380px' }}>
+            <MdSearch
+              style={{
+                position: 'absolute',
+                left: '0.75rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--color-text-muted)',
+                fontSize: '1.1rem',
+              }}
+            />
+            <input
+              type="text"
+              className="form-input"
+              style={{ paddingLeft: '2.25rem' }}
+              placeholder={activeTab === 'lecturers' ? "Search shifts by lecturer, ID, department..." : "Search sessions by course, lecturer, batch..."}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="card">
         {activeTab === 'lecturers' ? (
           <div className="table-wrapper">
@@ -104,7 +148,7 @@ export default function AdminAttendancePage() {
               <tbody>
                 {shiftsLoading ? (
                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>Loading shifts...</td></tr>
-                ) : shifts.length === 0 ? (
+                ) : filteredShifts.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
                       <div className="empty-state">
@@ -115,7 +159,7 @@ export default function AdminAttendancePage() {
                     </td>
                   </tr>
                 ) : (
-                  shifts.map((shift) => {
+                  filteredShifts.map((shift) => {
                     let duration = 'Active';
                     if (shift.clock_out) {
                       const diff = (new Date(shift.clock_out) - new Date(shift.clock_in)) / (1000 * 60 * 60);
@@ -161,7 +205,7 @@ export default function AdminAttendancePage() {
               <tbody>
                 {sessionsLoading ? (
                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>Loading sessions...</td></tr>
-                ) : sessions.length === 0 ? (
+                ) : filteredSessions.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
                       <div className="empty-state">
@@ -172,7 +216,7 @@ export default function AdminAttendancePage() {
                     </td>
                   </tr>
                 ) : (
-                  sessions.map((s) => (
+                  filteredSessions.map((s) => (
                     <tr key={s.id}>
                       <td>
                         <code>{s.batch_courses?.courses?.code}</code>{' '}

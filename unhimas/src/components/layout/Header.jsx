@@ -9,11 +9,11 @@ import {
   MdAccountCircle,
   MdSettings,
   MdLogout,
-  MdArrowUpward,
 } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../i18n/index';
+import GlobalSearchModal from './GlobalSearchModal';
 
 const ROLE_LABELS = {
   admin: 'Administrator',
@@ -34,8 +34,21 @@ export default function Header({ onMenuClick, pageTitle }) {
   const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage } = useTranslation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
+
+  // Keyboard shortcut Ctrl+K / Cmd+K to open search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -62,42 +75,56 @@ export default function Header({ onMenuClick, pageTitle }) {
   const profilePath = ROLE_PROFILE_PATHS[role] || '/';
 
   return (
-    <header className="app-header" role="banner">
-      {/* Skip to main content */}
-      <a href="#main-content" className="skip-link">Skip to main content</a>
+    <>
+      <header className="app-header" role="banner">
+        {/* Skip to main content */}
+        <a href="#main-content" className="skip-link">Skip to main content</a>
 
-      {/* Mobile menu toggle */}
-      <button
-        className="header-mobile-menu-btn"
-        onClick={onMenuClick}
-        aria-label="Open navigation menu"
-      >
-        <MdMenu />
-      </button>
+        {/* Mobile menu toggle */}
+        <button
+          className="header-mobile-menu-btn"
+          onClick={onMenuClick}
+          aria-label="Open navigation menu"
+        >
+          <MdMenu />
+        </button>
 
-      {/* Breadcrumb / page title */}
-      <div className="header-breadcrumb" aria-label="Breadcrumb">
-        <span className="breadcrumb-title">{pageTitle || 'Dashboard'}</span>
-      </div>
+        {/* Breadcrumb / page title */}
+        <div className="header-breadcrumb" aria-label="Breadcrumb">
+          <span className="breadcrumb-title">{pageTitle || 'Dashboard'}</span>
+        </div>
 
-      {/* Search */}
-      <div className="header-search" role="search">
-        <MdSearch className="header-search-icon" aria-hidden="true" />
-        <input
-          type="search"
-          className="header-search-input"
-          placeholder="Search..."
-          aria-label="Search"
-        />
-      </div>
+        {/* Search */}
+        <div
+          className="header-search"
+          role="search"
+          onClick={() => setSearchOpen(true)}
+          style={{ cursor: 'pointer' }}
+          title="Search anything (Ctrl+K)"
+        >
+          <MdSearch className="header-search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            className="header-search-input"
+            placeholder="Search... (Ctrl+K)"
+            aria-label="Search"
+            readOnly
+            onClick={() => setSearchOpen(true)}
+          />
+        </div>
 
       {/* Action buttons */}
       <div className="header-actions">
         {/* Notifications */}
-        <button className="icon-btn" aria-label="Notifications" title="Notifications">
+        <Link
+          className="icon-btn"
+          to={role === 'admin' ? '/admin/notifications' : role === 'frontdesk' ? '/frontdesk' : role === 'lecturer' ? '/lecturer/notifications' : '/student/notifications'}
+          aria-label="Notifications"
+          title="Notifications"
+        >
           <MdNotifications />
           <span className="notif-badge" aria-hidden="true" />
-        </button>
+        </Link>
 
         {/* Dark mode toggle */}
         <button
@@ -173,5 +200,8 @@ export default function Header({ onMenuClick, pageTitle }) {
         </div>
       </div>
     </header>
-  );
+
+    <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+  </>
+);
 }

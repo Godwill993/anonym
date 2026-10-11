@@ -1,26 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdAssignment, MdSearch, MdSchool } from 'react-icons/md';
+import { MdSearch, MdSchool } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
-import { supabase } from '../../lib/supabase';
+import { getPublishedResults } from '../../services/results';
 
 export default function AdminResultsPage() {
   const [search, setSearch] = useState('');
 
-  // Fetch published results from the SQL view 'results'
+  // Fetch published results from the SQL view 'results'.
   const { data: results = [], isLoading } = useQuery({
     queryKey: ['admin-results-view'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('results')
-        .select('*')
-        .limit(100);
-      if (error) {
-        console.error('Error fetching results view:', error);
-        return [];
-      }
-      return data || [];
-    },
+    queryFn: getPublishedResults,
   });
 
   const filtered = results.filter((r) => {

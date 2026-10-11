@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdLock, MdWarning } from 'react-icons/md';
+import { MdLock, MdTrendingUp, MdWarning } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { getMyStudentProfile, getMyResults } from '../../services/studentService';
 
 function GradeCell({ grade, gp }) {
@@ -34,6 +35,40 @@ export default function StudentResultsPage() {
     enabled: !!studentId,
   });
 
+  // Query database-calculated semester GPA view
+  const { data: semesterGpaList = [] } = useQuery({
+    queryKey: ['student-semester-gpa', studentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_semester_gpa')
+        .select('*')
+        .eq('student_id', studentId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!studentId,
+  });
+
+  // Query database-calculated overall cumulative GPA view
+  const { data: overallGpaData } = useQuery({
+    queryKey: ['student-overall-gpa', studentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_overall_gpa')
+        .select('*')
+        .eq('student_id', studentId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!studentId,
+  });
+
+  const semesterGpaMap = {};
+  (semesterGpaList || []).forEach((g) => {
+    semesterGpaMap[g.semester_id] = g.semester_gpa;
+  });
+
   // Group by semester
   const bySemester = {};
   results.forEach((r) => {
@@ -52,11 +87,20 @@ export default function StudentResultsPage() {
 
   const filtered = semFilter === 'all' ? semesters : semesters.filter((s) => s.semKey === semFilter);
 
-  // GPA per semester
-  const computeGPA = (marks) => {
+  // Credit-weighted GPA matching database view
+  const computeGPA = (marks, semId) => {
+    if (semId && semesterGpaMap[semId] !== undefined) {
+      return Number(semesterGpaMap[semId]).toFixed(2);
+    }
     if (!marks.length) return null;
-    const total = marks.reduce((sum, m) => sum + (m.grade_point || 0), 0);
-    return (total / marks.length).toFixed(2);
+    let totalPoints = 0;
+    let totalCredits = 0;
+    marks.forEach((m) => {
+      const credits = Number(m.mark_submissions?.batch_courses?.courses?.credit_units || 3);
+      totalPoints += Number(m.grade_point || 0) * credits;
+      totalCredits += credits;
+    });
+    return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '0.00';
   };
 
   const isLoading = stuLoading || resLoading;
@@ -68,6 +112,31 @@ export default function StudentResultsPage() {
           <h1 className="page-title">My Results</h1>
           <p className="page-subtitle">Published academic results only</p>
         </div>
+        {overallGpaData?.overall_gpa !== undefined && overallGpaData?.overall_gpa !== null && (
+          <div className="page-header-actions">
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.5rem 1rem',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <MdTrendingUp style={{ color: 'var(--color-secondary)', fontSize: '1.25rem' }} />
+              <div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Cumulative GPA
+                </div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary)' }}>
+                  {Number(overallGpaData.overall_gpa).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Semester filter */}
@@ -111,7 +180,7 @@ export default function StudentResultsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {filtered.map((sem) => {
-            const gpa = computeGPA(sem.marks);
+            const gpa = computeGPA(sem.marks, sem.semKey);
             const failed = sem.marks.filter((m) => m.grade === 'F').length;
             return (
               <div key={sem.semKey} className="card">

@@ -8,8 +8,6 @@ import {
   MdCheckCircle,
   MdSearch,
   MdRefresh,
-  MdHistory,
-  MdApartment,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
@@ -55,7 +53,7 @@ export default function FrontDeskDashboard() {
         lecturerId,
         staffProfileId: profile?.id || null,
       }),
-    onSuccess: (data, lecturerId) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-history'] });

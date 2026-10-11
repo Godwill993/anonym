@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdPersonPin, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdEmail, MdPhone, MdPersonAdd } from 'react-icons/md';
+import { MdAdd, MdPersonPin, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdEmail, MdPhone, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
@@ -10,7 +11,6 @@ import {
   updateLecturer,
 } from '../../services/peopleService';
 import { getDepartments } from '../../services/academicService';
-import { provisionSchoolAccount } from '../../services/auth';
 
 export default function LecturersPage() {
   const queryClient = useQueryClient();
@@ -45,7 +45,7 @@ export default function LecturersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-lecturers'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview-stats'] });
-      toast.success('Lecturer created successfully');
+      toast.success('Lecturer record created. Use "Create Account" to provision their login.');
       handleCloseModal();
     },
     onError: (err) => {
@@ -63,15 +63,6 @@ export default function LecturersPage() {
     onError: (err) => {
       toast.error(err.message || 'Failed to update lecturer');
     },
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: (lecturerId) => provisionSchoolAccount({ recordType: 'lecturer', recordId: lecturerId }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lecturers'] });
-      toast.success(result.message || 'Lecturer invitation sent');
-    },
-    onError: (err) => toast.error(err.message || 'Could not send lecturer invitation'),
   });
 
   const handleOpenAdd = () => {
@@ -151,6 +142,9 @@ export default function LecturersPage() {
           <p className="page-subtitle">Academic teaching staff, departmental assignments, and credentials</p>
         </div>
         <div className="page-header-actions">
+          <Link to="/admin/create-account" className="btn btn-outline" style={{ marginRight: '0.5rem' }}>
+            <MdPersonAdd /> Create Account
+          </Link>
           <button className="btn btn-primary" onClick={handleOpenAdd}>
             <MdAdd /> Add Faculty Lecturer
           </button>
@@ -206,6 +200,7 @@ export default function LecturersPage() {
                 <th>Specialization</th>
                 <th>Contact</th>
                 <th>Status</th>
+                <th>Account</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -264,6 +259,22 @@ export default function LecturersPage() {
                         {lec.is_active ? 'Active' : 'On Leave'}
                       </span>
                     </td>
+                    <td>
+                      {lec.profile_id ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#059669' }}>
+                          <MdCheckCircle /> Linked
+                        </span>
+                      ) : (
+                        <Link
+                          to="/admin/create-account"
+                          className="btn-icon"
+                          title="Create login account for this lecturer"
+                          style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-secondary)' }}
+                        >
+                          <MdPersonAdd /> Create Account
+                        </Link>
+                      )}
+                    </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                         <button
@@ -273,15 +284,6 @@ export default function LecturersPage() {
                           onClick={() => handleOpenEdit(lec)}
                         >
                           <MdEdit />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title={lec.profile_id ? 'Lecturer already has a login account' : !lec.email ? 'Add an email before sending an invitation' : 'Send login invitation'}
-                          aria-label={`Send login invitation to ${lec.staff_id}`}
-                          disabled={inviteMutation.isPending || !lec.is_active || Boolean(lec.profile_id) || !lec.email}
-                          onClick={() => inviteMutation.mutate(lec.id)}
-                        >
-                          <MdPersonAdd />
                         </button>
                         <button
                           className="btn-icon"

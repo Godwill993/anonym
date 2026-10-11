@@ -240,3 +240,47 @@ export async function getAdminResourceDownload(filePath) {
   }
   return { url: data.signedUrl, error: null };
 }
+
+export async function uploadAdminResource({ file, title, description, course_id, batch_id }) {
+  if (!file || file.size > 20 * 1024 * 1024) {
+    throw new Error('Choose a file smaller than 20 MB.');
+  }
+
+  const safeName = `${Date.now()}-${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const { error: uploadError } = await supabase.storage
+    .from('resources')
+    .upload(safeName, file, { cacheControl: '3600', contentType: file.type || 'application/octet-stream' });
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase
+    .from('resources')
+    .insert([{
+      title: title.trim(),
+      description: description.trim() || null,
+      course_id: course_id || null,
+      batch_id: batch_id || null,
+      file_path: safeName,
+      file_name: file.name,
+      mime_type: file.type || null,
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdminResource(id) {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('file_path')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+
+  const { error: storageError } = await supabase.storage.from('resources').remove([data.file_path]);
+  if (storageError) throw storageError;
+
+  const { error: recordError } = await supabase.from('resources').delete().eq('id', id);
+  if (recordError) throw recordError;
+  return true;
+}

@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { MdAccessTime, MdWarning } from 'react-icons/md';
+import { MdAccessTime, MdWarning, MdFileDownload } from 'react-icons/md';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../../../components/layout/AppLayout';
 import { getLecturerHoursReport } from '../../../services/adminReportsService';
+import { exportToCsv } from '../../../utils/exportUtils';
 
 function formatMonth(value) {
   return new Date(value).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
@@ -22,12 +23,39 @@ export default function LecturerHoursReportPage() {
   const totalHours = report.reduce((sum, item) => sum + Number(item.hours_taught || 0), 0);
   const activeLecturers = new Set(report.map((item) => item.lecturer_id)).size;
 
+  const handleExport = () => {
+    const headers = [
+      { label: 'Staff ID', key: 'staff_id' },
+      { label: 'First Name', key: 'first_name' },
+      { label: 'Last Name', key: 'last_name' },
+      { label: 'Month', key: 'formatted_month' },
+      { label: 'Hours Taught', key: 'hours_taught' },
+    ];
+    const rows = report.map((r) => ({
+      staff_id: r.staff_id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      formatted_month: formatMonth(r.month),
+      hours_taught: Number(r.hours_taught).toFixed(2),
+    }));
+    exportToCsv('unhimas_lecturer_hours_report', headers, rows);
+  };
+
   return (
     <AppLayout pageTitle="Lecturer Hours Report">
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Lecturer Hours Report</h1>
           <p className="page-subtitle">Approved teaching hours recorded through lecturer shifts</p>
+        </div>
+        <div className="page-header-actions">
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={handleExport}
+            disabled={report.length === 0}
+          >
+            <MdFileDownload /> Export CSV
+          </button>
         </div>
       </div>
 

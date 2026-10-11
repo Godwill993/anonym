@@ -20,4 +20,16 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder-anon-key'
 );
 
+export const supabaseSignup = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  }
+);
+
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);

@@ -34,6 +34,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings) {
+      // Synchronize the editable form only after the server-backed settings load.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         school_name: settings.school_name || 'UNHIMAS',
         school_abbreviation: settings.school_abbreviation || 'UNH',

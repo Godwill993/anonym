@@ -252,6 +252,7 @@ export default function StudentDashboard() {
             <StatCard icon={<MdHowToReg />} value={stats.attendancePct !== null ? stats.attendancePct : '—'} label="Attendance Rate" color={lowAttendance ? 'red' : 'green'} link="/student/attendance" suffix="%" />
             <StatCard icon={<MdAssignment />} value={stats.publishedResults} label="Published Results" color="blue" link="/student/results" />
             <StatCard icon={<MdTrendingUp />} value={stats.gpa !== null ? stats.gpa : '—'} label={stats.gpaScope || 'GPA'} color="amber" link="/student/results" />
+            <StatCard icon={<MdAssignment />} value={stats.publishedResults > 0 ? 'View' : '—'} label="Official Transcript" color="blue" link="/student/transcript" />
             <StatCard icon={<MdNotifications />} value={stats.unreadNotifications} label="Unread Notifications" color={stats.unreadNotifications > 0 ? 'red' : 'blue'} />
           </>
         )}

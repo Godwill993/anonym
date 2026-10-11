@@ -1526,12 +1526,4 @@ grant select on public.course_performance to authenticated;
 -- 6. Front desk records lecturer clock-in/out; the system reports
 --    hours but does not calculate salary.
 -- 7. Lecturers only work with their assigned batch courses.
--- ============================================================
-
-</USER_REQUEST>
-<ADDITIONAL_METADATA>
-The current local time is: 2026-09-30T15:15:57+01:00.
-</ADDITIONAL_METADATA>
-<USER_SETTINGS_CHANGE>
-The user changed setting `Model Selection` from None to Gemini 3.1 Pro (Low). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
-</USER_SETTINGS_CHANGE>
+-- ============================================================

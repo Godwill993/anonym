@@ -8,7 +8,10 @@ import ToastContainer from './components/common/Toast';
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import SetNewPasswordPage from './pages/auth/SetNewPasswordPage';
 import UnauthorizedPage from './pages/auth/UnauthorizedPage';
+import PublicResultsPage from './pages/public/PublicResultsPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -21,14 +24,18 @@ import BatchCoursesPage from './pages/admin/BatchCoursesPage';
 import StudentsPage from './pages/admin/StudentsPage';
 import LecturersPage from './pages/admin/LecturersPage';
 import StaffPage from './pages/admin/StaffPage';
+import CreateAccountPage from './pages/admin/CreateAccountPage';
 import MarkApprovalPage from './pages/admin/MarkApprovalPage';
 import AdminMarksPage from './pages/admin/AdminMarksPage';
 import AdminAttendancePage from './pages/admin/AdminAttendancePage';
 import AdminResultsPage from './pages/admin/AdminResultsPage';
 import AdminTimetablePage from './pages/admin/AdminTimetablePage';
+import AdminClassSessionsPage from './pages/admin/ClassSessionsPage';
 import AdminAnnouncementsPage from './pages/admin/AdminAnnouncementsPage';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
+import StudentTransfersPage from './pages/admin/StudentTransfersPage';
+import AcademicEventsPage from './pages/admin/AcademicEventsPage';
 import LecturerHoursReportPage from './pages/admin/reports/LecturerHoursReportPage';
 import AttendanceReportPage from './pages/admin/reports/AttendanceReportPage';
 import CoursePerformanceReportPage from './pages/admin/reports/CoursePerformanceReportPage';
@@ -54,6 +61,7 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import StudentAttendancePage from './pages/student/StudentAttendancePage';
 import StudentResultsPage from './pages/student/StudentResultsPage';
+import StudentTranscriptPage from './pages/student/StudentTranscriptPage';
 import StudentTimetablePage from './pages/student/StudentTimetablePage';
 import StudentAnnouncementsPage from './pages/student/StudentAnnouncementsPage';
 import StudentNotificationsPage from './pages/student/StudentNotificationsPage';
@@ -120,6 +128,10 @@ function App() {
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/set-new-password" element={<SetNewPasswordPage />} />
+              <Route path="/results" element={<PublicResultsPage />} />
+              <Route path="/results/verify" element={<PublicResultsPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               {/* Role dispatch */}
@@ -141,11 +153,15 @@ function App() {
                       <Route path="students" element={<StudentsPage />} />
                       <Route path="lecturers" element={<LecturersPage />} />
                       <Route path="staff" element={<StaffPage />} />
+                      <Route path="create-account" element={<CreateAccountPage />} />
                       <Route path="mark-approval" element={<MarkApprovalPage />} />
                       <Route path="marks" element={<AdminMarksPage />} />
                       <Route path="attendance" element={<AdminAttendancePage />} />
                       <Route path="results" element={<AdminResultsPage />} />
                       <Route path="timetable" element={<AdminTimetablePage />} />
+                      <Route path="class-sessions" element={<AdminClassSessionsPage />} />
+                      <Route path="student-transfers" element={<StudentTransfersPage />} />
+                      <Route path="academic-events" element={<AcademicEventsPage />} />
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
@@ -206,6 +222,7 @@ function App() {
                       <Route path="courses" element={<StudentCoursesPage />} />
                       <Route path="attendance" element={<StudentAttendancePage />} />
                       <Route path="results" element={<StudentResultsPage />} />
+                      <Route path="transcript" element={<StudentTranscriptPage />} />
                       <Route path="timetable" element={<StudentTimetablePage />} />
                       <Route path="announcements" element={<StudentAnnouncementsPage />} />
                       <Route path="notifications" element={<StudentNotificationsPage />} />

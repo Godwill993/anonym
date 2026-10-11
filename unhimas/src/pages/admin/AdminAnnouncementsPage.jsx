@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdCampaign, MdAdd, MdDelete, MdCheckCircle, MdSearch } from 'react-icons/md';
+import { MdAdd, MdCampaign, MdDelete } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
@@ -165,9 +165,9 @@ export default function AdminAnnouncementsPage() {
               Cancel
             </button>
             <button
-              type="button"
+              type="submit"
+              form="announcement-form"
               className="btn btn-primary"
-              onClick={handleSubmit}
               disabled={createMutation.isPending}
             >
               Publish Notice
@@ -175,7 +175,7 @@ export default function AdminAnnouncementsPage() {
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form id="announcement-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Notice Title *</label>
             <input

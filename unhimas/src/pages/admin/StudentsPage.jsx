@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdSchool, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdPhone, MdEmail, MdPersonAdd } from 'react-icons/md';
+import { MdAdd, MdSchool, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdPhone, MdEmail, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
@@ -10,7 +11,6 @@ import {
   updateStudent,
 } from '../../services/peopleService';
 import { getBatches } from '../../services/academicService';
-import { provisionSchoolAccount } from '../../services/auth';
 
 export default function StudentsPage() {
   const queryClient = useQueryClient();
@@ -45,7 +45,7 @@ export default function StudentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview-stats'] });
-      toast.success('Student registered successfully');
+      toast.success('Student record created. Use "Create Account" to provision their login.');
       handleCloseModal();
     },
     onError: (err) => {
@@ -65,16 +65,9 @@ export default function StudentsPage() {
     },
   });
 
-  const inviteMutation = useMutation({
-    mutationFn: (studentId) => provisionSchoolAccount({ recordType: 'student', recordId: studentId }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-      toast.success(result.message || 'Student invitation sent');
-    },
-    onError: (err) => toast.error(err.message || 'Could not send student invitation'),
-  });
 
   const handleOpenAdd = () => {
+
     setEditingStudent(null);
     setFormData({
       matricule: `UNH/${new Date().getFullYear()}/`,
@@ -151,6 +144,9 @@ export default function StudentsPage() {
           <p className="page-subtitle">Enrolled students, matriculation records, and batch memberships</p>
         </div>
         <div className="page-header-actions">
+          <Link to="/admin/create-account" className="btn btn-outline" style={{ marginRight: '0.5rem' }}>
+            <MdPersonAdd /> Create Account
+          </Link>
           <button className="btn btn-primary" onClick={handleOpenAdd}>
             <MdAdd /> Register New Student
           </button>
@@ -207,6 +203,7 @@ export default function StudentsPage() {
                 <th>Contact Details</th>
                 <th>Admission Date</th>
                 <th>Status</th>
+                <th>Account</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -265,6 +262,22 @@ export default function StudentsPage() {
                         {stu.is_active ? 'Active' : 'Suspended'}
                       </span>
                     </td>
+                    <td>
+                      {stu.profile_id ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', color: '#059669' }}>
+                          <MdCheckCircle /> Linked
+                        </span>
+                      ) : (
+                        <Link
+                          to="/admin/create-account"
+                          className="btn-icon"
+                          title="Create login account for this student"
+                          style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)' }}
+                        >
+                          <MdPersonAdd /> Create Account
+                        </Link>
+                      )}
+                    </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                         <button
@@ -274,15 +287,6 @@ export default function StudentsPage() {
                           onClick={() => handleOpenEdit(stu)}
                         >
                           <MdEdit />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title={stu.profile_id ? 'Student already has a login account' : !stu.email ? 'Add an email before sending an invitation' : 'Send login invitation'}
-                          aria-label={`Send login invitation to ${stu.matricule}`}
-                          disabled={inviteMutation.isPending || !stu.is_active || Boolean(stu.profile_id) || !stu.email}
-                          onClick={() => inviteMutation.mutate(stu.id)}
-                        >
-                          <MdPersonAdd />
                         </button>
                         <button
                           className="btn-icon"

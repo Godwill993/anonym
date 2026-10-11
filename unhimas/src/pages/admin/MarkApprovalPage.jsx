@@ -11,7 +11,6 @@ import {
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
-import { useAuth } from '../../context/AuthContext';
 import {
   getMarkSubmissions,
   getSubmissionDetail,
@@ -19,7 +18,6 @@ import {
 } from '../../services/operationsService';
 
 export default function MarkApprovalPage() {
-  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -44,7 +42,6 @@ export default function MarkApprovalPage() {
       reviewSubmission(id, {
         status,
         admin_comment,
-        reviewer_id: profile?.id || null,
       }),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-mark-submissions'] });

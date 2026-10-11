@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -170,39 +170,51 @@ export default function LecturerMarksPage() {
   });
 
   // Existing marks
-  const { isLoading: marksLoading, refetch: refetchMarks } = useQuery({
+  const { data: existingMarks = [], isLoading: marksLoading, refetch: refetchMarks } = useQuery({
     queryKey: ['marks-for-submission', submission?.id],
     queryFn: () => getMarksForSubmission(submission.id),
     enabled: !!submission?.id,
-    onSuccess: (data) => {
-      // Initialize localScores from DB data
-      const init = {};
-      data.forEach((m) => {
-        init[m.student_id] = {
-          attendance_score: m.attendance_score,
-          coursework_score: m.coursework_score,
-          exam_score: m.exam_score,
-          lecturer_comment: m.lecturer_comment || '',
-        };
-      });
-      setLocalScores(init);
-    },
   });
+
+  const existingMarksMap = useMemo(() => {
+    const map = new Map();
+    existingMarks.forEach((m) => map.set(m.student_id, m));
+    return map;
+  }, [existingMarks]);
+
+  const getStudentScores = useCallback((studentId) => {
+    if (localScores[studentId]) return localScores[studentId];
+    const dbMark = existingMarksMap.get(studentId);
+    if (dbMark) {
+      return {
+        attendance_score: dbMark.attendance_score ?? 0,
+        coursework_score: dbMark.coursework_score ?? 0,
+        exam_score: dbMark.exam_score ?? 0,
+        lecturer_comment: dbMark.lecturer_comment || '',
+      };
+    }
+    return {
+      attendance_score: 0,
+      coursework_score: 0,
+      exam_score: 0,
+      lecturer_comment: '',
+    };
+  }, [localScores, existingMarksMap]);
 
   const canEdit = submission && (submission.status === 'draft' || submission.status === 'returned');
 
   // Upsert a single mark
   const saveOneMark = useCallback(async (studentId) => {
     if (!submission?.id || !canEdit) return;
-    const scores = localScores[studentId] || {};
+    const scores = getStudentScores(studentId);
     setSaving(true);
     try {
       await upsertMark({
         mark_submission_id: submission.id,
         student_id: studentId,
-        attendance_score: scores.attendance_score ?? 0,
-        coursework_score: scores.coursework_score ?? 0,
-        exam_score: scores.exam_score ?? 0,
+        attendance_score: Number(scores.attendance_score) || 0,
+        coursework_score: Number(scores.coursework_score) || 0,
+        exam_score: Number(scores.exam_score) || 0,
         lecturer_comment: scores.lecturer_comment || null,
       });
       showToast('Mark saved', 'success');
@@ -212,7 +224,7 @@ export default function LecturerMarksPage() {
     } finally {
       setSaving(false);
     }
-  }, [submission, canEdit, localScores, showToast, refetchMarks]);
+  }, [submission, canEdit, getStudentScores, showToast, refetchMarks]);
 
   // Save all marks in sequence
   const saveAllMarks = async () => {

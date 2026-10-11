@@ -111,12 +111,22 @@ export async function getSubmissionDetail(id) {
   };
 }
 
-export async function reviewSubmission(id, { status, admin_comment = '', reviewer_id = null }) {
+export async function reviewSubmission(id, { status, admin_comment = '' }) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) throw new Error('Your session has expired. Please sign in again.');
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', authData.user.id)
+    .single();
+  if (profileError || !profile) throw new Error('Your administrator profile could not be verified.');
+
   const updates = {
     status,
     admin_comment,
     reviewed_at: new Date().toISOString(),
-    reviewed_by: reviewer_id,
+    reviewed_by: profile.id,
   };
 
   if (status === 'published') {

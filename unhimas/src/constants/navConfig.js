@@ -60,6 +60,8 @@ export const NAV_CONFIG = {
       items: [
         { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday },
         { key: 'class-sessions', label: 'Class Sessions', path: '/admin/class-sessions', icon: MdSchedule },
+        { key: 'student-transfers', label: 'Student Transfers', path: '/admin/student-transfers', icon: MdPeople },
+        { key: 'academic-events', label: 'Academic Events', path: '/admin/academic-events', icon: MdDateRange },
         { key: 'attendance', label: 'Attendance', path: '/admin/attendance', icon: MdHowToReg },
         { key: 'marks', label: 'Marks', path: '/admin/marks', icon: MdGrade },
         { key: 'mark-approval', label: 'Mark Approval', path: '/admin/mark-approval', icon: MdCheckCircle },
@@ -155,6 +157,7 @@ export const NAV_CONFIG = {
         { key: 'my-courses', label: 'My Courses', path: '/student/courses', icon: MdBook },
         { key: 'attendance', label: 'Attendance', path: '/student/attendance', icon: MdHowToReg },
         { key: 'results', label: 'Results', path: '/student/results', icon: MdAssignment },
+        { key: 'transcript', label: 'Transcript', path: '/student/transcript', icon: MdAssignment },
         { key: 'timetable', label: 'Timetable', path: '/student/timetable', icon: MdCalendarToday },
       ],
     },

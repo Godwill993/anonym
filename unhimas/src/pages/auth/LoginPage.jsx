@@ -6,8 +6,24 @@ import { z } from 'zod';
 import { MdVisibility, MdVisibilityOff, MdErrorOutline, MdWarning, MdOpenInNew } from 'react-icons/md';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
 import '../../styles/components.css';
+
+/**
+ * Check whether the freshly-logged-in user has must_reset_password = true
+ * on their linked student or lecturer record.
+ */
+async function checkMustResetPassword(role) {
+  if (role !== 'student' && role !== 'lecturer') return false;
+  const table = role === 'student' ? 'students' : 'lecturers';
+  const { data } = await supabase
+    .from(table)
+    .select('must_reset_password')
+    .eq('profile_id', (await supabase.auth.getUser()).data?.user?.id)
+    .maybeSingle();
+  return data?.must_reset_password === true;
+}
 
 const schema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -22,6 +38,7 @@ const ROLE_HOME = {
 };
 
 export default function LoginPage() {
+  const { language, toggleLanguage, t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -61,6 +78,13 @@ export default function LoginPage() {
       return;
     }
 
+    // Check if the user must reset their password before accessing the app
+    const mustReset = await checkMustResetPassword(profile.role);
+    if (mustReset) {
+      navigate('/set-new-password', { replace: true });
+      return;
+    }
+
     navigate(ROLE_HOME[profile.role] || '/unauthorized', { replace: true });
   };
 
@@ -68,7 +92,27 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         {/* Header */}
-        <div className="auth-card-header">
+        <div className="auth-card-header" style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className="lang-btn"
+            onClick={toggleLanguage}
+            style={{
+              position: 'absolute',
+              top: '0.75rem',
+              right: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.15)',
+              color: '#fff',
+              border: 'none',
+              padding: '0.2rem 0.6rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+            }}
+            title="Toggle Language"
+          >
+            {language === 'en' ? 'FR' : 'EN'}
+          </button>
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
@@ -78,7 +122,7 @@ export default function LoginPage() {
 
         {/* Body */}
         <div className="auth-card-body">
-          <h1 className="auth-title">Sign in to your account</h1>
+          <h1 className="auth-title">{t('auth.login_title') || 'Sign in to your account'}</h1>
 
           {/* Setup warning — only shown when .env is missing */}
           {!isSupabaseConfigured && (
@@ -155,40 +199,54 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Forgot password */}
-            <div className="auth-links">
-              <span />
-              <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
+              {/* Forgot password and public verify */}
+              <div className="auth-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <Link to="/results" className="auth-link" style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                  Verify official result →
+                </Link>
+                <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-full"
+                disabled={loading || !isSupabaseConfigured}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                    Signing in…
+                  </>
+                ) : (
+                  'Sign in'
+                )}
+              </button>
+            </form>
+
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+              <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                Official Public Portal: <Link to="/results" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>Results & Verification</Link>
+              </div>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary btn-full"
-              disabled={loading || !isSupabaseConfigured}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                  Signing in…
-                </>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </form>
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding: '0.875rem 2rem',
-          borderTop: '1px solid var(--color-border)',
-          textAlign: 'center',
-          fontSize: '0.75rem',
-          color: 'var(--color-text-muted)'
-        }}>
-          © {new Date().getFullYear()} UNHIMAS. All rights reserved.
+          {/* Footer */}
+          <div style={{
+            padding: '0.875rem 2rem',
+            borderTop: '1px solid var(--color-border)',
+            textAlign: 'center',
+            fontSize: '0.75rem',
+            color: 'var(--color-text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span>© {new Date().getFullYear()} UNHIMAS</span>
+            <Link to="/results" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Verification Portal
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
   );
 }

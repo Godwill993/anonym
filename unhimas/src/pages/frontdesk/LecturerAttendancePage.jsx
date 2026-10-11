@@ -4,9 +4,6 @@ import {
   MdQrCodeScanner,
   MdLogin,
   MdLogout,
-  MdCheckCircle,
-  MdPersonPin,
-  MdSearch,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
@@ -35,7 +32,7 @@ export default function LecturerAttendancePage() {
         lecturerId,
         staffProfileId: profile?.id || null,
       }),
-    onSuccess: (data, lecturerId) => {
+    onSuccess: (_, lecturerId) => {
       queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
       const lec = lecturers.find((l) => l.id === lecturerId);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdHistory, MdSearch, MdDateRange, MdFilterList, MdFileDownload } from 'react-icons/md';
+import { MdHistory } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { getShiftHistory } from '../../services/frontDeskService';
 import { getDepartments } from '../../services/academicService';
