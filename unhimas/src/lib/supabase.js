@@ -28,6 +28,7 @@ export const supabaseSignup = createClient(
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: false,
+      storageKey: 'unhimas-signup-auth-token',
     },
   }
 );

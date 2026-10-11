@@ -224,7 +224,7 @@ export default function LecturerDashboard() {
       )}
 
       {/* Current shift banner */}
-      {stats.currentShift && (
+      {stats?.currentShift && (
         <div
           style={{
             background: 'rgba(16,185,129,0.07)',
