@@ -37,6 +37,18 @@ const ROLE_HOME = {
   student: '/student',
 };
 
+function getLoginErrorMessage(error) {
+  if (error?.code === 'email_not_confirmed' || /email not confirmed/i.test(error?.message || '')) {
+    return 'Your email address has not been confirmed. Check your inbox and spam folder for the confirmation link.';
+  }
+
+  if (error?.message === 'Invalid login credentials') {
+    return 'Incorrect email or password. Please try again.';
+  }
+
+  return error?.message || 'Unable to sign in. Check your connection and try again.';
+}
+
 export default function LoginPage() {
   const { language, toggleLanguage, t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
@@ -58,34 +70,33 @@ export default function LoginPage() {
     setLoading(true);
     setServerError('');
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setServerError(getLoginErrorMessage(error));
+        return;
+      }
 
-    if (error) {
-      setServerError(
-        error.message === 'Invalid login credentials'
-          ? 'Incorrect email or password. Please try again.'
-          : 'An error occurred. Please try again later.'
-      );
+      const profile = await refetchProfile();
+      if (!profile?.role || !profile.is_active) {
+        await supabase.auth.signOut();
+        setServerError('Your account role could not be verified or the account is inactive. Contact the administrator.');
+        return;
+      }
+
+      // Check if the user must reset their password before accessing the app
+      const mustReset = await checkMustResetPassword(profile.role);
+      if (mustReset) {
+        navigate('/set-new-password', { replace: true });
+        return;
+      }
+
+      navigate(ROLE_HOME[profile.role] || '/unauthorized', { replace: true });
+    } catch (error) {
+      setServerError(getLoginErrorMessage(error));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const profile = await refetchProfile();
-    if (!profile?.role || !profile.is_active) {
-      await supabase.auth.signOut();
-      setServerError('Your account role could not be verified or the account is inactive. Contact the administrator.');
-      setLoading(false);
-      return;
-    }
-
-    // Check if the user must reset their password before accessing the app
-    const mustReset = await checkMustResetPassword(profile.role);
-    if (mustReset) {
-      navigate('/set-new-password', { replace: true });
-      return;
-    }
-
-    navigate(ROLE_HOME[profile.role] || '/unauthorized', { replace: true });
   };
 
   return (
