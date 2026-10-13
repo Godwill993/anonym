@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdPersonPin, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdEmail, MdPhone, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import { MdAdd, MdPersonPin, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff, MdEmail, MdPhone, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { toast } from '../../components/common/Toast';
 import {
   getLecturers,
   createLecturer,
   updateLecturer,
+  deleteSchoolAccount,
 } from '../../services/peopleService';
 import { getDepartments } from '../../services/academicService';
 
@@ -18,6 +20,7 @@ export default function LecturersPage() {
   const [deptFilter, setDeptFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLecturer, setEditingLecturer] = useState(null);
+  const [lecturerToDelete, setLecturerToDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     staff_id: '',
@@ -62,6 +65,20 @@ export default function LecturersPage() {
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update lecturer');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (lecturer) => deleteSchoolAccount({ recordType: 'lecturer', recordId: lecturer.id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-lecturers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-overview-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
+      toast.success('Lecturer deleted successfully');
+      setLecturerToDelete(null);
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to delete lecturer');
     },
   });
 
@@ -292,6 +309,15 @@ export default function LecturersPage() {
                         >
                           {lec.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
                         </button>
+                        <button
+                          className="btn-icon"
+                          title="Delete lecturer and login account"
+                          aria-label={`Delete lecturer ${lec.staff_id}`}
+                          onClick={() => setLecturerToDelete(lec)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <MdDelete style={{ color: 'var(--color-secondary)' }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -420,6 +446,20 @@ export default function LecturersPage() {
           </div>
         </form>
       </Modal>
+      <ConfirmDialog
+        isOpen={Boolean(lecturerToDelete)}
+        onClose={() => {
+          if (!deleteMutation.isPending) setLecturerToDelete(null);
+        }}
+        onConfirm={() => lecturerToDelete && deleteMutation.mutate(lecturerToDelete)}
+        title="Delete lecturer and login?"
+        message={lecturerToDelete
+          ? `Permanently delete ${lecturerToDelete.first_name} ${lecturerToDelete.last_name} (${lecturerToDelete.staff_id}) and their linked login, if any? Deletion is blocked while the lecturer has class sessions, attendance shifts, mark submissions, or timetable slots. Course assignments will be unassigned.`
+          : ''}
+        confirmLabel="Delete Lecturer"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+      />
     </AppLayout>
   );
 }

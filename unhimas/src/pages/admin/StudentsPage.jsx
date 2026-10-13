@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdSchool, MdSearch, MdEdit, MdToggleOn, MdToggleOff, MdPhone, MdEmail, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import { MdAdd, MdSchool, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff, MdPhone, MdEmail, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { toast } from '../../components/common/Toast';
 import {
   getStudents,
   createStudent,
   updateStudent,
+  deleteSchoolAccount,
 } from '../../services/peopleService';
 import { getBatches } from '../../services/academicService';
 
@@ -18,6 +20,7 @@ export default function StudentsPage() {
   const [batchFilter, setBatchFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
+  const [studentToDelete, setStudentToDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     matricule: '',
@@ -62,6 +65,20 @@ export default function StudentsPage() {
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update student');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (student) => deleteSchoolAccount({ recordType: 'student', recordId: student.id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-overview-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-dashboard-stats'] });
+      toast.success('Student deleted successfully');
+      setStudentToDelete(null);
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to delete student');
     },
   });
 
@@ -295,6 +312,15 @@ export default function StudentsPage() {
                         >
                           {stu.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
                         </button>
+                        <button
+                          className="btn-icon"
+                          title="Delete student and login account"
+                          aria-label={`Delete student ${stu.matricule}`}
+                          onClick={() => setStudentToDelete(stu)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <MdDelete style={{ color: 'var(--color-secondary)' }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -423,6 +449,20 @@ export default function StudentsPage() {
           </div>
         </form>
       </Modal>
+      <ConfirmDialog
+        isOpen={Boolean(studentToDelete)}
+        onClose={() => {
+          if (!deleteMutation.isPending) setStudentToDelete(null);
+        }}
+        onConfirm={() => studentToDelete && deleteMutation.mutate(studentToDelete)}
+        title="Delete student and login?"
+        message={studentToDelete
+          ? `Permanently delete ${studentToDelete.first_name} ${studentToDelete.last_name} (${studentToDelete.matricule}) and their linked login, if any? This also deletes their attendance, marks, and transfer history.`
+          : ''}
+        confirmLabel="Delete Student"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+      />
     </AppLayout>
   );
 }

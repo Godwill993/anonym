@@ -85,6 +85,14 @@ export async function updateStudent(id, updates) {
   return data;
 }
 
+export async function deleteSchoolAccount({ recordType, recordId }) {
+  const { error } = await supabase.rpc('delete_school_account', {
+    p_record_type: recordType,
+    p_record_id: recordId,
+  });
+  if (error) throw error;
+}
+
 // ============================================================
 // LECTURERS
 // ============================================================
