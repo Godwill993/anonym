@@ -8,11 +8,13 @@ const I18nContext = createContext();
 
 export function I18nProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('language') || 'en';
+    const savedLanguage = localStorage.getItem('language');
+    return savedLanguage === 'fr' ? 'fr' : 'en';
   });
 
   useEffect(() => {
     localStorage.setItem('language', language);
+    document.documentElement.lang = language;
   }, [language]);
 
   const t = (key) => {
@@ -25,12 +27,17 @@ export function I18nProvider({ children }) {
     return value || key;
   };
 
+  const translateText = (text) => {
+    if (typeof text !== 'string' || language === 'en') return text;
+    return fr.ui[text] || text;
+  };
+
   const toggleLanguage = () => {
     setLanguage(lang => lang === 'en' ? 'fr' : 'en');
   };
 
   return (
-    <I18nContext.Provider value={{ language, setLanguage, toggleLanguage, t }}>
+    <I18nContext.Provider value={{ language, setLanguage, toggleLanguage, t, translateText }}>
       {children}
     </I18nContext.Provider>
   );

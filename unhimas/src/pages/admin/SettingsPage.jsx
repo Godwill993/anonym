@@ -140,7 +140,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div style={{ margin: '1.5rem 0 1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: '0.9rem' }}>
-                  Anglophone Cameroon Assessment Breakdown (Max 100%)
+                  Bilingual Cameroon Assessment Breakdown (Max 100%)
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>

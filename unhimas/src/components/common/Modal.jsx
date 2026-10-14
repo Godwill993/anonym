@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { MdClose } from 'react-icons/md';
+import { useTranslation } from '../../i18n';
 
 export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = '540px' }) {
+  const { translateText } = useTranslation();
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -28,12 +30,12 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="modal-title" className="modal-title">{title}</h2>
+          <h2 id="modal-title" className="modal-title">{translateText(title)}</h2>
           <button
             type="button"
             className="modal-close"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={translateText('Close dialog')}
           >
             <MdClose />
           </button>

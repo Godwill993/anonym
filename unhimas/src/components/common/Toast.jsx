@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MdCheckCircle, MdError, MdInfo, MdWarning } from 'react-icons/md';
+import { useTranslation } from '../../i18n';
 
 let showToastFn = null;
 
@@ -15,6 +16,7 @@ toast.info = (msg, dur) => toast(msg, 'info', dur);
 toast.warning = (msg, dur) => toast(msg, 'warning', dur);
 
 export default function ToastContainer() {
+  const { translateText } = useTranslation();
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function ToastContainer() {
         return (
           <div key={t.id} className={`toast ${t.type}`}>
             <Icon style={{ fontSize: '1.25rem', flexShrink: 0 }} />
-            <span>{t.message}</span>
+            <span>{translateText(t.message)}</span>
           </div>
         );
       })}

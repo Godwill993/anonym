@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { MdSearch, MdChevronLeft, MdChevronRight } from 'react-icons/md';
+import { useTranslation } from '../../i18n';
 
 export default function DataTable({
   columns = [],
@@ -11,6 +12,7 @@ export default function DataTable({
   pageSize = 10,
   actionButton = null,
 }) {
+  const { language, translateText } = useTranslation();
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -60,7 +62,7 @@ export default function DataTable({
             type="text"
             className="form-input"
             style={{ paddingLeft: '2.25rem', height: '38px' }}
-            placeholder={searchPlaceholder}
+            placeholder={translateText(searchPlaceholder)}
             value={search}
             onChange={handleSearchChange}
           />
@@ -74,7 +76,7 @@ export default function DataTable({
             <tr>
               {columns.map((col, idx) => (
                 <th key={col.key || idx} style={col.style || {}}>
-                  {col.header}
+                  {translateText(col.header)}
                 </th>
               ))}
             </tr>
@@ -84,8 +86,8 @@ export default function DataTable({
               <tr>
                 <td colSpan={columns.length} style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
                   <div className="empty-state" style={{ padding: '1rem' }}>
-                    <div className="empty-state-title">{emptyTitle}</div>
-                    <div className="empty-state-text">{emptySubtitle}</div>
+                    <div className="empty-state-title">{translateText(emptyTitle)}</div>
+                    <div className="empty-state-text">{translateText(emptySubtitle)}</div>
                   </div>
                 </td>
               </tr>
@@ -117,8 +119,9 @@ export default function DataTable({
           }}
         >
           <div>
-            Showing {(currentPage - 1) * pageSize + 1} to{' '}
-            {Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length} records
+            {language === 'fr'
+              ? `Affichage de ${(currentPage - 1) * pageSize + 1} à ${Math.min(currentPage * pageSize, filteredData.length)} sur ${filteredData.length} enregistrements`
+              : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, filteredData.length)} of ${filteredData.length} records`}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
@@ -126,7 +129,7 @@ export default function DataTable({
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              <MdChevronLeft /> Prev
+              <MdChevronLeft /> {translateText('Prev')}
             </button>
             <span style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', fontWeight: 600 }}>
               {currentPage} / {totalPages}
@@ -136,7 +139,7 @@ export default function DataTable({
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
-              Next <MdChevronRight />
+              {translateText('Next')} <MdChevronRight />
             </button>
           </div>
         </div>

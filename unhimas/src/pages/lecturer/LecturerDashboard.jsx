@@ -15,6 +15,7 @@ import {
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import {
   getMyLecturerProfile,
   getLecturerDashboardStats,
@@ -51,12 +52,13 @@ function statusBadge(status) {
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, value, label, color = 'blue', link, alert }) {
+  const { translateText } = useTranslation();
   const inner = (
     <div className="stat-card" style={alert ? { borderLeft: '3px solid var(--color-secondary)' } : {}}>
       <div className={`stat-card-icon ${color}`}>{icon}</div>
       <div className="stat-card-body">
         <div className="stat-card-value">{value ?? '—'}</div>
-        <div className="stat-card-label">{label}</div>
+        <div className="stat-card-label">{translateText(label)}</div>
       </div>
     </div>
   );
@@ -81,6 +83,7 @@ function StatSkeleton() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LecturerDashboard() {
+  const { language, translateText } = useTranslation();
   const { session, profile } = useAuth();
   const queryClient = useQueryClient();
 
@@ -134,7 +137,7 @@ export default function LecturerDashboard() {
     enabled: !!profileId,
   });
 
-  const formattedDate = new Date().toLocaleDateString('en-GB', {
+  const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -154,8 +157,8 @@ export default function LecturerDashboard() {
       <AppLayout pageTitle="Lecturer Dashboard">
         <div className="page-header">
           <div className="page-header-left">
-            <h1 className="page-title">My Dashboard</h1>
-            <p className="page-subtitle">Loading your workspace…</p>
+            <h1 className="page-title">{translateText('My Dashboard')}</h1>
+            <p className="page-subtitle">{translateText('Loading your workspace…')}</p>
           </div>
         </div>
         <div className="stats-grid">
@@ -170,15 +173,15 @@ export default function LecturerDashboard() {
       <AppLayout pageTitle="Lecturer Dashboard">
         <div className="empty-state">
           <div className="empty-state-icon"><MdWarning /></div>
-          <div className="empty-state-title">Profile Not Linked</div>
+          <div className="empty-state-title">{translateText('Profile Not Linked')}</div>
           <p className="empty-state-text">
             {lecError.code === 'PGRST116'
-              ? 'Your account is not yet linked to a lecturer profile. Please contact the administrator.'
-              : 'Your lecturer profile could not be loaded. Check your connection and try again.'}
+              ? translateText('Your account is not yet linked to a lecturer profile. Please contact the administrator.')
+              : translateText('Your lecturer profile could not be loaded. Check your connection and try again.')}
           </p>
           {lecError.code !== 'PGRST116' && (
             <button className="btn btn-outline btn-sm" onClick={() => refetchLecturerProfile()}>
-              <MdRefresh /> Try again
+              <MdRefresh /> {translateText('Try again')}
             </button>
           )}
         </div>
@@ -186,7 +189,7 @@ export default function LecturerDashboard() {
     );
   }
 
-  const firstName = lecturerProfile?.first_name || 'Lecturer';
+  const firstName = lecturerProfile?.first_name || translateText('Lecturer');
   const dept = lecturerProfile?.departments?.name || '';
 
   const returnedSubmissions = markSubmissions.filter((m) => m.status === 'returned');
@@ -194,21 +197,21 @@ export default function LecturerDashboard() {
   return (
     <AppLayout pageTitle="Lecturer Dashboard">
       {/* Skip link */}
-      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <a href="#main-content" className="skip-link">{translateText('Skip to main content')}</a>
 
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Welcome back, {firstName}</h1>
+          <h1 className="page-title">{translateText('Welcome back,')} {firstName}</h1>
           <p className="page-subtitle">{formattedDate} · {dept}</p>
         </div>
         <div className="page-header-actions">
           <button
             className="btn btn-outline btn-sm"
             onClick={refreshDashboard}
-            aria-label="Refresh dashboard"
+            aria-label={translateText('Refresh dashboard')}
           >
-            <MdRefresh /> Refresh
+            <MdRefresh /> {translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -216,9 +219,9 @@ export default function LecturerDashboard() {
       {(statsError || sessionsError || upcomingError || marksError || notificationsError) && (
         <div className="auth-alert error" role="alert" style={{ marginBottom: '1.25rem' }}>
           <MdWarning aria-hidden="true" />
-          Some dashboard information could not be loaded. Refresh to try again; access remains subject to your account permissions.
+          {translateText('Some dashboard information could not be loaded. Refresh to try again; access remains subject to your account permissions.')}
           <button className="btn btn-outline btn-sm" onClick={refreshDashboard} style={{ marginLeft: 'auto' }}>
-            <MdRefresh /> Refresh
+            <MdRefresh /> {translateText('Refresh')}
           </button>
         </div>
       )}
@@ -241,7 +244,7 @@ export default function LecturerDashboard() {
           }}
         >
           <MdCheckCircle size={20} />
-          You are currently clocked in (since {fmtTime(stats.currentShift.clock_in)})
+          {translateText('You are currently clocked in (since')} {fmtTime(stats.currentShift.clock_in)}
         </div>
       )}
 
@@ -263,9 +266,9 @@ export default function LecturerDashboard() {
           }}
         >
           <MdWarning size={20} />
-          {returnedSubmissions.length} mark submission(s) returned for correction — please review
+          {returnedSubmissions.length} {translateText('mark submission(s) returned for correction — please review')}
           <Link to="/lecturer/marks" style={{ marginLeft: 'auto', color: 'var(--color-secondary)', fontWeight: 700, fontSize: '0.8125rem' }}>
-            View Marks <MdArrowForward />
+            {translateText('View Marks')} <MdArrowForward />
           </Link>
         </div>
       )}
@@ -277,8 +280,8 @@ export default function LecturerDashboard() {
         ) : statsError ? (
           <div className="empty-state" role="status" style={{ gridColumn: '1 / -1' }}>
             <div className="empty-state-icon"><MdWarning /></div>
-            <div className="empty-state-title">Dashboard metrics unavailable</div>
-            <p className="empty-state-text">The metrics could not be retrieved. No placeholder totals are shown.</p>
+            <div className="empty-state-title">{translateText('Dashboard metrics unavailable')}</div>
+            <p className="empty-state-text">{translateText('The metrics could not be retrieved. No placeholder totals are shown.')}</p>
           </div>
         ) : (
           <>

@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { MdArrowUpward } from 'react-icons/md';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { useTranslation } from '../../i18n';
 import '../../styles/layout.css';
 
 export default function AppLayout({ children, pageTitle }) {
+  const { translateText } = useTranslation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -62,8 +64,8 @@ export default function AppLayout({ children, pageTitle }) {
       <button
         className={`back-to-top ${showBackToTop ? 'visible' : ''}`}
         onClick={scrollToTop}
-        aria-label="Back to top"
-        title="Back to top"
+        aria-label={translateText('Back to top')}
+        title={translateText('Back to top')}
       >
         <MdArrowUpward />
       </button>

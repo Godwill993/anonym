@@ -13,6 +13,7 @@ import {
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import {
   getMyStudentProfile,
   getStudentDashboardStats,
@@ -24,12 +25,13 @@ import {
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, value, label, color = 'blue', link, suffix = '' }) {
+  const { translateText } = useTranslation();
   const inner = (
     <div className="stat-card">
       <div className={`stat-card-icon ${color}`}>{icon}</div>
       <div className="stat-card-body">
         <div className="stat-card-value">{value !== null && value !== undefined ? `${value}${suffix}` : '—'}</div>
-        <div className="stat-card-label">{label}</div>
+        <div className="stat-card-label">{translateText(label)}</div>
       </div>
     </div>
   );
@@ -57,6 +59,7 @@ function fmtDate(iso) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function StudentDashboard() {
+  const { language, translateText } = useTranslation();
   const { session, profile } = useAuth();
   const queryClient = useQueryClient();
   const profileId = profile?.id;
@@ -100,7 +103,7 @@ export default function StudentDashboard() {
     enabled: !!batchId,
   });
 
-  const formattedDate = new Date().toLocaleDateString('en-GB', {
+  const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -119,8 +122,8 @@ export default function StudentDashboard() {
       <AppLayout pageTitle="Student Dashboard">
         <div className="page-header">
           <div className="page-header-left">
-            <h1 className="page-title">My Dashboard</h1>
-            <p className="page-subtitle">Loading your profile…</p>
+            <h1 className="page-title">{translateText('My Dashboard')}</h1>
+            <p className="page-subtitle">{translateText('Loading your profile…')}</p>
           </div>
         </div>
         <div className="stats-grid">{[1, 2, 3, 4].map((i) => <StatSkeleton key={i} />)}</div>
@@ -133,15 +136,15 @@ export default function StudentDashboard() {
       <AppLayout pageTitle="Student Dashboard">
         <div className="empty-state">
           <div className="empty-state-icon"><MdWarning /></div>
-          <div className="empty-state-title">{stuError.code === 'PGRST116' ? 'Profile Not Linked' : 'Profile Unavailable'}</div>
+          <div className="empty-state-title">{translateText(stuError.code === 'PGRST116' ? 'Profile Not Linked' : 'Profile Unavailable')}</div>
           <p className="empty-state-text">
             {stuError.code === 'PGRST116'
-              ? 'Your account is not yet linked to a student profile. Please contact the Front Desk or administrator.'
-              : 'Your student profile could not be loaded. Check your connection and try again.'}
+              ? translateText('Your account is not yet linked to a student profile. Please contact the Front Desk or administrator.')
+              : translateText('Your student profile could not be loaded. Check your connection and try again.')}
           </p>
           {stuError.code !== 'PGRST116' && (
             <button className="btn btn-outline btn-sm" onClick={() => refetchProfile()}>
-              <MdRefresh /> Try again
+              <MdRefresh /> {translateText('Try again')}
             </button>
           )}
         </div>
@@ -149,7 +152,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const firstName = studentProfile?.first_name || 'Student';
+  const firstName = studentProfile?.first_name || translateText('Student');
   const dept = studentProfile?.batches?.departments?.name || '';
   const batchName = studentProfile?.batches?.name || '';
 
@@ -160,16 +163,16 @@ export default function StudentDashboard() {
     <AppLayout pageTitle="Student Dashboard">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Welcome, {firstName}</h1>
+          <h1 className="page-title">{translateText('Welcome')}, {firstName}</h1>
           <p className="page-subtitle">{formattedDate}</p>
         </div>
         <div className="page-header-actions">
           <button
             className="btn btn-outline btn-sm"
             onClick={refreshDashboard}
-            aria-label="Refresh"
+            aria-label={translateText('Refresh')}
           >
-            <MdRefresh /> Refresh
+            <MdRefresh /> {translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -189,7 +192,7 @@ export default function StudentDashboard() {
         }}
       >
         <div>
-          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Student</div>
+          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{translateText('Student')}</div>
           <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.125rem', marginTop: 2 }}>
             {studentProfile?.first_name} {studentProfile?.middle_name ? `${studentProfile.middle_name} ` : ''}{studentProfile?.last_name}
           </div>
@@ -226,9 +229,9 @@ export default function StudentDashboard() {
           }}
         >
           <MdWarning size={20} />
-          Your overall attendance is below {attendanceThreshold}% ({stats.attendancePct}%). Please attend more classes.
+          {translateText('Your overall attendance is below')} {attendanceThreshold}% ({stats.attendancePct}%). {translateText('Please attend more classes.')}
           <Link to="/student/attendance" style={{ marginLeft: 'auto', color: 'var(--color-secondary)', fontWeight: 700, fontSize: '0.8125rem' }}>
-            View →
+            {translateText('View')} →
           </Link>
         </div>
       )}
@@ -240,10 +243,10 @@ export default function StudentDashboard() {
         ) : statsError ? (
           <div className="empty-state" role="alert" style={{ gridColumn: '1 / -1' }}>
             <div className="empty-state-icon"><MdWarning /></div>
-            <div className="empty-state-title">Academic summary unavailable</div>
-            <p className="empty-state-text">Your metrics could not be retrieved. No estimated results or GPA are shown.</p>
+            <div className="empty-state-title">{translateText('Academic summary unavailable')}</div>
+            <p className="empty-state-text">{translateText('Your metrics could not be retrieved. No estimated results or GPA are shown.')}</p>
             <button className="btn btn-outline btn-sm" onClick={() => refetchStats()}>
-              <MdRefresh /> Try again
+              <MdRefresh /> {translateText('Try again')}
             </button>
           </div>
         ) : (
@@ -252,7 +255,7 @@ export default function StudentDashboard() {
             <StatCard icon={<MdHowToReg />} value={stats.attendancePct !== null ? stats.attendancePct : '—'} label="Attendance Rate" color={lowAttendance ? 'red' : 'green'} link="/student/attendance" suffix="%" />
             <StatCard icon={<MdAssignment />} value={stats.publishedResults} label="Published Results" color="blue" link="/student/results" />
             <StatCard icon={<MdTrendingUp />} value={stats.gpa !== null ? stats.gpa : '—'} label={stats.gpaScope || 'GPA'} color="amber" link="/student/results" />
-            <StatCard icon={<MdAssignment />} value={stats.publishedResults > 0 ? 'View' : '—'} label="Official Transcript" color="blue" link="/student/transcript" />
+            <StatCard icon={<MdAssignment />} value={stats.publishedResults > 0 ? translateText('View') : '—'} label="Official Transcript" color="blue" link="/student/transcript" />
             <StatCard icon={<MdNotifications />} value={stats.unreadNotifications} label="Unread Notifications" color={stats.unreadNotifications > 0 ? 'red' : 'blue'} />
           </>
         )}
@@ -260,7 +263,7 @@ export default function StudentDashboard() {
 
       {stats?.currentSemester && (
         <p className="page-subtitle" style={{ margin: '-0.5rem 0 1.25rem' }}>
-          Current semester: {stats.currentSemester.name} · {stats.currentSemester.academic_years?.name}
+          {translateText('Current semester:')} {stats.currentSemester.name} · {stats.currentSemester.academic_years?.name}
         </p>
       )}
 
@@ -270,7 +273,7 @@ export default function StudentDashboard() {
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdCampaign color="var(--color-secondary)" /> Announcements
+              <MdCampaign color="var(--color-secondary)" /> {translateText('Announcements')}
             </span>
           </div>
           <div style={{ maxHeight: 320, overflowY: 'auto' }}>

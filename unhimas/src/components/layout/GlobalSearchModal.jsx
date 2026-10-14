@@ -14,8 +14,10 @@ import {
 } from 'react-icons/md';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 
 export default function GlobalSearchModal({ isOpen, onClose }) {
+  const { translateText } = useTranslation();
   const { profile } = useAuth();
   const role = profile?.role || 'student';
   const navigate = useNavigate();
@@ -278,7 +280,7 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Global Search"
+      aria-label={translateText('Global Search')}
       style={{ alignItems: 'flex-start', paddingTop: '10vh' }}
     >
       <div
@@ -316,7 +318,9 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
                 setLoading(false);
               }
             }}
-            placeholder={`Search ${role === 'admin' ? 'students, faculty, courses...' : 'courses, announcements, resources...'} (Press Esc to close)`}
+            placeholder={translateText(role === 'admin'
+              ? 'Search students, faculty, courses... (Press Esc to close)'
+              : 'Search courses, announcements, resources... (Press Esc to close)')}
             style={{
               flex: 1,
               border: 'none',
@@ -333,7 +337,7 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Close search"
+            aria-label={translateText('Close search')}
             style={{
               background: 'none',
               border: 'none',
@@ -352,17 +356,17 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
         <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '0.75rem' }}>
           {query.trim().length > 0 && query.trim().length < 2 && (
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-              Type at least 2 characters to search...
+              {translateText('Type at least 2 characters to search...')}
             </div>
           )}
 
           {query.trim().length >= 2 && !loading && flatItems.length === 0 && (
             <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
               <div style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
-                No results found for "{query}"
+                {translateText('No results found for')} "{query}"
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                Try searching by course code, matricule, staff ID or name.
+                {translateText('Try searching by course code, matricule, staff ID or name.')}
               </div>
             </div>
           )}
@@ -379,7 +383,7 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
                   padding: '0.35rem 0.6rem',
                 }}
               >
-                {groupName}
+                {translateText(groupName)}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {items.map((item) => {

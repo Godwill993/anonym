@@ -27,6 +27,7 @@ import {
   Pie,
 } from 'recharts';
 import AppLayout from '../../components/layout/AppLayout';
+import { useTranslation } from '../../i18n';
 import {
   getAdminOverviewStats,
   getDepartmentEnrollment,
@@ -38,6 +39,7 @@ import {
 const CHART_COLORS = ['#112F42', '#B70032', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6'];
 
 export default function AdminDashboard() {
+  const { language, translateText } = useTranslation();
   // Query 1: Overview KPIs
   const {
     data: stats = {},
@@ -72,7 +74,7 @@ export default function AdminDashboard() {
     queryFn: () => getRecentAuditLogs(8),
   });
 
-  const formattedDate = new Date().toLocaleDateString('en-GB', {
+  const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -80,9 +82,9 @@ export default function AdminDashboard() {
   });
 
   const markStatusData = [
-    { name: 'Pending Review', value: stats.pendingMarkSubmissions || 0, color: '#B70032' },
-    { name: 'Published', value: stats.publishedResults || 0, color: '#10B981' },
-    { name: 'Batches', value: stats.totalBatches || 0, color: '#112F42' },
+    { name: translateText('Pending Review'), value: stats.pendingMarkSubmissions || 0, color: '#B70032' },
+    { name: translateText('Published'), value: stats.publishedResults || 0, color: '#10B981' },
+    { name: translateText('Batches'), value: stats.totalBatches || 0, color: '#112F42' },
   ].filter((item) => item.value > 0);
 
   return (
@@ -90,22 +92,22 @@ export default function AdminDashboard() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">University Administration</h1>
-          <p className="page-subtitle">{formattedDate} • Anglophone Cameroonian Academic System</p>
+          <h1 className="page-title">{translateText('University Administration')}</h1>
+          <p className="page-subtitle">{formattedDate} • {translateText('Bilingual Cameroonian Academic System')}</p>
         </div>
         <div className="page-header-actions">
           <button
             className="btn btn-outline btn-sm"
             onClick={() => refetchStats()}
-            title="Refresh metrics"
+            title={translateText('Refresh metrics')}
           >
-            <MdRefresh /> Refresh
+            <MdRefresh /> {translateText('Refresh')}
           </button>
           <Link to="/admin/students" className="btn btn-primary btn-sm">
-            <MdAdd /> New Student
+            <MdAdd /> {translateText('New Student')}
           </Link>
           <Link to="/admin/mark-approval" className="btn btn-secondary btn-sm">
-            Mark Approval {stats.pendingMarkSubmissions > 0 && `(${stats.pendingMarkSubmissions})`}
+            {translateText('Mark Approval')} {stats.pendingMarkSubmissions > 0 && `(${stats.pendingMarkSubmissions})`}
           </Link>
         </div>
       </div>
@@ -121,10 +123,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.totalStudents}
             </div>
-            <div className="stat-card-label">Total Students</div>
+            <div className="stat-card-label">{translateText('Total Students')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/students" style={{ color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                View all <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('View all')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -139,10 +141,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.totalLecturers}
             </div>
-            <div className="stat-card-label">Faculty Lecturers</div>
+            <div className="stat-card-label">{translateText('Faculty Lecturers')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/lecturers" style={{ color: 'var(--color-secondary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                View staff <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('View staff')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -157,10 +159,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.totalDepartments}
             </div>
-            <div className="stat-card-label">Active Departments</div>
+            <div className="stat-card-label">{translateText('Active Departments')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/departments" style={{ color: '#059669', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                Manage <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('Manage')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -175,10 +177,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.totalBatches}
             </div>
-            <div className="stat-card-label">Academic Batches</div>
+            <div className="stat-card-label">{translateText('Academic Batches')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/batches" style={{ color: '#b45309', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                Cohorts <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('Cohorts')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -193,10 +195,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.totalCourses}
             </div>
-            <div className="stat-card-label">Curriculum Courses</div>
+            <div className="stat-card-label">{translateText('Curriculum Courses')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/courses" style={{ color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                Course list <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('Course list')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -211,10 +213,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value" style={{ color: stats.pendingMarkSubmissions > 0 ? 'var(--color-secondary)' : 'inherit' }}>
               {statsLoading ? '...' : stats.pendingMarkSubmissions}
             </div>
-            <div className="stat-card-label">Pending Mark Approvals</div>
+            <div className="stat-card-label">{translateText('Pending Mark Approvals')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/mark-approval" style={{ color: 'var(--color-secondary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                Review now <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('Review now')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -229,10 +231,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.publishedResults}
             </div>
-            <div className="stat-card-label">Published Marksheets</div>
+            <div className="stat-card-label">{translateText('Published Marksheets')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/results" style={{ color: '#059669', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                View results <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('View results')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>
@@ -247,10 +249,10 @@ export default function AdminDashboard() {
             <div className="stat-card-value">
               {statsLoading ? '...' : stats.activeLecturerShifts}
             </div>
-            <div className="stat-card-label">Lecturers Clocked In</div>
+            <div className="stat-card-label">{translateText('Lecturers Clocked In')}</div>
             <div className="stat-card-trend">
               <Link to="/admin/attendance" style={{ color: '#b45309', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                Front desk shift <MdArrowForward style={{ fontSize: '0.85rem' }} />
+                {translateText('Front desk shift')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
               </Link>
             </div>
           </div>

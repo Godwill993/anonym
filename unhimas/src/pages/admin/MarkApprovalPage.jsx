@@ -116,7 +116,7 @@ export default function MarkApprovalPage() {
         <div className="page-header-left">
           <h1 className="page-title">Marks Approval & Publishing</h1>
           <p className="page-subtitle">
-            Rigorous examination verification workflow — Anglophone 30% CA (5% Attendance + 25% Continuous Assessment) + 70% Final Exam
+            Rigorous examination verification workflow — Bilingual 30% CA (5% Attendance + 25% Continuous Assessment) + 70% Final Exam
           </p>
         </div>
       </div>

@@ -378,7 +378,7 @@ export default function PublicResultsPage() {
               color: 'var(--color-text-muted)',
             }}
           >
-            Universal Higher Institute of Management and Sciences • Anglophone Cameroonian Academic System
+            Universal Higher Institute of Management and Sciences • Bilingual Cameroonian Academic System
           </div>
         </div>
       </div>

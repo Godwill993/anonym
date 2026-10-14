@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import {
   getFrontDeskStats,
   getLecturersWithShiftStatus,
@@ -21,6 +22,7 @@ import {
 import { getDepartments } from '../../services/academicService';
 
 export default function FrontDeskDashboard() {
+  const { language, translateText } = useTranslation();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -57,10 +59,10 @@ export default function FrontDeskDashboard() {
       queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-history'] });
-      toast.success('Lecturer clocked in successfully');
+      toast.success(translateText('Lecturer clocked in successfully'));
     },
     onError: (err) => {
-      toast.error(err.message || 'Clock-in failed');
+      toast.error(err.message || translateText('Clock-in failed'));
     },
   });
 
@@ -75,21 +77,21 @@ export default function FrontDeskDashboard() {
       queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
       queryClient.invalidateQueries({ queryKey: ['frontdesk-history'] });
-      toast.success('Lecturer clocked out successfully');
+      toast.success(translateText('Lecturer clocked out successfully'));
     },
     onError: (err) => {
-      toast.error(err.message || 'Clock-out failed');
+      toast.error(err.message || translateText('Clock-out failed'));
     },
   });
 
   const handleRefresh = () => {
     refetchStats();
     refetchLecturers();
-    toast.info('Attendance register refreshed');
+    toast.info(translateText('Attendance register refreshed'));
   };
 
   const formattedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const formattedDate = new Date().toLocaleDateString('en-GB', {
+  const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -102,14 +104,14 @@ export default function FrontDeskDashboard() {
     <AppLayout pageTitle="Front Desk Attendance">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Front Desk Lecturer Register</h1>
+          <h1 className="page-title">{translateText('Front Desk Lecturer Register')}</h1>
           <p className="page-subtitle">
-            {formattedDate} • Current Time: <strong>{formattedTime}</strong> • Digital Clock-In Station
+            {formattedDate} • {translateText('Current Time:')} <strong>{formattedTime}</strong> • {translateText('Digital Clock-In Station')}
           </p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-outline btn-sm" onClick={handleRefresh}>
-            <MdRefresh /> Refresh
+            <MdRefresh /> {translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -125,8 +127,8 @@ export default function FrontDeskDashboard() {
               <span>{statsLoading ? '...' : stats.currentlyClockedIn}</span>
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
             </div>
-            <div className="stat-card-label">Currently On Campus</div>
-            <div className="stat-card-trend">Active open shifts</div>
+            <div className="stat-card-label">{translateText('Currently On Campus')}</div>
+            <div className="stat-card-trend">{translateText('Active open shifts')}</div>
           </div>
         </div>
 
@@ -136,8 +138,8 @@ export default function FrontDeskDashboard() {
           </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '...' : stats.completedShiftsToday}</div>
-            <div className="stat-card-label">Completed Shifts Today</div>
-            <div className="stat-card-trend">Departed lecturers</div>
+            <div className="stat-card-label">{translateText('Completed Shifts Today')}</div>
+            <div className="stat-card-trend">{translateText('Departed lecturers')}</div>
           </div>
         </div>
 
@@ -147,8 +149,8 @@ export default function FrontDeskDashboard() {
           </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '...' : stats.totalHoursToday} hrs</div>
-            <div className="stat-card-label">Hours Logged Today</div>
-            <div className="stat-card-trend">Total teaching presence</div>
+            <div className="stat-card-label">{translateText('Hours Logged Today')}</div>
+            <div className="stat-card-trend">{translateText('Total teaching presence')}</div>
           </div>
         </div>
 
@@ -158,8 +160,8 @@ export default function FrontDeskDashboard() {
           </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '...' : stats.totalActiveLecturers}</div>
-            <div className="stat-card-label">Registered Faculty Staff</div>
-            <div className="stat-card-trend">Available for duty</div>
+            <div className="stat-card-label">{translateText('Registered Faculty Staff')}</div>
+            <div className="stat-card-trend">{translateText('Available for duty')}</div>
           </div>
         </div>
       </div>
@@ -184,7 +186,7 @@ export default function FrontDeskDashboard() {
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '2.25rem' }}
-                placeholder="Search lecturer by name or Staff ID..."
+                placeholder={translateText('Search lecturer by name or Staff ID...')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -196,7 +198,7 @@ export default function FrontDeskDashboard() {
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
               >
-                <option value="">All Departments</option>
+                <option value="">{translateText('All Departments')}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} ({d.abbreviation})
@@ -210,11 +212,11 @@ export default function FrontDeskDashboard() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Staff ID</th>
-                  <th>Faculty Lecturer</th>
-                  <th>Department</th>
-                  <th>Campus Status</th>
-                  <th style={{ textAlign: 'right' }}>Clock In / Out Action</th>
+                  <th>{translateText('Staff ID')}</th>
+                  <th>{translateText('Faculty Lecturer')}</th>
+                  <th>{translateText('Department')}</th>
+                  <th>{translateText('Campus Status')}</th>
+                  <th style={{ textAlign: 'right' }}>{translateText('Clock In / Out Action')}</th>
                 </tr>
               </thead>
               <tbody>

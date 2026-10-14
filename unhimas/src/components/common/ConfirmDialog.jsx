@@ -1,4 +1,5 @@
 import { MdWarning, MdClose } from 'react-icons/md';
+import { useTranslation } from '../../i18n';
 
 export default function ConfirmDialog({
   isOpen,
@@ -11,6 +12,7 @@ export default function ConfirmDialog({
   isDestructive = false,
   isLoading = false,
 }) {
+  const { translateText } = useTranslation();
   if (!isOpen) return null;
 
   return (
@@ -45,14 +47,14 @@ export default function ConfirmDialog({
               <MdWarning />
             </div>
             <h2 id="confirm-dialog-title" className="modal-title" style={{ fontSize: '1.05rem' }}>
-              {title}
+              {translateText(title)}
             </h2>
           </div>
           <button
             type="button"
             className="modal-close"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={translateText('Close dialog')}
             disabled={isLoading}
           >
             <MdClose />
@@ -61,7 +63,7 @@ export default function ConfirmDialog({
 
         <div className="modal-body">
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-            {message}
+            {translateText(message)}
           </p>
           {isDestructive && (
             <div
@@ -76,7 +78,7 @@ export default function ConfirmDialog({
                 fontWeight: 600,
               }}
             >
-              This action may be permanent and cannot be undone.
+              {translateText('This action may be permanent and cannot be undone.')}
             </div>
           )}
         </div>
@@ -88,7 +90,7 @@ export default function ConfirmDialog({
             onClick={onClose}
             disabled={isLoading}
           >
-            {cancelLabel}
+            {translateText(cancelLabel)}
           </button>
           <button
             type="button"
@@ -96,7 +98,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? 'Processing…' : confirmLabel}
+            {isLoading ? translateText('Processing…') : translateText(confirmLabel)}
           </button>
         </div>
       </div>

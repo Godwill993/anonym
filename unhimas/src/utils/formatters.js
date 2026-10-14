@@ -1,6 +1,6 @@
 /**
  * Formatting helpers for UNHIMAS School Management System
- * Anglophone Cameroonian Academic System
+ * Bilingual Cameroonian Academic System
  */
 
 /**

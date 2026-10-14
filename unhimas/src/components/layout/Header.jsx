@@ -32,7 +32,7 @@ const ROLE_PROFILE_PATHS = {
 export default function Header({ onMenuClick, pageTitle }) {
   const { profile, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { language, toggleLanguage } = useTranslation();
+  const { language, toggleLanguage, translateText } = useTranslation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -78,20 +78,20 @@ export default function Header({ onMenuClick, pageTitle }) {
     <>
       <header className="app-header" role="banner">
         {/* Skip to main content */}
-        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <a href="#main-content" className="skip-link">{translateText('Skip to main content')}</a>
 
         {/* Mobile menu toggle */}
         <button
           className="header-mobile-menu-btn"
           onClick={onMenuClick}
-          aria-label="Open navigation menu"
+          aria-label={translateText('Open navigation menu')}
         >
           <MdMenu />
         </button>
 
         {/* Breadcrumb / page title */}
-        <div className="header-breadcrumb" aria-label="Breadcrumb">
-          <span className="breadcrumb-title">{pageTitle || 'Dashboard'}</span>
+        <div className="header-breadcrumb" aria-label={translateText('Breadcrumb')}>
+          <span className="breadcrumb-title">{translateText(pageTitle || 'Dashboard')}</span>
         </div>
 
         {/* Search */}
@@ -100,14 +100,14 @@ export default function Header({ onMenuClick, pageTitle }) {
           role="search"
           onClick={() => setSearchOpen(true)}
           style={{ cursor: 'pointer' }}
-          title="Search anything (Ctrl+K)"
+          title={translateText('Search anything (Ctrl+K)')}
         >
           <MdSearch className="header-search-icon" aria-hidden="true" />
           <input
             type="search"
             className="header-search-input"
-            placeholder="Search... (Ctrl+K)"
-            aria-label="Search"
+            placeholder={translateText('Search... (Ctrl+K)')}
+            aria-label={translateText('Search')}
             readOnly
             onClick={() => setSearchOpen(true)}
           />
@@ -130,8 +130,8 @@ export default function Header({ onMenuClick, pageTitle }) {
         <button
           className="icon-btn"
           onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          aria-label={translateText(theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')}
+          title={translateText(theme === 'dark' ? 'Light mode' : 'Dark mode')}
         >
           {theme === 'dark' ? <MdLightMode /> : <MdDarkMode />}
         </button>
@@ -141,7 +141,7 @@ export default function Header({ onMenuClick, pageTitle }) {
           className="lang-btn"
           onClick={toggleLanguage}
           aria-label={`Switch to ${language === 'en' ? 'French' : 'English'}`}
-          title={language === 'en' ? 'Passer en Français' : 'Switch to English'}
+          title={language === 'en' ? translateText('Passer en Français') : translateText('Switch to English')}
         >
           {language === 'en' ? 'FR' : 'EN'}
         </button>
@@ -153,7 +153,7 @@ export default function Header({ onMenuClick, pageTitle }) {
             onClick={() => setUserMenuOpen(v => !v)}
             aria-haspopup="menu"
             aria-expanded={userMenuOpen}
-            aria-label="User menu"
+            aria-label={translateText('User menu')}
           >
             <div className="user-avatar" aria-hidden="true">{initials}</div>
             <span className="user-name">{profile?.full_name || 'User'}</span>
@@ -166,7 +166,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                   {profile?.full_name}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>
-                  {ROLE_LABELS[role]}
+                  {translateText(ROLE_LABELS[role])}
                 </div>
               </div>
               <Link
@@ -175,7 +175,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                 role="menuitem"
                 onClick={() => setUserMenuOpen(false)}
               >
-                <MdAccountCircle aria-hidden="true" /> Profile
+                <MdAccountCircle aria-hidden="true" /> {translateText('Profile')}
               </Link>
               {role === 'admin' && (
                 <Link
@@ -184,7 +184,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                   role="menuitem"
                   onClick={() => setUserMenuOpen(false)}
                 >
-                  <MdSettings aria-hidden="true" /> Settings
+                  <MdSettings aria-hidden="true" /> {translateText('Settings')}
                 </Link>
               )}
               <div className="dropdown-divider" />
@@ -193,7 +193,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                 role="menuitem"
                 onClick={handleSignOut}
               >
-                <MdLogout aria-hidden="true" /> Sign out
+                <MdLogout aria-hidden="true" /> {translateText('Sign out')}
               </button>
             </div>
           )}
