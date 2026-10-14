@@ -4,6 +4,7 @@
 -- Do NOT put the Supabase service-role key in the frontend.
 
 create extension if not exists pgcrypto;
+create extension if not exists pg_net;
 
 -- ============================================================
 -- 1. ENUMS
@@ -402,6 +403,16 @@ create table if not exists public.notifications (
 );
 
 create index if not exists notifications_recipient_idx on public.notifications(recipient_id, is_read, created_at desc);
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
 
 create table if not exists public.audit_log (
   id bigint generated always as identity primary key,
@@ -880,6 +891,50 @@ create trigger trg_notify_announcement_recipients
 after insert or update of is_published on public.announcements
 for each row execute function public.notify_announcement_recipients();
 
+create or replace function public.dispatch_notification_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  project_url text;
+  hook_secret text;
+begin
+  select decrypted_secret into project_url
+  from vault.decrypted_secrets
+  where name = 'project_url'
+  limit 1;
+
+  select decrypted_secret into hook_secret
+  from vault.decrypted_secrets
+  where name = 'push_webhook_secret'
+  limit 1;
+
+  if project_url is null or hook_secret is null then
+    raise warning 'Push delivery is not configured: add project_url and push_webhook_secret to Supabase Vault.';
+    return new;
+  end if;
+
+  perform net.http_post(
+    url := rtrim(project_url, '/') || '/functions/v1/send-push-notification',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-push-hook-secret', hook_secret
+    ),
+    body := jsonb_build_object('record', to_jsonb(new)),
+    timeout_milliseconds := 5000
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_dispatch_notification_push on public.notifications;
+create trigger trg_dispatch_notification_push
+after insert on public.notifications
+for each row execute function public.dispatch_notification_push();
+
 -- ============================================================
 -- 23. TIMETABLE CLASH DETECTION
 -- ============================================================
@@ -1141,6 +1196,9 @@ alter table public.academic_events enable row level security;
 alter table public.announcements enable row level security;
 alter table public.resources enable row level security;
 alter table public.notifications enable row level security;
+alter table public.push_subscriptions enable row level security;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
+grant select, delete on public.push_subscriptions to service_role;
 alter table public.audit_log enable row level security;
 
 -- ============================================================
@@ -1159,7 +1217,7 @@ begin
         'students','lecturers','student_transfers','courses','batch_courses',
         'lecturer_shifts','class_sessions','attendance','mark_submissions','marks',
         'grading_scale','timetable_slots','academic_events','announcements','resources',
-        'notifications','audit_log'
+        'notifications','push_subscriptions','audit_log'
       )
   loop
     execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
@@ -1526,7 +1584,20 @@ create policy notifications_admin_insert on public.notifications
 for insert to authenticated with check (public.is_admin() or recipient_id = auth.uid());
 
 -- ============================================================
--- 42. RLS: AUDIT LOG
+-- 42. RLS: BROWSER PUSH SUBSCRIPTIONS
+-- ============================================================
+create policy push_subscriptions_select_own on public.push_subscriptions
+for select to authenticated using (user_id = auth.uid());
+create policy push_subscriptions_insert_own on public.push_subscriptions
+for insert to authenticated with check (user_id = auth.uid());
+create policy push_subscriptions_update_own on public.push_subscriptions
+for update to authenticated using (user_id = auth.uid())
+with check (user_id = auth.uid());
+create policy push_subscriptions_delete_own on public.push_subscriptions
+for delete to authenticated using (user_id = auth.uid());
+
+-- ============================================================
+-- 43. RLS: AUDIT LOG
 -- ============================================================
 create policy audit_log_admin_select on public.audit_log
 for select to authenticated using (public.is_admin());

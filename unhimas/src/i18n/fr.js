@@ -37,6 +37,28 @@ export const fr = {
     unread: 'non lue(s)',
     'count unavailable': 'nombre indisponible',
     'Notification count unavailable': 'Nombre de notifications indisponible',
+    'Browser push notifications are not available or configured.':
+      'Les notifications push du navigateur ne sont pas disponibles ou configurées.',
+    'Browser notification permission is blocked in browser settings.':
+      'L’autorisation de notification est bloquée dans les paramètres du navigateur.',
+    'Disable browser push notifications on this device.':
+      'Désactiver les notifications push du navigateur sur cet appareil.',
+    'Enable browser push notifications on this device.':
+      'Activer les notifications push du navigateur sur cet appareil.',
+    'Browser push notifications disabled.': 'Notifications push du navigateur désactivées.',
+    'Browser push notifications enabled.': 'Notifications push du navigateur activées.',
+    'Unable to check browser push notification status.':
+      'Impossible de vérifier l’état des notifications push du navigateur.',
+    'Unable to update browser push notification settings.':
+      'Impossible de modifier les paramètres des notifications push du navigateur.',
+    'Browser notification permission is blocked. Enable it in your browser settings.':
+      'L’autorisation de notification est bloquée. Activez-la dans les paramètres du navigateur.',
+    'Browser notification permission was not granted.':
+      'L’autorisation de notification n’a pas été accordée.',
+    'The browser returned an incomplete push subscription.':
+      'Le navigateur a renvoyé un abonnement push incomplet.',
+    'The browser did not unsubscribe from push notifications.':
+      'Le navigateur ne s’est pas désabonné des notifications push.',
     Resources: 'Ressources',
     'Lecturer Hours': 'Heures des enseignants',
     'Attendance Reports': 'Rapports de présence',
