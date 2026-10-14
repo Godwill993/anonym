@@ -5,7 +5,6 @@ import {
   MdHowToReg,
   MdAssignment,
   MdNotifications,
-  MdCampaign,
   MdWarning,
   MdRefresh,
   MdTrendingUp,
@@ -17,7 +16,6 @@ import { useTranslation } from '../../i18n';
 import {
   getMyStudentProfile,
   getStudentDashboardStats,
-  getMyAnnouncements,
   getStudentNotifications,
   getMyUpcomingSessions,
 } from '../../services/studentService';
@@ -77,18 +75,11 @@ export default function StudentDashboard() {
 
   const batchId = studentProfile?.batch_id;
   const studentId = studentProfile?.id;
-  const departmentId = studentProfile?.batches?.departments?.id;
 
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['student-dashboard-stats', studentId, batchId, profileId],
     queryFn: () => getStudentDashboardStats(studentId, batchId, profileId),
     enabled: !!studentId && !!batchId && !!profileId,
-  });
-
-  const { data: announcements = [], isLoading: annLoading, error: announcementsError } = useQuery({
-    queryKey: ['my-announcements', batchId, departmentId],
-    queryFn: () => getMyAnnouncements(batchId, departmentId),
-    enabled: !!batchId,
   });
 
   const { data: notifications = [], isLoading: notifsLoading, error: notificationsError } = useQuery({
@@ -111,7 +102,6 @@ export default function StudentDashboard() {
     await Promise.all([
       refetchProfile(),
       refetchStats(),
-      queryClient.invalidateQueries({ queryKey: ['my-announcements', batchId, departmentId] }),
       queryClient.invalidateQueries({ queryKey: ['student-notifications', profileId] }),
       queryClient.invalidateQueries({ queryKey: ['student-upcoming-sessions', batchId] }),
     ]);
@@ -267,57 +257,8 @@ export default function StudentDashboard() {
         </p>
       )}
 
-      {/* Announcements & Notifications grid */}
+      {/* Notifications & upcoming classes */}
       <div className="student-dashboard-grid">
-        {/* Announcements */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdCampaign color="var(--color-secondary)" /> {translateText('Announcements')}
-            </span>
-          </div>
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-            {annLoading ? (
-              <div style={{ padding: '1rem' }}>
-                {[1, 2].map((i) => (
-                  <div key={i} style={{ marginBottom: 14 }}>
-                    <div className="skeleton skeleton-text" style={{ width: '80%', marginBottom: 4 }} />
-                    <div className="skeleton skeleton-text" style={{ width: '55%' }} />
-                  </div>
-                ))}
-              </div>
-            ) : announcementsError ? (
-              <div className="empty-state" role="alert" style={{ padding: '2rem' }}>
-                <div className="empty-state-title">Announcements unavailable</div>
-                <p className="empty-state-text">Announcements could not be loaded.</p>
-              </div>
-            ) : announcements.length === 0 ? (
-              <div className="empty-state" style={{ padding: '2rem' }}>
-                <div className="empty-state-icon"><MdCampaign /></div>
-                <div className="empty-state-title">No announcements</div>
-              </div>
-            ) : (
-              announcements.slice(0, 5).map((ann) => (
-                <div
-                  key={ann.id}
-                  style={{
-                    padding: '0.875rem 1.25rem',
-                    borderBottom: '1px solid var(--color-border)',
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text)' }}>{ann.title}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {ann.body}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                    {fmtDate(ann.published_at || ann.created_at)}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
         {/* Notifications */}
         <div className="card">
           <div className="card-header">

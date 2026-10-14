@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   MdMenu,
@@ -13,6 +14,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../i18n/index';
+import { supabase } from '../../lib/supabase';
 import GlobalSearchModal from './GlobalSearchModal';
 
 const ROLE_LABELS = {
@@ -33,6 +35,21 @@ export default function Header({ onMenuClick, pageTitle }) {
   const { profile, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, translateText } = useTranslation();
+  const { data: unreadNotificationCount = 0, isError: unreadNotificationsError } = useQuery({
+    queryKey: ['unread-notification-count', profile?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_id', profile.id)
+        .eq('is_read', false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!profile?.id,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -117,13 +134,17 @@ export default function Header({ onMenuClick, pageTitle }) {
       <div className="header-actions">
         {/* Notifications */}
         <Link
-          className="icon-btn"
+          className={`icon-btn${unreadNotificationCount > 0 ? ' has-unread-notifications' : ''}`}
           to={role === 'admin' ? '/admin/notifications' : role === 'frontdesk' ? '/frontdesk' : role === 'lecturer' ? '/lecturer/notifications' : '/student/notifications'}
-          aria-label="Notifications"
-          title="Notifications"
+          aria-label={`${translateText('Notifications')}${unreadNotificationCount > 0 ? ` (${unreadNotificationCount} ${translateText('unread')})` : unreadNotificationsError ? ` (${translateText('count unavailable')})` : ''}`}
+          title={unreadNotificationsError ? translateText('Notification count unavailable') : translateText('Notifications')}
         >
           <MdNotifications />
-          <span className="notif-badge" aria-hidden="true" />
+          {unreadNotificationCount > 0 && (
+            <span className="notif-badge" aria-hidden="true">
+              {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+            </span>
+          )}
         </Link>
 
         {/* Dark mode toggle */}

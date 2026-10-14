@@ -17,6 +17,7 @@ function fmtDate(iso) {
 }
 
 const TYPE_ICONS = {
+  announcement: '📢',
   marks_returned: '📋',
   marks_approved: '✅',
   course_assigned: '📚',
@@ -40,13 +41,17 @@ export default function LecturerNotificationsPage() {
 
   const readMutation = useMutation({
     mutationFn: (id) => markNotificationRead(id),
-    onSuccess: () => qc.invalidateQueries(['my-notifications', profileId]),
+    onSuccess: () => {
+      qc.invalidateQueries(['my-notifications', profileId]);
+      qc.invalidateQueries({ queryKey: ['unread-notification-count', profileId] });
+    },
   });
 
   const readAllMutation = useMutation({
     mutationFn: () => markAllNotificationsRead(profileId),
     onSuccess: () => {
       qc.invalidateQueries(['my-notifications', profileId]);
+      qc.invalidateQueries({ queryKey: ['unread-notification-count', profileId] });
       showToast('All notifications marked as read', 'success');
     },
   });

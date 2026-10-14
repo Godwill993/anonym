@@ -311,13 +311,47 @@
 
 .notif-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
+  top: 1px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--color-secondary);
-  border-radius: 50%;
+  border-radius: 9px;
   border: 2px solid var(--color-surface);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.has-unread-notifications > svg {
+  transform-origin: 50% 10%;
+  animation: notification-bell 2.4s ease-in-out infinite;
+}
+
+.has-unread-notifications .notif-badge {
+  animation: notification-badge-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes notification-bell {
+  0%, 10%, 20%, 30%, 100% { transform: rotate(0); }
+  5%, 15%, 25% { transform: rotate(12deg); }
+}
+
+@keyframes notification-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(183, 0, 50, 0.35); }
+  50% { box-shadow: 0 0 0 4px rgba(183, 0, 50, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .has-unread-notifications > svg,
+  .has-unread-notifications .notif-badge {
+    animation: none;
+  }
 }
 
 /* ---- Language Toggle ---- */
