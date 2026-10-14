@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdNotifications, MdDoneAll, MdMarkEmailRead } from 'react-icons/md';
+import { MdNotifications, MdDoneAll, MdMarkEmailRead, MdCampaign } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
@@ -17,7 +17,7 @@ function fmtDate(iso) {
 }
 
 const TYPE_ICONS = {
-  announcement: '📢',
+  announcement: <MdCampaign />,
   marks_returned: '📋',
   marks_approved: '✅',
   course_assigned: '📚',
