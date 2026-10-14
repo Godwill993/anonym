@@ -5,8 +5,10 @@ const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 export function getBrowserPushSupport() {
   return Boolean(
     vapidPublicKey &&
+    typeof window !== 'undefined' &&
     window.isSecureContext &&
     'Notification' in window &&
+    typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
     'PushManager' in window
   );

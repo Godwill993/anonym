@@ -15,7 +15,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../i18n/index';
 import { supabase } from '../../lib/supabase';
-import BrowserPushControl from './BrowserPushControl';
 import GlobalSearchModal from './GlobalSearchModal';
 
 const ROLE_LABELS = {
@@ -147,7 +146,6 @@ export default function Header({ onMenuClick, pageTitle }) {
             </span>
           )}
         </Link>
-        <BrowserPushControl />
 
         {/* Dark mode toggle */}
         <button

@@ -59,6 +59,11 @@ export const fr = {
       'Le navigateur a renvoyé un abonnement push incomplet.',
     'The browser did not unsubscribe from push notifications.':
       'Le navigateur ne s’est pas désabonné des notifications push.',
+    'Push notifications unavailable': 'Notifications push indisponibles',
+    'Allow notifications in browser settings': 'Autoriser les notifications dans les paramètres du navigateur',
+    'Push notifications enabled': 'Notifications push activées',
+    'Enable push notifications': 'Activer les notifications push',
+    'Updating notifications…': 'Mise à jour des notifications…',
     Resources: 'Ressources',
     'Lecturer Hours': 'Heures des enseignants',
     'Attendance Reports': 'Rapports de présence',

@@ -4,6 +4,7 @@ import { MdNotifications, MdDoneAll, MdMarkEmailRead, MdCampaign } from 'react-i
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
+import BrowserPushControl from '../../components/layout/BrowserPushControl';
 import {
   getStudentNotifications,
   markStudentNotificationRead,
@@ -76,6 +77,7 @@ export default function StudentNotificationsPage() {
           </p>
         </div>
         <div className="page-header-actions">
+          <BrowserPushControl />
           <button
             className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('all')}

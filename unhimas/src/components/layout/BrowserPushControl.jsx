@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MdNotificationsActive, MdNotificationsOff } from 'react-icons/md';
+import { MdNotifications, MdNotificationsActive } from 'react-icons/md';
 import { toast } from '../common/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
@@ -72,25 +72,26 @@ export default function BrowserPushControl() {
   if (!profile?.id) return null;
 
   const permissionDenied = supported && Notification.permission === 'denied';
-  const title = !supported
-    ? 'Browser push notifications are not available or configured.'
+  const label = !supported
+    ? 'Push notifications unavailable'
     : permissionDenied
-      ? 'Browser notification permission is blocked in browser settings.'
+      ? 'Allow notifications in browser settings'
       : subscription
-        ? 'Disable browser push notifications on this device.'
-        : 'Enable browser push notifications on this device.';
+        ? 'Push notifications enabled'
+        : 'Enable push notifications';
 
   return (
     <button
       type="button"
-      className={`icon-btn${subscription ? ' push-notifications-enabled' : ''}`}
+      className={`btn btn-sm ${subscription ? 'btn-primary' : 'btn-outline'}`}
       onClick={handleToggle}
       disabled={!supported || permissionDenied || isBusy}
-      aria-label={translateText(title)}
-      title={translateText(title)}
+      aria-label={translateText(label)}
+      title={translateText(label)}
       aria-pressed={Boolean(subscription)}
     >
-      {subscription ? <MdNotificationsActive /> : <MdNotificationsOff />}
+      {subscription ? <MdNotificationsActive /> : <MdNotifications />}
+      {translateText(isBusy ? 'Updating notifications…' : label)}
     </button>
   );
 }
