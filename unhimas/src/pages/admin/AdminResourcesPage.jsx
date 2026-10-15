@@ -4,7 +4,7 @@ import { MdAdd, MdDelete, MdDownload, MdFilePresent, MdFolder, MdWarning } from 
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
-import { getBatches } from '../../services/academicService';
+import { getBatches, getCourses } from '../../services/academicService';
 import { deleteAdminResource, getAdminResources, getAdminResourceDownload, uploadAdminResource } from '../../services/adminService';
 
 function formatDate(value) {
@@ -23,6 +23,7 @@ export default function AdminResourcesPage() {
     queryFn: getAdminResources,
   });
   const { data: batches = [] } = useQuery({ queryKey: ['admin-batches'], queryFn: getBatches });
+  const { data: courses = [] } = useQuery({ queryKey: ['admin-courses'], queryFn: () => getCourses() });
 
   const uploadMutation = useMutation({
     mutationFn: uploadAdminResource,
@@ -43,12 +44,6 @@ export default function AdminResourcesPage() {
     },
     onError: (deleteError) => toast.error(deleteError.message || 'The resource could not be deleted.'),
   });
-
-  const courses = [...new Map(
-    resources
-      .filter((resource) => resource.courses?.id)
-      .map((resource) => [resource.courses.id, resource.courses]),
-  ).values()];
 
   const filteredResources = courseFilter === 'all'
     ? resources
@@ -71,7 +66,7 @@ export default function AdminResourcesPage() {
 
   const submitUpload = (event) => {
     event.preventDefault();
-    const file = event.currentTarget.elements.file.files[0];
+    const file = event.currentTarget.elements.namedItem('file')?.files?.[0];
     if (!file) return toast.error('Choose a file to upload.');
     if (!form.title.trim()) return toast.error('Add a resource title.');
 
@@ -164,7 +159,7 @@ export default function AdminResourcesPage() {
         <form id="resource-upload-form" onSubmit={submitUpload}>
           <div className="form-group">
             <label className="form-label" htmlFor="resource-file">File</label>
-            <input id="resource-file" className="form-input" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.png,.jpg,.jpeg" required />
+            <input id="resource-file" name="file" className="form-input" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.png,.jpg,.jpeg" required />
             <div className="form-hint">Maximum 20 MB. Files are stored in the private resources bucket.</div>
           </div>
           <div className="form-group">
