@@ -24,6 +24,7 @@ import {
   resubmitMarkSubmission,
 } from '../../services/lecturerService';
 import { getSystemSettings } from '../../services/operationsService';
+import { hasInvalidMarkScore, mergeMarkScores } from '../../lib/markScores';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -183,22 +184,16 @@ export default function LecturerMarksPage() {
   }, [existingMarks]);
 
   const getStudentScores = useCallback((studentId) => {
-    if (localScores[studentId]) return localScores[studentId];
     const dbMark = existingMarksMap.get(studentId);
-    if (dbMark) {
-      return {
+    const savedScores = dbMark
+      ? {
         attendance_score: dbMark.attendance_score ?? 0,
         coursework_score: dbMark.coursework_score ?? 0,
         exam_score: dbMark.exam_score ?? 0,
         lecturer_comment: dbMark.lecturer_comment || '',
-      };
-    }
-    return {
-      attendance_score: 0,
-      coursework_score: 0,
-      exam_score: 0,
-      lecturer_comment: '',
-    };
+      }
+      : {};
+    return mergeMarkScores(savedScores, localScores[studentId]);
   }, [localScores, existingMarksMap]);
 
   const canEdit = submission && (submission.status === 'draft' || submission.status === 'returned');
@@ -207,6 +202,10 @@ export default function LecturerMarksPage() {
   const saveOneMark = useCallback(async (studentId) => {
     if (!submission?.id || !canEdit) return;
     const scores = getStudentScores(studentId);
+    if (hasInvalidMarkScore(scores, ATT_MAX, CW_MAX, EXAM_MAX)) {
+      showToast(`Invalid scores. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`, 'error');
+      return;
+    }
     setSaving(true);
     try {
       await upsertMark({
@@ -224,26 +223,22 @@ export default function LecturerMarksPage() {
     } finally {
       setSaving(false);
     }
-  }, [submission, canEdit, getStudentScores, showToast, refetchMarks]);
+  }, [submission, canEdit, getStudentScores, showToast, refetchMarks, ATT_MAX, CW_MAX, EXAM_MAX]);
 
   // Save all marks in sequence
   const saveAllMarks = async () => {
-    if (!submission?.id || !canEdit || students.length === 0) return;
+    if (!submission?.id || !canEdit || students.length === 0) {
+      throw new Error('There are no editable student marks to save.');
+    }
+
+    for (const stu of students) {
+      if (hasInvalidMarkScore(getStudentScores(stu.id), ATT_MAX, CW_MAX, EXAM_MAX)) {
+        throw new Error(`Invalid scores detected for ${stu.first_name} ${stu.last_name}. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`);
+      }
+    }
+
     setSaving(true);
     try {
-      // Validate all scores first before persisting
-      for (const stu of students) {
-        const scores = getStudentScores(stu.id);
-        const att = Number(scores.attendance_score) || 0;
-        const cw = Number(scores.coursework_score) || 0;
-        const ex = Number(scores.exam_score) || 0;
-        if (att < 0 || att > ATT_MAX || cw < 0 || cw > CW_MAX || ex < 0 || ex > EXAM_MAX) {
-          showToast(`Invalid scores detected for ${stu.first_name} ${stu.last_name}. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`, 'error');
-          setSaving(false);
-          return;
-        }
-      }
-
       for (const stu of students) {
         const scores = getStudentScores(stu.id);
         await upsertMark({
@@ -255,12 +250,18 @@ export default function LecturerMarksPage() {
           lecturer_comment: scores.lecturer_comment || null,
         });
       }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAllMarks = async () => {
+    try {
+      await saveAllMarks();
       showToast('All marks saved successfully', 'success');
       refetchMarks();
     } catch (err) {
       showToast(err.message || 'Failed to save marks', 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -292,7 +293,7 @@ export default function LecturerMarksPage() {
   };
 
   const getTotal = (studentId) => {
-    const s = localScores[studentId] || {};
+    const s = getStudentScores(studentId);
     return (Number(s.attendance_score) || 0) + (Number(s.coursework_score) || 0) + (Number(s.exam_score) || 0);
   };
 
@@ -305,15 +306,7 @@ export default function LecturerMarksPage() {
   };
 
   const hasErrors = students.some((stu) => {
-    const s = localScores[stu.id] || {};
-    return (
-      Number(s.attendance_score) > ATT_MAX ||
-      Number(s.coursework_score) > CW_MAX ||
-      Number(s.exam_score) > EXAM_MAX ||
-      Number(s.attendance_score) < 0 ||
-      Number(s.coursework_score) < 0 ||
-      Number(s.exam_score) < 0
-    );
+    return hasInvalidMarkScore(getStudentScores(stu.id), ATT_MAX, CW_MAX, EXAM_MAX);
   });
 
   const loading = subLoading || stuLoading || marksLoading;
@@ -386,7 +379,7 @@ export default function LecturerMarksPage() {
           {/* Actions */}
           {canEdit && (
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline btn-sm" onClick={saveAllMarks} disabled={saving || hasErrors}>
+              <button className="btn btn-outline btn-sm" onClick={handleSaveAllMarks} disabled={saving || hasErrors}>
                 <MdSave /> {saving ? 'Saving…' : 'Save All'}
               </button>
               <button
@@ -443,7 +436,7 @@ export default function LecturerMarksPage() {
                     {students.map((stu) => {
                       const total = getTotal(stu.id);
                       const { grade, gp, cls } = getGrade(total);
-                      const scores = localScores[stu.id] || {};
+                      const scores = getStudentScores(stu.id);
                       return (
                         <tr key={stu.id}>
                           <td>
