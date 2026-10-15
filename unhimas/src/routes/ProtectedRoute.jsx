@@ -14,16 +14,16 @@ export default function ProtectedRoute({ children, roles }) {
   const { session, profile, loading, profileError } = useAuth();
   const [mustReset, setMustReset] = useState(null); // null = checking, true/false = resolved
 
+  const needsResetCheck = Boolean(
+    session && profile && (profile.role === 'student' || profile.role === 'lecturer')
+  );
+
   useEffect(() => {
-    if (!session || !profile) {
-      setMustReset(false);
-      return;
-    }
-    if (profile.role !== 'student' && profile.role !== 'lecturer') {
-      setMustReset(false);
+    if (!needsResetCheck) {
       return;
     }
 
+    let isMounted = true;
     const table = profile.role === 'student' ? 'students' : 'lecturers';
     supabase
       .from(table)
@@ -31,12 +31,22 @@ export default function ProtectedRoute({ children, roles }) {
       .eq('profile_id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setMustReset(data?.must_reset_password === true);
+        if (isMounted) {
+          setMustReset(data?.must_reset_password === true);
+        }
       })
-      .catch(() => setMustReset(false));
-  }, [session, profile]);
+      .catch(() => {
+        if (isMounted) {
+          setMustReset(false);
+        }
+      });
 
-  if (loading || mustReset === null) {
+    return () => {
+      isMounted = false;
+    };
+  }, [needsResetCheck, session?.user?.id, profile?.role]);
+
+  if (loading || (needsResetCheck && mustReset === null)) {
     return (
       <div className="route-loading">
         <div className="spinner" />

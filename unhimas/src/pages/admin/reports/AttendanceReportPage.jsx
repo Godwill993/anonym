@@ -1,46 +1,166 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdHowToReg, MdWarning, MdFileDownload } from 'react-icons/md';
+import { MdHowToReg, MdFactCheck, MdTrendingUp } from 'react-icons/md';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../../../components/layout/AppLayout';
+import DataTable from '../../../components/common/DataTable';
 import { getAttendanceReport } from '../../../services/adminReportsService';
-import { exportToCsv } from '../../../utils/exportUtils';
+import { useTranslation } from '../../../i18n';
 
 export default function AttendanceReportPage() {
-  const { data: report = [], isLoading, error } = useQuery({ queryKey: ['admin-attendance-report'], queryFn: getAttendanceReport });
-  const chartData = report.slice(0, 12).map((item) => ({ name: item.course_code, percentage: Number(item.attendance_percentage || 0) }));
-  const average = report.length ? report.reduce((sum, item) => sum + Number(item.attendance_percentage || 0), 0) / report.length : 0;
+  const { translateText } = useTranslation();
+  const { data: report = [], isLoading } = useQuery({
+    queryKey: ['admin-attendance-report'],
+    queryFn: getAttendanceReport,
+  });
 
-  const handleExport = () => {
-    const headers = [
-      { label: 'Course Code', key: 'course_code' },
-      { label: 'Course Name', key: 'course_name' },
-      { label: 'Total Sessions', key: 'total_sessions' },
-      { label: 'Attended Sessions', key: 'attended_sessions' },
-      { label: 'Attendance %', key: 'attendance_percentage' },
-    ];
-    exportToCsv('unhimas_course_attendance_report', headers, report);
-  };
+  const chartData = useMemo(
+    () =>
+      report.slice(0, 12).map((item) => ({
+        name: item.course_code,
+        percentage: Number(Number(item.attendance_percentage || 0).toFixed(1)),
+      })),
+    [report]
+  );
+
+  const average = report.length
+    ? (report.reduce((sum, item) => sum + Number(item.attendance_percentage || 0), 0) / report.length).toFixed(1)
+    : '0.0';
+
+  const totalSessions = report.reduce((sum, item) => sum + Number(item.total_sessions || 0), 0);
+  const coursesBelowThreshold = report.filter((item) => Number(item.attendance_percentage || 0) < 75).length;
+
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Course',
+        accessor: 'course_code',
+        sortValue: (r) => r.course_code || '',
+        render: (r) => (
+          <div>
+            <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
+              {r.course_code}
+            </code>{' '}
+            <strong>{r.course_name}</strong>
+          </div>
+        ),
+      },
+      {
+        header: 'Total Student Slots',
+        accessor: 'total_sessions',
+        sortValue: (r) => Number(r.total_sessions || 0),
+        render: (r) => <span>{r.total_sessions}</span>,
+      },
+      {
+        header: 'Attended Slots',
+        accessor: 'attended_sessions',
+        sortValue: (r) => Number(r.attended_sessions || 0),
+        render: (r) => <strong>{Number(r.attended_sessions || 0)}</strong>,
+      },
+      {
+        header: 'Attendance Rate',
+        accessor: 'attendance_percentage',
+        sortValue: (r) => Number(r.attendance_percentage || 0),
+        render: (r) => {
+          const pct = Number(r.attendance_percentage || 0);
+          const isSatisfactory = pct >= 75;
+          return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  color: isSatisfactory ? '#059669' : 'var(--color-secondary)',
+                }}
+              >
+                {pct.toFixed(1)}%
+              </span>
+              <span className={`badge ${isSatisfactory ? 'badge-green' : 'badge-red'}`}>
+                {isSatisfactory ? translateText('Satisfactory') : translateText('Low (< 75%)')}
+              </span>
+            </div>
+          );
+        },
+      },
+    ],
+    [translateText]
+  );
 
   return (
     <AppLayout pageTitle="Attendance Report">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Attendance Report</h1>
-          <p className="page-subtitle">Student attendance by course based on recorded class sessions</p>
-        </div>
-        <div className="page-header-actions">
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={handleExport}
-            disabled={report.length === 0}
-          >
-            <MdFileDownload /> Export CSV
-          </button>
+          <h1 className="page-title">{translateText('Attendance Report')}</h1>
+          <p className="page-subtitle">
+            {translateText('Student lecture presence analytics and course compliance with the 75% examination threshold')}
+          </p>
         </div>
       </div>
-      <div className="stats-grid"><div className="stat-card"><div className="stat-card-icon blue"><MdHowToReg /></div><div className="stat-card-body"><div className="stat-card-value">{report.length}</div><div className="stat-card-label">Course Records</div></div></div><div className="stat-card"><div className="stat-card-icon green"><MdHowToReg /></div><div className="stat-card-body"><div className="stat-card-value">{average.toFixed(1)}%</div><div className="stat-card-label">Average Attendance</div></div></div></div>
-      <div className="card"><div className="card-header"><h2>Course Attendance</h2></div>{isLoading ? <div className="empty-state">Loading report...</div> : error ? <div className="empty-state"><MdWarning className="empty-state-icon" /><div className="empty-state-title">Report unavailable</div><div className="empty-state-text">The attendance report could not be loaded.</div></div> : report.length === 0 ? <div className="empty-state"><MdHowToReg className="empty-state-icon" /><div className="empty-state-title">No attendance data</div><div className="empty-state-text">Attendance records will appear after class sessions are recorded.</div></div> : <div className="table-wrapper"><table className="data-table"><thead><tr><th>Course</th><th>Student Sessions</th><th>Attended</th><th>Attendance</th></tr></thead><tbody>{report.map((item) => <tr key={item.course_id}><td><code>{item.course_code}</code><br /><strong>{item.course_name}</strong></td><td>{item.total_sessions}</td><td>{Number(item.attended_sessions || 0)}</td><td><strong>{Number(item.attendance_percentage || 0).toFixed(1)}%</strong></td></tr>)}</tbody></table></div>}</div>
-      {chartData.length > 0 && <div className="card"><div className="card-header"><h2>Attendance by Course</h2></div><div style={{ height: 320 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} unit="%" /><Tooltip formatter={(value) => [`${value}%`, 'Attendance']} /><Bar dataKey="percentage" fill="#10B981" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></div>}
+
+      {/* KPI Stats */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-card-icon blue"><MdHowToReg /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{report.length}</div>
+            <div className="stat-card-label">{translateText('Course Curricula Monitored')}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon green"><MdTrendingUp /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{average}%</div>
+            <div className="stat-card-label">{translateText('University Average Attendance')}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon red"><MdFactCheck /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{coursesBelowThreshold}</div>
+            <div className="stat-card-label">{translateText('Courses Below 75% Threshold')}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      {chartData.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div className="card-header">
+            <h2 className="card-title">{translateText('Course Attendance Rates (%)')}</h2>
+          </div>
+          <div className="card-body" style={{ height: 320 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value) => [`${value}%`, translateText('Attendance')]}
+                  contentStyle={{
+                    background: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                />
+                <Bar dataKey="percentage" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Main Table */}
+      <DataTable
+        columns={columns}
+        data={report}
+        searchPlaceholder="Search course code or course name..."
+        emptyTitle="No attendance records found"
+        emptySubtitle="Attendance records will appear here as lecturers record class sessions."
+        pageSize={12}
+        exportable={true}
+        exportFileName="unhimas_course_attendance_report"
+      />
     </AppLayout>
   );
 }

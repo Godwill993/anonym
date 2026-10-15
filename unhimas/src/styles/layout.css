@@ -156,6 +156,72 @@
   margin: 0 0.35rem;
 }
 
+/* ---- Sidebar Footer User Profile ---- */
+.sidebar-user-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+  color: #fff;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-user-footer:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.sidebar.collapsed .sidebar-user-footer {
+  justify-content: center;
+  padding: 0.6rem 0.25rem;
+}
+
+.sidebar.collapsed .sidebar-user-info {
+  display: none;
+}
+
 /* ---- Collapse Toggle ---- */
 .sidebar-toggle-btn {
   display: flex;
@@ -274,6 +340,21 @@
   color: var(--color-text-muted);
   font-size: 1rem;
   pointer-events: none;
+}
+
+.header-search-kbd {
+  position: absolute;
+  right: 0.5rem;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1;
 }
 
 /* ---- Header Actions ---- */
@@ -605,13 +686,35 @@
   gap: 1.25rem;
 }
 
+.admin-dashboard-grid-2-1 {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-dashboard-grid-1-4-1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.frontdesk-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
 
 @media (max-width: 1024px) {
   .lecturer-dashboard-grid,
-  .student-dashboard-grid {
+  .student-dashboard-grid,
+  .admin-dashboard-grid-2-1,
+  .admin-dashboard-grid-1-4-1,
+  .frontdesk-dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

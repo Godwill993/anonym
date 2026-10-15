@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdSchool, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff, MdPhone, MdEmail, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import {
+  MdAdd,
+  MdSchool,
+  MdSearch,
+  MdClose,
+  MdEdit,
+  MdDelete,
+  MdToggleOn,
+  MdToggleOff,
+  MdPhone,
+  MdEmail,
+  MdPersonAdd,
+  MdCheckCircle,
+  MdFileDownload,
+  MdChevronLeft,
+  MdChevronRight,
+} from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { toast } from '../../components/common/Toast';
+import { useTranslation } from '../../i18n';
+import { exportToCsv } from '../../utils/exportUtils';
 import {
   getStudents,
   createStudent,
@@ -15,9 +33,12 @@ import {
 import { getBatches } from '../../services/academicService';
 
 export default function StudentsPage() {
+  const { language, translateText } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
@@ -143,29 +164,69 @@ export default function StudentsPage() {
     });
   };
 
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = useMemo(() => {
     const term = search.toLowerCase();
-    return (
-      s.matricule.toLowerCase().includes(term) ||
-      s.first_name.toLowerCase().includes(term) ||
-      s.last_name.toLowerCase().includes(term) ||
-      (s.email && s.email.toLowerCase().includes(term))
-    );
-  });
+    return students.filter((s) => {
+      return (
+        s.matricule?.toLowerCase().includes(term) ||
+        s.first_name?.toLowerCase().includes(term) ||
+        s.last_name?.toLowerCase().includes(term) ||
+        (s.email && s.email.toLowerCase().includes(term))
+      );
+    });
+  }, [students, search]);
+
+  const totalPages = Math.ceil(filteredStudents.length / pageSize) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const handleExportCsv = () => {
+    if (!filteredStudents.length) return;
+    const headers = [
+      { label: 'Matricule', key: 'matricule' },
+      { label: 'First Name', key: 'first_name' },
+      { label: 'Middle Name', key: 'middle_name' },
+      { label: 'Last Name', key: 'last_name' },
+      { label: 'Batch', key: 'batch_name' },
+      { label: 'Department', key: 'department_name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Status', key: 'status_label' },
+      { label: 'Admission Date', key: 'admission_date' },
+    ];
+    const exportRows = filteredStudents.map((s) => ({
+      ...s,
+      batch_name: s.batches?.name || '',
+      department_name: s.batches?.departments?.name || '',
+      status_label: s.is_active ? 'Active' : 'Suspended',
+    }));
+    exportToCsv('unhimas_students_registry', headers, exportRows);
+  };
 
   return (
     <AppLayout pageTitle="Students Registry">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Students Registry</h1>
-          <p className="page-subtitle">Enrolled students, matriculation records, and batch memberships</p>
+          <h1 className="page-title">{translateText('Students Registry')}</h1>
+          <p className="page-subtitle">{translateText('Enrolled students, matriculation records, and batch memberships')}</p>
         </div>
         <div className="page-header-actions">
-          <Link to="/admin/create-account" className="btn btn-outline" style={{ marginRight: '0.5rem' }}>
-            <MdPersonAdd /> Create Account
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleExportCsv}
+            disabled={filteredStudents.length === 0}
+            title={translateText('Export students to CSV')}
+          >
+            <MdFileDownload /> {translateText('Export CSV')}
+          </button>
+          <Link to="/admin/create-account" className="btn btn-outline btn-sm">
+            <MdPersonAdd /> {translateText('Create Account')}
           </Link>
-          <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Register New Student
+          <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
+            <MdAdd /> {translateText('Register New Student')}
           </button>
         </div>
       </div>
@@ -186,20 +247,51 @@ export default function StudentsPage() {
             <input
               type="text"
               className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search by matricule, name, or email..."
+              style={{ paddingLeft: '2.25rem', paddingRight: search ? '2rem' : '0.875rem' }}
+              placeholder={translateText('Search by matricule, name, or email...')}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setCurrentPage(1);
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '0.6rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                aria-label={translateText('Clear search')}
+              >
+                <MdClose size={16} />
+              </button>
+            )}
           </div>
 
           <div style={{ minWidth: '180px' }}>
             <select
               className="form-input"
               value={batchFilter}
-              onChange={(e) => setBatchFilter(e.target.value)}
+              onChange={(e) => {
+                setBatchFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label={translateText('Filter by cohort / batch')}
             >
-              <option value="">All Cohorts / Batches</option>
+              <option value="">{translateText('All Cohorts / Batches')}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -213,38 +305,44 @@ export default function StudentsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Matricule</th>
-                <th>Student Full Name</th>
-                <th>Assigned Batch</th>
-                <th>Department</th>
-                <th>Contact Details</th>
-                <th>Admission Date</th>
-                <th>Status</th>
-                <th>Account</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>{translateText('Matricule')}</th>
+                <th>{translateText('Student Full Name')}</th>
+                <th>{translateText('Assigned Batch')}</th>
+                <th>{translateText('Department')}</th>
+                <th>{translateText('Contact Details')}</th>
+                <th>{translateText('Admission Date')}</th>
+                <th>{translateText('Status')}</th>
+                <th>{translateText('Account')}</th>
+                <th style={{ textAlign: 'right' }}>{translateText('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading students registry...
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '3rem' }}>
+                    {translateText('Loading students registry...')}
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdSchool className="empty-state-icon" />
-                      <div className="empty-state-title">No Students Registered</div>
+                      <div className="empty-state-title">
+                        {translateText(search ? 'No Matching Students' : 'No Students Registered')}
+                      </div>
                       <div className="empty-state-text">
-                        Click "Register New Student" to enrol your first student into a batch.
+                        {translateText(
+                          search
+                            ? 'No student records match your filter criteria.'
+                            : 'Click "Register New Student" to enrol your first student into a batch.'
+                        )}
                       </div>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((stu) => (
+                paginatedStudents.map((stu) => (
                   <tr key={stu.id}>
                     <td>
                       <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
@@ -329,6 +427,93 @@ export default function StudentsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredStudents.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.875rem 1.25rem',
+              borderTop: '1px solid var(--color-border)',
+              fontSize: '0.8125rem',
+              color: 'var(--color-text-muted)',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                {language === 'fr'
+                  ? `Affichage de ${(currentPage - 1) * pageSize + 1} à ${Math.min(
+                      currentPage * pageSize,
+                      filteredStudents.length
+                    )} sur ${filteredStudents.length} étudiants`
+                  : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(
+                      currentPage * pageSize,
+                      filteredStudents.length
+                    )} of ${filteredStudents.length} students`}
+              </div>
+
+              {filteredStudents.length > 10 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.75rem' }}>{translateText('Per page:')}</span>
+                  <select
+                    className="form-input"
+                    style={{ height: '30px', padding: '0.1rem 0.5rem', width: 'auto', fontSize: '0.75rem' }}
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    aria-label={translateText('Select rows per page')}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  aria-label={translateText('Previous page')}
+                >
+                  <MdChevronLeft /> {translateText('Prev')}
+                </button>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '0 0.5rem',
+                    fontWeight: 600,
+                    color: 'var(--color-text)',
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label={translateText('Next page')}
+                >
+                  {translateText('Next')} <MdChevronRight />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modal */}

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { MdWarning, MdClose } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 
@@ -13,6 +14,23 @@ export default function ConfirmDialog({
   isLoading = false,
 }) {
   const { translateText } = useTranslation();
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen && !isLoading) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isLoading, onClose]);
+
   if (!isOpen) return null;
 
   return (

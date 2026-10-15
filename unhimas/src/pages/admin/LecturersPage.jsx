@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdPersonPin, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff, MdEmail, MdPhone, MdPersonAdd, MdCheckCircle } from 'react-icons/md';
+import {
+  MdAdd,
+  MdPersonPin,
+  MdSearch,
+  MdClose,
+  MdEdit,
+  MdDelete,
+  MdToggleOn,
+  MdToggleOff,
+  MdEmail,
+  MdPhone,
+  MdPersonAdd,
+  MdCheckCircle,
+  MdFileDownload,
+  MdChevronLeft,
+  MdChevronRight,
+} from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { toast } from '../../components/common/Toast';
+import { useTranslation } from '../../i18n';
+import { exportToCsv } from '../../utils/exportUtils';
 import {
   getLecturers,
   createLecturer,
@@ -15,9 +33,12 @@ import {
 import { getDepartments } from '../../services/academicService';
 
 export default function LecturersPage() {
+  const { language, translateText } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLecturer, setEditingLecturer] = useState(null);
   const [lecturerToDelete, setLecturerToDelete] = useState(null);
@@ -141,29 +162,67 @@ export default function LecturersPage() {
     });
   };
 
-  const filteredLecturers = lecturers.filter((l) => {
+  const filteredLecturers = useMemo(() => {
     const term = search.toLowerCase();
-    return (
-      l.staff_id.toLowerCase().includes(term) ||
-      l.first_name.toLowerCase().includes(term) ||
-      l.last_name.toLowerCase().includes(term) ||
-      (l.specialization && l.specialization.toLowerCase().includes(term))
-    );
-  });
+    return lecturers.filter((l) => {
+      return (
+        l.staff_id?.toLowerCase().includes(term) ||
+        l.first_name?.toLowerCase().includes(term) ||
+        l.last_name?.toLowerCase().includes(term) ||
+        (l.specialization && l.specialization.toLowerCase().includes(term))
+      );
+    });
+  }, [lecturers, search]);
+
+  const totalPages = Math.ceil(filteredLecturers.length / pageSize) || 1;
+  const paginatedLecturers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredLecturers.slice(start, start + pageSize);
+  }, [filteredLecturers, currentPage, pageSize]);
+
+  const handleExportCsv = () => {
+    if (!filteredLecturers.length) return;
+    const headers = [
+      { label: 'Staff ID', key: 'staff_id' },
+      { label: 'First Name', key: 'first_name' },
+      { label: 'Middle Name', key: 'middle_name' },
+      { label: 'Last Name', key: 'last_name' },
+      { label: 'Department', key: 'department_name' },
+      { label: 'Specialization', key: 'specialization' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Status', key: 'status_label' },
+    ];
+    const exportRows = filteredLecturers.map((l) => ({
+      ...l,
+      department_name: l.departments?.name ? `${l.departments.name} (${l.departments.abbreviation})` : '',
+      status_label: l.is_active ? 'Active' : 'On Leave',
+    }));
+    exportToCsv('unhimas_faculty_lecturers', headers, exportRows);
+  };
 
   return (
     <AppLayout pageTitle="Faculty Lecturers">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Faculty Lecturers</h1>
-          <p className="page-subtitle">Academic teaching staff, departmental assignments, and credentials</p>
+          <h1 className="page-title">{translateText('Faculty Lecturers')}</h1>
+          <p className="page-subtitle">{translateText('Academic teaching staff, departmental assignments, and credentials')}</p>
         </div>
         <div className="page-header-actions">
-          <Link to="/admin/create-account" className="btn btn-outline" style={{ marginRight: '0.5rem' }}>
-            <MdPersonAdd /> Create Account
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleExportCsv}
+            disabled={filteredLecturers.length === 0}
+            title={translateText('Export faculty to CSV')}
+          >
+            <MdFileDownload /> {translateText('Export CSV')}
+          </button>
+          <Link to="/admin/create-account" className="btn btn-outline btn-sm">
+            <MdPersonAdd /> {translateText('Create Account')}
           </Link>
-          <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Add Faculty Lecturer
+          <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
+            <MdAdd /> {translateText('Add Faculty Lecturer')}
           </button>
         </div>
       </div>
@@ -184,20 +243,51 @@ export default function LecturersPage() {
             <input
               type="text"
               className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search by staff ID, name, or specialization..."
+              style={{ paddingLeft: '2.25rem', paddingRight: search ? '2rem' : '0.875rem' }}
+              placeholder={translateText('Search by staff ID, name, or specialization...')}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setCurrentPage(1);
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '0.6rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                aria-label={translateText('Clear search')}
+              >
+                <MdClose size={16} />
+              </button>
+            )}
           </div>
 
           <div style={{ minWidth: '180px' }}>
             <select
               className="form-input"
               value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
+              onChange={(e) => {
+                setDeptFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label={translateText('Filter by department')}
             >
-              <option value="">All Departments</option>
+              <option value="">{translateText('All Departments')}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name} ({d.abbreviation})
@@ -211,37 +301,43 @@ export default function LecturersPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Staff ID</th>
-                <th>Lecturer Name</th>
-                <th>Primary Department</th>
-                <th>Specialization</th>
-                <th>Contact</th>
-                <th>Status</th>
-                <th>Account</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>{translateText('Staff ID')}</th>
+                <th>{translateText('Lecturer Name')}</th>
+                <th>{translateText('Primary Department')}</th>
+                <th>{translateText('Specialization')}</th>
+                <th>{translateText('Contact')}</th>
+                <th>{translateText('Status')}</th>
+                <th>{translateText('Account')}</th>
+                <th style={{ textAlign: 'right' }}>{translateText('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading faculty staff...
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
+                    {translateText('Loading faculty staff...')}
                   </td>
                 </tr>
               ) : filteredLecturers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdPersonPin className="empty-state-icon" />
-                      <div className="empty-state-title">No Lecturers Found</div>
+                      <div className="empty-state-title">
+                        {translateText(search ? 'No Matching Lecturers' : 'No Lecturers Found')}
+                      </div>
                       <div className="empty-state-text">
-                        Add lecturers to assign course loads and track campus hours.
+                        {translateText(
+                          search
+                            ? 'No faculty members match your filter criteria.'
+                            : 'Add lecturers to assign course loads and track campus hours.'
+                        )}
                       </div>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredLecturers.map((lec) => (
+                paginatedLecturers.map((lec) => (
                   <tr key={lec.id}>
                     <td>
                       <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-secondary)' }}>
@@ -326,6 +422,93 @@ export default function LecturersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredLecturers.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.875rem 1.25rem',
+              borderTop: '1px solid var(--color-border)',
+              fontSize: '0.8125rem',
+              color: 'var(--color-text-muted)',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                {language === 'fr'
+                  ? `Affichage de ${(currentPage - 1) * pageSize + 1} à ${Math.min(
+                      currentPage * pageSize,
+                      filteredLecturers.length
+                    )} sur ${filteredLecturers.length} enseignants`
+                  : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(
+                      currentPage * pageSize,
+                      filteredLecturers.length
+                    )} of ${filteredLecturers.length} faculty members`}
+              </div>
+
+              {filteredLecturers.length > 10 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.75rem' }}>{translateText('Per page:')}</span>
+                  <select
+                    className="form-input"
+                    style={{ height: '30px', padding: '0.1rem 0.5rem', width: 'auto', fontSize: '0.75rem' }}
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    aria-label={translateText('Select rows per page')}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  aria-label={translateText('Previous page')}
+                >
+                  <MdChevronLeft /> {translateText('Prev')}
+                </button>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '0 0.5rem',
+                    fontWeight: 600,
+                    color: 'var(--color-text)',
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label={translateText('Next page')}
+                >
+                  {translateText('Next')} <MdChevronRight />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modal */}

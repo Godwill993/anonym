@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MdAdd, MdClass, MdDelete, MdSearch } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { toast } from '../../components/common/Toast';
 import {
   getBatchCourses,
@@ -19,6 +20,7 @@ export default function BatchCoursesPage() {
   const [search, setSearch] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [allocationToDelete, setAllocationToDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     batch_id: '',
@@ -70,6 +72,7 @@ export default function BatchCoursesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
       toast.success('Course unassigned from batch');
+      setAllocationToDelete(null);
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to remove allocation');
@@ -240,11 +243,9 @@ export default function BatchCoursesPage() {
                       <button
                         className="btn-icon"
                         title="Unassign course"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to remove this course allocation?')) {
-                            deleteMutation.mutate(bc.id);
-                          }
-                        }}
+                        onClick={() => setAllocationToDelete(bc)}
+                        disabled={deleteMutation.isPending}
+                        aria-label={`Unassign course ${bc.courses?.code} from batch`}
                       >
                         <MdDelete style={{ color: 'var(--color-secondary)' }} />
                       </button>
@@ -360,6 +361,18 @@ export default function BatchCoursesPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(allocationToDelete)}
+        onClose={() => setAllocationToDelete(null)}
+        onConfirm={() => allocationToDelete && deleteMutation.mutate(allocationToDelete.id)}
+        title="Unassign Course from Batch"
+        message={`Are you sure you want to remove "${allocationToDelete?.courses?.code} - ${allocationToDelete?.courses?.name}" from batch "${allocationToDelete?.batches?.name}"?`}
+        confirmLabel="Unassign Course"
+        isDestructive={true}
+        isLoading={deleteMutation.isPending}
+      />
     </AppLayout>
   );
 }

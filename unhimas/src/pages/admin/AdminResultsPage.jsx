@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdSearch, MdSchool } from 'react-icons/md';
+import { MdSchool, MdFilterList } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
+import DataTable from '../../components/common/DataTable';
 import { getPublishedResults } from '../../services/results';
+import { useTranslation } from '../../i18n';
 
 export default function AdminResultsPage() {
-  const [search, setSearch] = useState('');
+  const { translateText } = useTranslation();
+  const [gradeFilter, setGradeFilter] = useState('');
 
   // Fetch published results from the SQL view 'results'.
   const { data: results = [], isLoading } = useQuery({
@@ -13,100 +16,125 @@ export default function AdminResultsPage() {
     queryFn: getPublishedResults,
   });
 
-  const filtered = results.filter((r) => {
-    const s = search.toLowerCase();
-    const mat = r.matricule?.toLowerCase() || '';
-    const name = r.student_name?.toLowerCase() || '';
-    const code = r.course_code?.toLowerCase() || '';
-    return mat.includes(s) || name.includes(s) || code.includes(s);
-  });
+  const filteredResults = useMemo(() => {
+    if (!gradeFilter) return results;
+    return results.filter((r) => r.grade === gradeFilter);
+  }, [results, gradeFilter]);
+
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Matricule',
+        accessor: 'matricule',
+        render: (r) => (
+          <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
+            {r.matricule}
+          </code>
+        ),
+      },
+      {
+        header: 'Student Name',
+        accessor: 'student_name',
+        render: (r) => <strong>{r.student_name}</strong>,
+      },
+      {
+        header: 'Course',
+        accessor: 'course_code',
+        render: (r) => (
+          <div>
+            <code style={{ fontWeight: 700, color: 'var(--color-primary)', marginRight: '6px' }}>{r.course_code}</code>
+            <span>{r.course_name}</span>
+          </div>
+        ),
+      },
+      {
+        header: 'CA (/30)',
+        accessor: 'ca_score',
+        sortValue: (r) => (Number(r.attendance_score || 0) + Number(r.coursework_score || 0)),
+        render: (r) => (
+          <span>{(Number(r.attendance_score || 0) + Number(r.coursework_score || 0)).toFixed(1)}</span>
+        ),
+      },
+      {
+        header: 'Exam (/70)',
+        accessor: 'exam_score',
+        render: (r) => r.exam_score ?? '—',
+      },
+      {
+        header: 'Total (/100)',
+        accessor: 'total_score',
+        render: (r) => <strong style={{ fontSize: '0.95rem' }}>{r.total_score}</strong>,
+      },
+      {
+        header: 'Grade',
+        accessor: 'grade',
+        render: (r) => (
+          <span
+            className={`badge ${
+              r.grade === 'A' || r.grade === 'B'
+                ? 'badge-green'
+                : r.grade === 'C' || r.grade === 'D'
+                ? 'badge-blue'
+                : 'badge-red'
+            }`}
+          >
+            {r.grade || '—'}
+          </span>
+        ),
+      },
+      {
+        header: 'Grade Point',
+        accessor: 'grade_point',
+        render: (r) => <strong>{r.grade_point ?? '—'}</strong>,
+      },
+    ],
+    []
+  );
 
   return (
     <AppLayout pageTitle="Official Results">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Published Results Registry</h1>
-          <p className="page-subtitle">Verified academic results, letter grades, and grade points populated from the official results view</p>
+          <h1 className="page-title">{translateText('Published Results Registry')}</h1>
+          <p className="page-subtitle">
+            {translateText('Official verified academic results, letter grades, and grade points populated from official approvals')}
+          </p>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
-            <MdSearch
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-muted)',
-                fontSize: '1.1rem',
-              }}
-            />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search by matricule, student name, or course code..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Matricule</th>
-                <th>Student</th>
-                <th>Course</th>
-                <th>CA Score (/30)</th>
-                <th>Exam Score (/70)</th>
-                <th>Total (/100)</th>
-                <th>Grade</th>
-                <th>Grade Point</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>Loading published results...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="empty-state">
-                      <MdSchool className="empty-state-icon" />
-                      <div className="empty-state-title">No Published Results Yet</div>
-                      <div className="empty-state-text">
-                        Results become visible in this registry once approved marksheets are published by administrators.
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((r, idx) => (
-                  <tr key={idx}>
-                    <td><code>{r.matricule}</code></td>
-                    <td><strong>{r.student_name}</strong></td>
-                    <td>
-                      <code>{r.course_code}</code> {r.course_name}
-                    </td>
-                    <td>{(Number(r.attendance_score || 0) + Number(r.coursework_score || 0)).toFixed(1)}</td>
-                    <td>{r.exam_score}</td>
-                    <td><strong>{r.total_score}</strong></td>
-                    <td>
-                      <span className={`badge ${r.grade === 'A' || r.grade === 'B' ? 'badge-green' : r.grade === 'C' || r.grade === 'D' ? 'badge-blue' : 'badge-red'}`}>
-                        {r.grade}
-                      </span>
-                    </td>
-                    <td><strong>{r.grade_point}</strong></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <MdFilterList style={{ color: 'var(--color-text-muted)' }} />
+          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+            {translateText('Filter by Grade:')}
+          </span>
+          <select
+            className="form-input"
+            style={{ width: 'auto', height: '36px', padding: '0.25rem 0.75rem' }}
+            value={gradeFilter}
+            onChange={(e) => setGradeFilter(e.target.value)}
+            aria-label={translateText('Filter by grade')}
+          >
+            <option value="">{translateText('All Grades')}</option>
+            <option value="A">Grade A (Excellent)</option>
+            <option value="B">Grade B (Very Good)</option>
+            <option value="C">Grade C (Good)</option>
+            <option value="D">Grade D (Pass)</option>
+            <option value="F">Grade F (Fail)</option>
+          </select>
         </div>
       </div>
+
+      <DataTable
+        columns={columns}
+        data={filteredResults}
+        searchPlaceholder="Search by matricule, student name, or course code..."
+        emptyTitle="No Published Results Yet"
+        emptySubtitle="Results become visible here once approved marksheets are published by administrators."
+        pageSize={15}
+        exportable={true}
+        exportFileName="unhimas_published_results"
+      />
     </AppLayout>
   );
 }

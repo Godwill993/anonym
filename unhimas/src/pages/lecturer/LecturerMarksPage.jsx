@@ -231,14 +231,27 @@ export default function LecturerMarksPage() {
     if (!submission?.id || !canEdit || students.length === 0) return;
     setSaving(true);
     try {
+      // Validate all scores first before persisting
       for (const stu of students) {
-        const scores = localScores[stu.id] || { attendance_score: 0, coursework_score: 0, exam_score: 0 };
+        const scores = getStudentScores(stu.id);
+        const att = Number(scores.attendance_score) || 0;
+        const cw = Number(scores.coursework_score) || 0;
+        const ex = Number(scores.exam_score) || 0;
+        if (att < 0 || att > ATT_MAX || cw < 0 || cw > CW_MAX || ex < 0 || ex > EXAM_MAX) {
+          showToast(`Invalid scores detected for ${stu.first_name} ${stu.last_name}. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`, 'error');
+          setSaving(false);
+          return;
+        }
+      }
+
+      for (const stu of students) {
+        const scores = getStudentScores(stu.id);
         await upsertMark({
           mark_submission_id: submission.id,
           student_id: stu.id,
-          attendance_score: scores.attendance_score ?? 0,
-          coursework_score: scores.coursework_score ?? 0,
-          exam_score: scores.exam_score ?? 0,
+          attendance_score: Number(scores.attendance_score) || 0,
+          coursework_score: Number(scores.coursework_score) || 0,
+          exam_score: Number(scores.exam_score) || 0,
           lecturer_comment: scores.lecturer_comment || null,
         });
       }

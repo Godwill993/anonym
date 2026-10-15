@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdHowToReg, MdAccessTime, MdSearch } from 'react-icons/md';
+import { MdHowToReg, MdAccessTime, MdPeople } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
+import DataTable from '../../components/common/DataTable';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from '../../i18n';
 
 export default function AdminAttendancePage() {
+  const { translateText } = useTranslation();
   const [activeTab, setActiveTab] = useState('lecturers'); // 'lecturers' | 'sessions'
-  const [search, setSearch] = useState('');
 
   // Lecturer shifts query
   const { data: shifts = [], isLoading: shiftsLoading } = useQuery({
@@ -26,7 +28,7 @@ export default function AdminAttendancePage() {
           )
         `)
         .order('clock_in', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return data || [];
     },
@@ -56,185 +58,177 @@ export default function AdminAttendancePage() {
           )
         `)
         .order('scheduled_start', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return data || [];
     },
   });
 
-  const filteredShifts = shifts.filter((s) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    const name = `${s.lecturers?.first_name || ''} ${s.lecturers?.last_name || ''}`.toLowerCase();
-    const id = (s.lecturers?.staff_id || '').toLowerCase();
-    const dept = (s.lecturers?.departments?.abbreviation || '').toLowerCase();
-    return name.includes(q) || id.includes(q) || dept.includes(q);
-  });
+  const shiftColumns = useMemo(
+    () => [
+      {
+        header: 'Lecturer',
+        accessor: 'lecturer_name',
+        sortValue: (s) => `${s.lecturers?.first_name} ${s.lecturers?.last_name}`,
+        render: (s) => (
+          <div>
+            <strong>{s.lecturers?.first_name} {s.lecturers?.last_name}</strong>
+            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+              ID: {s.lecturers?.staff_id}
+            </div>
+          </div>
+        ),
+      },
+      {
+        header: 'Department',
+        accessor: 'dept',
+        sortValue: (s) => s.lecturers?.departments?.abbreviation || '',
+        render: (s) => <span>{s.lecturers?.departments?.abbreviation || '—'}</span>,
+      },
+      {
+        header: 'Clock In',
+        accessor: 'clock_in',
+        sortValue: (s) => new Date(s.clock_in).getTime(),
+        render: (s) => <span>{new Date(s.clock_in).toLocaleString()}</span>,
+      },
+      {
+        header: 'Clock Out',
+        accessor: 'clock_out',
+        sortValue: (s) => (s.clock_out ? new Date(s.clock_out).getTime() : 0),
+        render: (s) => <span>{s.clock_out ? new Date(s.clock_out).toLocaleString() : '—'}</span>,
+      },
+      {
+        header: 'Duration (Hours)',
+        accessor: 'duration',
+        sortValue: (s) => {
+          if (!s.clock_out) return 9999;
+          return (new Date(s.clock_out) - new Date(s.clock_in)) / (1000 * 60 * 60);
+        },
+        render: (s) => {
+          if (!s.clock_out) return <span className="badge badge-amber">Active Shift</span>;
+          const diff = (new Date(s.clock_out) - new Date(s.clock_in)) / (1000 * 60 * 60);
+          return <strong>{diff.toFixed(2)} hrs</strong>;
+        },
+      },
+      {
+        header: 'Status',
+        accessor: 'status',
+        render: (s) => (
+          <span className={`badge ${s.status === 'open' ? 'badge-green' : 'badge-blue'}`}>
+            {s.status?.toUpperCase()}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
 
-  const filteredSessions = sessions.filter((s) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    const courseCode = (s.batch_courses?.courses?.code || '').toLowerCase();
-    const courseName = (s.batch_courses?.courses?.name || '').toLowerCase();
-    const batchName = (s.batch_courses?.batches?.name || '').toLowerCase();
-    const lec = `${s.lecturers?.first_name || ''} ${s.lecturers?.last_name || ''}`.toLowerCase();
-    return courseCode.includes(q) || courseName.includes(q) || batchName.includes(q) || lec.includes(q);
-  });
+  const sessionColumns = useMemo(
+    () => [
+      {
+        header: 'Course',
+        accessor: 'course_code',
+        sortValue: (s) => s.batch_courses?.courses?.code || '',
+        render: (s) => (
+          <div>
+            <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
+              {s.batch_courses?.courses?.code}
+            </code>{' '}
+            <strong>{s.batch_courses?.courses?.name}</strong>
+          </div>
+        ),
+      },
+      {
+        header: 'Cohort / Batch',
+        accessor: 'batch_name',
+        sortValue: (s) => s.batch_courses?.batches?.name || '',
+        render: (s) => (
+          <div>
+            <div>{s.batch_courses?.batches?.name}</div>
+            <code style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+              {s.batch_courses?.batches?.code}
+            </code>
+          </div>
+        ),
+      },
+      {
+        header: 'Lecturer',
+        accessor: 'lecturer',
+        sortValue: (s) => `${s.lecturers?.first_name} ${s.lecturers?.last_name}`,
+        render: (s) => <span>{s.lecturers?.first_name} {s.lecturers?.last_name}</span>,
+      },
+      {
+        header: 'Room / Venue',
+        accessor: 'room',
+        render: (s) => <span>{s.room || 'General Hall'}</span>,
+      },
+      {
+        header: 'Scheduled Time',
+        accessor: 'scheduled_start',
+        sortValue: (s) => new Date(s.scheduled_start).getTime(),
+        render: (s) => <span>{new Date(s.scheduled_start).toLocaleString()}</span>,
+      },
+      {
+        header: 'Topic / Module',
+        accessor: 'topic',
+        render: (s) => <span>{s.topic || '—'}</span>,
+      },
+    ],
+    []
+  );
 
   return (
     <AppLayout pageTitle="Attendance & Presence">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Attendance & Shift Records</h1>
-          <p className="page-subtitle">Track faculty front desk clock-ins and student lecture hall attendance</p>
+          <h1 className="page-title">{translateText('Attendance & Shift Records')}</h1>
+          <p className="page-subtitle">
+            {translateText('Track faculty front desk clock-ins and student lecture hall attendance')}
+          </p>
         </div>
         <div className="page-header-actions">
           <div style={{ display: 'inline-flex', background: 'var(--color-bg)', padding: '4px', borderRadius: 'var(--radius-sm)' }}>
             <button
+              type="button"
               className={`btn btn-sm ${activeTab === 'lecturers' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setActiveTab('lecturers')}
             >
-              <MdAccessTime /> Lecturer Shifts
+              <MdAccessTime /> {translateText('Lecturer Shifts')}
             </button>
             <button
+              type="button"
               className={`btn btn-sm ${activeTab === 'sessions' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setActiveTab('sessions')}
             >
-              <MdHowToReg /> Class Sessions
+              <MdHowToReg /> {translateText('Class Sessions')}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '1.25rem' }}>
-        <div className="card-body" style={{ padding: '0.75rem 1rem' }}>
-          <div style={{ position: 'relative', maxWidth: '380px' }}>
-            <MdSearch
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-muted)',
-                fontSize: '1.1rem',
-              }}
-            />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder={activeTab === 'lecturers' ? "Search shifts by lecturer, ID, department..." : "Search sessions by course, lecturer, batch..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        {activeTab === 'lecturers' ? (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Lecturer</th>
-                  <th>Department</th>
-                  <th>Clock In</th>
-                  <th>Clock Out</th>
-                  <th>Duration (Hours)</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shiftsLoading ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>Loading shifts...</td></tr>
-                ) : filteredShifts.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                      <div className="empty-state">
-                        <MdAccessTime className="empty-state-icon" />
-                        <div className="empty-state-title">No Shift Records Found</div>
-                        <div className="empty-state-text">Front desk shift registrations will appear here.</div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredShifts.map((shift) => {
-                    let duration = 'Active';
-                    if (shift.clock_out) {
-                      const diff = (new Date(shift.clock_out) - new Date(shift.clock_in)) / (1000 * 60 * 60);
-                      duration = `${diff.toFixed(2)} hrs`;
-                    }
-                    return (
-                      <tr key={shift.id}>
-                        <td>
-                          <strong>{shift.lecturers?.first_name} {shift.lecturers?.last_name}</strong>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                            ID: {shift.lecturers?.staff_id}
-                          </div>
-                        </td>
-                        <td>{shift.lecturers?.departments?.abbreviation || '—'}</td>
-                        <td>{new Date(shift.clock_in).toLocaleString()}</td>
-                        <td>{shift.clock_out ? new Date(shift.clock_out).toLocaleString() : '—'}</td>
-                        <td><strong>{duration}</strong></td>
-                        <td>
-                          <span className={`badge ${shift.status === 'open' ? 'badge-green' : 'badge-blue'}`}>
-                            {shift.status.toUpperCase()}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Course</th>
-                  <th>Batch / Cohort</th>
-                  <th>Lecturer</th>
-                  <th>Room</th>
-                  <th>Scheduled Time</th>
-                  <th>Topic</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessionsLoading ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>Loading sessions...</td></tr>
-                ) : filteredSessions.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                      <div className="empty-state">
-                        <MdHowToReg className="empty-state-icon" />
-                        <div className="empty-state-title">No Class Sessions Logged</div>
-                        <div className="empty-state-text">Sessions created by lecturers for attendance will show here.</div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSessions.map((s) => (
-                    <tr key={s.id}>
-                      <td>
-                        <code>{s.batch_courses?.courses?.code}</code>{' '}
-                        <strong>{s.batch_courses?.courses?.name}</strong>
-                      </td>
-                      <td>{s.batch_courses?.batches?.name}</td>
-                      <td>{s.lecturers?.first_name} {s.lecturers?.last_name}</td>
-                      <td>{s.room || 'General Hall'}</td>
-                      <td>{new Date(s.scheduled_start).toLocaleString()}</td>
-                      <td>{s.topic || '—'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {activeTab === 'lecturers' ? (
+        <DataTable
+          columns={shiftColumns}
+          data={shifts}
+          searchPlaceholder="Search shifts by lecturer, ID, department..."
+          emptyTitle="No Shift Records Found"
+          emptySubtitle="Front desk shift registrations will appear here."
+          pageSize={15}
+          exportable={true}
+          exportFileName="unhimas_lecturer_shifts"
+        />
+      ) : (
+        <DataTable
+          columns={sessionColumns}
+          data={sessions}
+          searchPlaceholder="Search sessions by course, lecturer, batch, room..."
+          emptyTitle="No Class Sessions Logged"
+          emptySubtitle="Sessions created by lecturers for attendance will show here."
+          pageSize={15}
+          exportable={true}
+          exportFileName="unhimas_class_sessions"
+        />
+      )}
     </AppLayout>
   );
 }

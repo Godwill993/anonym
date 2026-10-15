@@ -2,39 +2,66 @@
 
 :root {
   --color-primary: #112f42;
+  --color-primary-dark: #091a25;
+  --color-primary-light: #1e4763;
+  --color-primary-rgb: 17, 47, 66;
+
   --color-secondary: #b70032;
-  --color-bg: #f9f9fa;
+  --color-secondary-dark: #8e0027;
+  --color-secondary-light: #dc2626;
+  --color-secondary-rgb: 183, 0, 50;
+
+  --color-bg: #f8fafc;
   --color-surface: #ffffff;
-  --color-text: #1a1a1a;
+  --color-surface-hover: #f1f5f9;
+  --color-text: #0f172a;
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
-  
+
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
-  --color-info: #3b82f6;
+  --color-info: #0284c7;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
-  
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
 }
 
 [data-theme='dark'] {
-  --color-primary: #255d82;
-  --color-secondary: #d4003a;
-  --color-bg: #0b121e;
-  --color-surface: #152238;
-  --color-text: #f1f5f9;
-  --color-text-muted: #94a3b8;
-  --color-border: #24354f;
+  --color-primary: #38bdf8;
+  --color-primary-dark: #0284c7;
+  --color-primary-light: #7dd3fc;
+  --color-primary-rgb: 56, 189, 248;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --color-secondary: #f43f5e;
+  --color-secondary-dark: #e11d48;
+  --color-secondary-light: #fb7185;
+  --color-secondary-rgb: 244, 63, 94;
+
+  --color-bg: #090e17;
+  --color-surface: #121a29;
+  --color-surface-hover: #1b263b;
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-border: #1e293b;
+
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.65);
 }
 
 * {
@@ -45,6 +72,7 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 16px;
 }
 
 body {
@@ -54,29 +82,31 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
-  /* Very faint light-gray square grid pattern */
+
+  /* Subtle square grid pattern */
   background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.025) 1px, transparent 1px);
-  background-size: 36px 36px;
+    linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
 [data-theme='dark'] body {
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
-h1, h2, h3, .page-title, .auth-school-name, .sidebar-logo-name {
+h1, h2, h3, h4, .page-title, .auth-school-name, .sidebar-logo-name {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 a {
   color: var(--color-primary);
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color var(--transition-fast);
 }
 
 a:hover {
@@ -86,6 +116,8 @@ a:hover {
 button {
   cursor: pointer;
   font-family: inherit;
+  border: none;
+  background: transparent;
 }
 
 :focus-visible {
@@ -109,6 +141,14 @@ button {
   background: rgba(100, 116, 139, 0.45);
 }
 
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -125,4 +165,3 @@ button {
   margin: 0 auto;
   padding: 0 1rem;
 }
-

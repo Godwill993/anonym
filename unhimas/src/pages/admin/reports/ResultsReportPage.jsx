@@ -1,49 +1,139 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdAssignment, MdSearch, MdWarning, MdFileDownload } from 'react-icons/md';
+import { MdAssignment, MdGrade, MdCheckCircle } from 'react-icons/md';
 import AppLayout from '../../../components/layout/AppLayout';
+import DataTable from '../../../components/common/DataTable';
 import { getResultsReport } from '../../../services/adminReportsService';
-import { exportToCsv } from '../../../utils/exportUtils';
+import { useTranslation } from '../../../i18n';
 
 export default function ResultsReportPage() {
-  const [search, setSearch] = useState('');
-  const { data: report = [], isLoading, error } = useQuery({ queryKey: ['admin-results-report'], queryFn: getResultsReport });
-  const filtered = report.filter((item) => `${item.matricule} ${item.student_name} ${item.course_code} ${item.academic_year}`.toLowerCase().includes(search.toLowerCase()));
+  const { translateText } = useTranslation();
+  const { data: report = [], isLoading } = useQuery({
+    queryKey: ['admin-results-report'],
+    queryFn: getResultsReport,
+  });
 
-  const handleExport = () => {
-    const headers = [
-      { label: 'First Name', key: 'first_name' },
-      { label: 'Last Name', key: 'last_name' },
-      { label: 'Matricule', key: 'matricule' },
-      { label: 'Academic Year', key: 'academic_year' },
-      { label: 'Semester', key: 'semester' },
-      { label: 'Course Code', key: 'course_code' },
-      { label: 'Course Name', key: 'course_name' },
-      { label: 'Total Score', key: 'total_score' },
-      { label: 'Grade', key: 'grade' },
-      { label: 'Grade Point', key: 'grade_point' },
-    ];
-    exportToCsv('unhimas_published_results_report', headers, filtered);
-  };
+  const totalResults = report.length;
+  const avgScore = totalResults
+    ? (report.reduce((sum, item) => sum + Number(item.total_score || 0), 0) / totalResults).toFixed(1)
+    : '0.0';
+  const highPasses = report.filter((item) => item.grade === 'A' || item.grade === 'B').length;
+
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Student',
+        accessor: 'first_name',
+        sortValue: (r) => `${r.first_name} ${r.last_name}`,
+        render: (r) => <strong>{r.first_name} {r.last_name}</strong>,
+      },
+      {
+        header: 'Matricule',
+        accessor: 'matricule',
+        render: (r) => (
+          <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
+            {r.matricule}
+          </code>
+        ),
+      },
+      {
+        header: 'Academic Year',
+        accessor: 'academic_year',
+      },
+      {
+        header: 'Semester',
+        accessor: 'semester',
+      },
+      {
+        header: 'Course',
+        accessor: 'course_code',
+        render: (r) => (
+          <div>
+            <code style={{ fontWeight: 700, color: 'var(--color-primary)', marginRight: '6px' }}>{r.course_code}</code>
+            <span>{r.course_name}</span>
+          </div>
+        ),
+      },
+      {
+        header: 'Total Score',
+        accessor: 'total_score',
+        sortValue: (r) => Number(r.total_score || 0),
+        render: (r) => <strong>{r.total_score}</strong>,
+      },
+      {
+        header: 'Grade',
+        accessor: 'grade',
+        render: (r) => (
+          <span
+            className={`badge ${
+              r.grade === 'A' || r.grade === 'B'
+                ? 'badge-green'
+                : r.grade === 'C' || r.grade === 'D'
+                ? 'badge-blue'
+                : 'badge-red'
+            }`}
+          >
+            {r.grade}
+          </span>
+        ),
+      },
+      {
+        header: 'GPA Point',
+        accessor: 'grade_point',
+        sortValue: (r) => Number(r.grade_point || 0),
+        render: (r) => <strong>{r.grade_point}</strong>,
+      },
+    ],
+    []
+  );
 
   return (
     <AppLayout pageTitle="Results Report">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Results Report</h1>
-          <p className="page-subtitle">Published student results and academic-year summaries</p>
-        </div>
-        <div className="page-header-actions">
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={handleExport}
-            disabled={filtered.length === 0}
-          >
-            <MdFileDownload /> Export CSV
-          </button>
+          <h1 className="page-title">{translateText('Results Report')}</h1>
+          <p className="page-subtitle">
+            {translateText('Published student results and academic-year performance summaries')}
+          </p>
         </div>
       </div>
-      <div className="card"><div className="card-header"><div style={{ position: 'relative', width: 'min(100%, 360px)' }}><MdSearch style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} /><input className="form-input" style={{ paddingLeft: '2.25rem' }} placeholder="Search matricule, student, course or year" value={search} onChange={(event) => setSearch(event.target.value)} /></div></div>{isLoading ? <div className="empty-state">Loading report...</div> : error ? <div className="empty-state"><MdWarning className="empty-state-icon" /><div className="empty-state-title">Report unavailable</div><div className="empty-state-text">The results report could not be loaded.</div></div> : filtered.length === 0 ? <div className="empty-state"><MdAssignment className="empty-state-icon" /><div className="empty-state-title">No published results</div><div className="empty-state-text">Published results will appear here.</div></div> : <div className="table-wrapper"><table className="data-table"><thead><tr><th>Student</th><th>Matricule</th><th>Academic Year</th><th>Semester</th><th>Course</th><th>Total</th><th>Grade</th><th>GPA Point</th></tr></thead><tbody>{filtered.map((item, index) => <tr key={`${item.student_id}-${item.course_id}-${item.semester_id}-${index}`}><td><strong>{item.first_name} {item.last_name}</strong></td><td><code>{item.matricule}</code></td><td>{item.academic_year}</td><td>{item.semester}</td><td><code>{item.course_code}</code> {item.course_name}</td><td><strong>{item.total_score}</strong></td><td><span className={`badge ${item.grade === 'A' || item.grade === 'B' ? 'badge-green' : item.grade === 'C' || item.grade === 'D' ? 'badge-blue' : 'badge-red'}`}>{item.grade}</span></td><td><strong>{item.grade_point}</strong></td></tr>)}</tbody></table></div>}</div>
+
+      {/* KPI Stats */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-card-icon blue"><MdAssignment /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{totalResults}</div>
+            <div className="stat-card-label">{translateText('Published Results')}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon green"><MdGrade /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{avgScore} / 100</div>
+            <div className="stat-card-label">{translateText('Average Score')}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-icon amber"><MdCheckCircle /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{highPasses}</div>
+            <div className="stat-card-label">{translateText('Distinction / High Passes (A & B)')}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table */}
+      <DataTable
+        columns={columns}
+        data={report}
+        searchPlaceholder="Search matricule, student, course or academic year..."
+        emptyTitle="No published results"
+        emptySubtitle="Published results will appear here once approved marksheets are published."
+        pageSize={15}
+        exportable={true}
+        exportFileName="unhimas_published_results_report"
+      />
     </AppLayout>
   );
 }
