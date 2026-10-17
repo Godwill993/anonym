@@ -272,6 +272,91 @@ export async function markAllPresent(sessionId, studentIds, markedBy) {
   return data || [];
 }
 
+export async function submitSessionAttendance({ sessionId, unmarkedStudentIds = [], profileId = null }) {
+  const now = new Date().toISOString();
+
+  // If there are any unmarked students, record them as absent
+  if (unmarkedStudentIds.length > 0) {
+    const absentRows = unmarkedStudentIds.map((sid) => ({
+      session_id: sessionId,
+      student_id: sid,
+      status: 'absent',
+      marked_at: now,
+      marked_by: profileId,
+      updated_at: now,
+    }));
+    const { error: attError } = await supabase
+      .from('attendance')
+      .upsert(absentRows, { onConflict: 'session_id,student_id' });
+    if (attError) throw attError;
+  }
+
+  // Update session with actual_end to mark attendance finalized
+  const { data: sessionData, error: sGetErr } = await supabase
+    .from('class_sessions')
+    .select('actual_start, scheduled_start')
+    .eq('id', sessionId)
+    .single();
+  if (sGetErr) throw sGetErr;
+
+  const actualStart = sessionData.actual_start || sessionData.scheduled_start || now;
+
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .update({
+      actual_start: actualStart,
+      actual_end: now,
+    })
+    .eq('id', sessionId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function calculateAttendanceScoresForBatchCourse(batchCourseId, attendanceMax = 5) {
+  const { data: sessions, error: sessError } = await supabase
+    .from('class_sessions')
+    .select('id')
+    .eq('batch_course_id', batchCourseId);
+  if (sessError) throw sessError;
+
+  const sessionIds = (sessions || []).map((s) => s.id);
+  if (sessionIds.length === 0) return {};
+
+  const { data: records, error: recError } = await supabase
+    .from('attendance')
+    .select('student_id, status, marked_at')
+    .in('session_id', sessionIds);
+  if (recError) throw recError;
+
+  const studentStats = {};
+  (records || []).forEach((r) => {
+    if (!r.marked_at) return;
+    if (!studentStats[r.student_id]) {
+      studentStats[r.student_id] = { total: 0, attended: 0 };
+    }
+    studentStats[r.student_id].total++;
+    if (r.status === 'present' || r.status === 'late') {
+      studentStats[r.student_id].attended++;
+    }
+  });
+
+  const scores = {};
+  Object.keys(studentStats).forEach((studentId) => {
+    const { total, attended } = studentStats[studentId];
+    if (total === 0) {
+      scores[studentId] = 0;
+    } else {
+      const calculated = (attended / total) * attendanceMax;
+      scores[studentId] = Number(Math.min(attendanceMax, Math.max(0, calculated)).toFixed(1));
+    }
+  });
+
+  return scores;
+}
+
 // ============================================================
 // MY HOURS
 // ============================================================

@@ -137,6 +137,7 @@ export default function LecturerHoursReportPage() {
       <DataTable
         columns={columns}
         data={report}
+        isLoading={isLoading}
         searchPlaceholder="Search by lecturer name or staff ID..."
         emptyTitle="No hours recorded"
         emptySubtitle="Lecturer shift hours will appear here once clocked in/out at the front desk."

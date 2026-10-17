@@ -127,6 +127,7 @@ export default function ResultsReportPage() {
       <DataTable
         columns={columns}
         data={report}
+        isLoading={isLoading}
         searchPlaceholder="Search matricule, student, course or academic year..."
         emptyTitle="No published results"
         emptySubtitle="Published results will appear here once approved marksheets are published."

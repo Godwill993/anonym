@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdAnalytics, MdCheckCircle, MdCancel } from 'react-icons/md';
+import { MdAnalytics, MdCheckCircle } from 'react-icons/md';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../../../components/layout/AppLayout';
 import DataTable from '../../../components/common/DataTable';
@@ -173,6 +173,7 @@ export default function CoursePerformanceReportPage() {
       <DataTable
         columns={columns}
         data={report}
+        isLoading={isLoading}
         searchPlaceholder="Search course code or course name..."
         emptyTitle="No performance data available"
         emptySubtitle="Published results will populate performance metrics here."

@@ -7,10 +7,13 @@ import {
   MdCheckCircle,
   MdSchedule,
   MdPeopleAlt,
+  MdSend,
+  MdFactCheck,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import {
   getMyLecturerProfile,
@@ -21,6 +24,7 @@ import {
   getStudentsInBatch,
   upsertAttendance,
   markAllPresent,
+  submitSessionAttendance,
 } from '../../services/lecturerService';
 
 const STATUS_OPTS = ['present', 'absent', 'late', 'excused'];
@@ -50,6 +54,7 @@ export default function LecturerSessionsPage() {
   const [selectedBcId, setSelectedBcId] = useState(initialBc);
   const [selectedSessionId, setSelectedSessionId] = useState(initialSession);
   const [newSessionModal, setNewSessionModal] = useState(false);
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [newSessionForm, setNewSessionForm] = useState({
     scheduled_start: '', scheduled_end: '', room: '', topic: '', notes: '',
   });
@@ -169,6 +174,31 @@ export default function LecturerSessionsPage() {
       refetchSessions();
     },
     onError: (err) => showToast(err.message || 'Failed to create session', 'error'),
+  });
+
+  const submitAttendanceMutation = useMutation({
+    mutationFn: () => {
+      const unmarked = students
+        .filter((s) => !attendanceByStudent.get(s.id)?.marked_at)
+        .map((s) => s.id);
+      return submitSessionAttendance({
+        sessionId: activeSessionId,
+        unmarkedStudentIds: unmarked,
+        profileId: profile?.id,
+      });
+    },
+    onSuccess: () => {
+      showToast('Session attendance submitted successfully.', 'success');
+      setSubmitModalOpen(false);
+      refetchSessions();
+      queryClient.invalidateQueries({ queryKey: attendanceQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['my-attendance-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['student-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+    },
+    onError: (err) => {
+      showToast(err.message || 'Failed to submit attendance', 'error');
+    },
   });
 
   const markAllPresentFn = () => {
@@ -335,18 +365,38 @@ export default function LecturerSessionsPage() {
                 </div>
 
                 <div className="card">
-                  <div className="card-header">
-                    <span className="card-title">
-                      <MdPeopleAlt style={{ verticalAlign: 'middle', marginRight: 6 }} />
-                      {selectedSession && fmtDT(selectedSession.scheduled_start)}
-                    </span>
-                    <button
-                      className="btn btn-outline btn-sm"
-                      onClick={markAllPresentFn}
-                      disabled={markAllMutation.isPending || students.length === 0 || studentsLoading || attLoading}
-                    >
-                      <MdCheckCircle /> {markAllMutation.isPending ? 'Marking…' : 'Mark All Present'}
-                    </button>
+                  <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <span className="card-title" style={{ margin: 0 }}>
+                        <MdPeopleAlt style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                        {selectedSession && fmtDT(selectedSession.scheduled_start)}
+                      </span>
+                      {selectedSession?.actual_end ? (
+                        <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <MdCheckCircle /> Attendance Finalized
+                        </span>
+                      ) : (
+                        <span className="badge badge-amber">
+                          Draft / Unsubmitted
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={markAllPresentFn}
+                        disabled={markAllMutation.isPending || students.length === 0 || studentsLoading || attLoading}
+                      >
+                        <MdCheckCircle /> {markAllMutation.isPending ? 'Marking…' : 'Mark All Present'}
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setSubmitModalOpen(true)}
+                        disabled={submitAttendanceMutation.isPending || students.length === 0 || studentsLoading || attLoading}
+                      >
+                        <MdSend /> {selectedSession?.actual_end ? 'Resubmit Attendance' : 'Submit Attendance'}
+                      </button>
+                    </div>
                   </div>
                   <div className="table-wrapper">
                     {attLoading ? (
@@ -508,6 +558,99 @@ export default function LecturerSessionsPage() {
           </div>
         </Modal>
       )}
+
+      {/* Submit Attendance Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={submitModalOpen}
+        onClose={() => setSubmitModalOpen(false)}
+        onConfirm={() => submitAttendanceMutation.mutate()}
+        title={selectedSession?.actual_end ? 'Resubmit Session Attendance' : 'Submit Session Attendance'}
+        confirmLabel={selectedSession?.actual_end ? 'Confirm & Resubmit' : 'Confirm & Submit Attendance'}
+        variant="success"
+        icon={<MdFactCheck />}
+        isLoading={submitAttendanceMutation.isPending}
+        maxWidth="500px"
+      >
+        <div style={{ marginTop: '0.75rem' }}>
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              background: 'rgba(17, 47, 66, 0.04)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '1rem',
+              fontSize: '0.8125rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.25rem',
+            }}
+          >
+            <div><strong>Course:</strong> {selectedCourse?.courses?.code} — {selectedCourse?.courses?.name}</div>
+            <div><strong>Batch:</strong> {selectedCourse?.batches?.name}</div>
+            <div><strong>Scheduled:</strong> {selectedSession && fmtDT(selectedSession.scheduled_start)}</div>
+            {selectedSession?.room && <div><strong>Room:</strong> {selectedSession.room}</div>}
+            {selectedSession?.topic && <div><strong>Topic:</strong> {selectedSession.topic}</div>}
+          </div>
+
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+            Attendance Register Summary:
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '0.5rem',
+              marginBottom: '1rem',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary)' }}>{totalStu}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Enrolled</div>
+            </div>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>{present}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Present</div>
+            </div>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#b45309' }}>{late}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Late</div>
+            </div>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-secondary)' }}>{absent}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Absent</div>
+            </div>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text-muted)' }}>{excused}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Excused</div>
+            </div>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: unrecorded > 0 ? '#b45309' : '#059669' }}>{unrecorded}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Not Marked</div>
+            </div>
+          </div>
+
+          {unrecorded > 0 && (
+            <div
+              style={{
+                padding: '0.6rem 0.75rem',
+                background: 'rgba(245, 158, 11, 0.1)',
+                borderLeft: '3px solid #d97706',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                color: '#b45309',
+                marginBottom: '0.75rem',
+                fontWeight: 600,
+              }}
+            >
+              Note: {unrecorded} unmarked student(s) will automatically be recorded as Absent upon submission.
+            </div>
+          )}
+
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: 0 }}>
+            Submitting this attendance will finalize the attendance register for this session, calculate session hours, and immediately update student attendance analytics.
+          </p>
+        </div>
+      </ConfirmDialog>
     </AppLayout>
   );
 }

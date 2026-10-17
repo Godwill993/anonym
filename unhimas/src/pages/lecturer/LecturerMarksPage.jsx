@@ -7,11 +7,12 @@ import {
   MdSend,
   MdWarning,
   MdInfo,
-  MdClose,
+  MdFactCheck,
+  MdCheckCircle,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
-import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import {
   getMyLecturerProfile,
@@ -22,6 +23,7 @@ import {
   upsertMark,
   submitMarkSubmission,
   resubmitMarkSubmission,
+  calculateAttendanceScoresForBatchCourse,
 } from '../../services/lecturerService';
 import { getSystemSettings } from '../../services/operationsService';
 import { hasInvalidMarkScore, mergeMarkScores } from '../../lib/markScores';
@@ -124,6 +126,8 @@ export default function LecturerMarksPage() {
   const [selectedBcId, setSelectedBcId] = useState(initialBc);
   const [localScores, setLocalScores] = useState({});   // { studentId: { attendance_score, coursework_score, exam_score } }
   const [submitModal, setSubmitModal] = useState(false);
+  const [syncAttModalOpen, setSyncAttModalOpen] = useState(false);
+  const [syncingAtt, setSyncingAtt] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Lecturer profile
@@ -305,6 +309,51 @@ export default function LecturerMarksPage() {
     return { grade: 'F', gp: 0.0, cls: 'badge-red' };
   };
 
+  const handleSyncAttendance = async () => {
+    if (!selectedBcId) return;
+    setSyncingAtt(true);
+    try {
+      const scores = await calculateAttendanceScoresForBatchCourse(selectedBcId, ATT_MAX);
+      const updatedCount = Object.keys(scores).length;
+      if (updatedCount === 0) {
+        showToast('No submitted attendance records found for this course yet.', 'info');
+        setSyncAttModalOpen(false);
+        return;
+      }
+      setLocalScores((prev) => {
+        const next = { ...prev };
+        Object.entries(scores).forEach(([studentId, attScore]) => {
+          next[studentId] = {
+            ...(next[studentId] || {}),
+            attendance_score: attScore,
+          };
+        });
+        return next;
+      });
+      showToast(`Calculated attendance marks for ${updatedCount} student(s) from class registers. Remember to save or submit.`, 'success');
+      setSyncAttModalOpen(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to sync attendance', 'error');
+    } finally {
+      setSyncingAtt(false);
+    }
+  };
+
+  const avgScore = useMemo(() => {
+    if (students.length === 0) return '0.0';
+    const total = students.reduce((acc, stu) => acc + getTotal(stu.id), 0);
+    return (total / students.length).toFixed(1);
+  }, [students, localScores, existingMarksMap]);
+
+  const passCount = useMemo(() => {
+    return students.filter((stu) => {
+      const total = getTotal(stu.id);
+      return getGrade(total).grade !== 'F';
+    }).length;
+  }, [students, localScores, existingMarksMap]);
+
+  const failCount = students.length - passCount;
+
   const hasErrors = students.some((stu) => {
     return hasInvalidMarkScore(getStudentScores(stu.id), ATT_MAX, CW_MAX, EXAM_MAX);
   });
@@ -378,16 +427,24 @@ export default function LecturerMarksPage() {
 
           {/* Actions */}
           {canEdit && (
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setSyncAttModalOpen(true)}
+                disabled={saving || loading || students.length === 0}
+                title="Calculate attendance marks from verified class registers"
+              >
+                <MdFactCheck /> Sync Attendance Scores
+              </button>
               <button className="btn btn-outline btn-sm" onClick={handleSaveAllMarks} disabled={saving || hasErrors}>
-                <MdSave /> {saving ? 'Saving…' : 'Save All'}
+                <MdSave /> {saving ? 'Saving…' : 'Save All Marks'}
               </button>
               <button
                 className="btn btn-primary btn-sm"
                 onClick={() => setSubmitModal(true)}
                 disabled={saving || hasErrors || students.length === 0}
               >
-                <MdSend /> Submit for Review
+                <MdSend /> {submission?.status === 'returned' ? 'Resubmit for Review' : 'Submit for Review'}
               </button>
             </div>
           )}
@@ -497,33 +554,127 @@ export default function LecturerMarksPage() {
             </div>
           )}
 
-          {/* Submit Modal */}
-          {submitModal && (
-            <Modal title="Submit Marks for Review" onClose={() => setSubmitModal(false)}>
-              <div>
-                <p style={{ marginBottom: '1rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                  You are about to submit marks for{' '}
-                  <strong>{selectedCourse?.courses?.code} — {selectedCourse?.courses?.name}</strong>.
-                </p>
-                <div className="auth-alert" style={{ borderRadius: 'var(--radius-sm)', background: 'rgba(17,47,66,0.06)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
-                  <MdInfo />
-                  After submission, you will not be able to edit marks until the administrator returns them.
-                </div>
-                <div className="modal-footer" style={{ marginTop: '1.5rem', padding: 0 }}>
-                  <button className="btn btn-outline" onClick={() => setSubmitModal(false)} disabled={submitMutation.isPending}>
-                    <MdClose /> Cancel
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => submitMutation.mutate()}
-                    disabled={submitMutation.isPending}
-                  >
-                    <MdSend /> {submitMutation.isPending ? 'Submitting…' : 'Confirm Submission'}
-                  </button>
+          {/* Submit Confirmation Dialog */}
+          <ConfirmDialog
+            isOpen={submitModal}
+            onClose={() => setSubmitModal(false)}
+            onConfirm={() => submitMutation.mutate()}
+            title={submission?.status === 'returned' ? 'Resubmit Corrected Marks for Review' : 'Submit Marks for Review'}
+            confirmLabel={submission?.status === 'returned' ? 'Confirm Resubmission' : 'Confirm & Submit Marks'}
+            variant="primary"
+            icon={<MdSend />}
+            isLoading={submitMutation.isPending}
+            maxWidth="520px"
+          >
+            <div style={{ marginTop: '0.75rem' }}>
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  background: 'rgba(17, 47, 66, 0.04)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: '1rem',
+                  fontSize: '0.8125rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                }}
+              >
+                <div><strong>Course:</strong> {selectedCourse?.courses?.code} — {selectedCourse?.courses?.name}</div>
+                <div><strong>Batch:</strong> {selectedCourse?.batches?.name}</div>
+                <div><strong>Credits:</strong> {selectedCourse?.courses?.credit_units || 3} CU</div>
+                <div>
+                  <strong>Current Status:</strong>{' '}
+                  <span className={`badge ${submission?.status === 'returned' ? 'badge-red' : 'badge-gray'}`}>
+                    {submission?.status?.toUpperCase()}
+                  </span>
                 </div>
               </div>
-            </Modal>
-          )}
+
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                Marksheet Performance Summary:
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '0.5rem',
+                  marginBottom: '1rem',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary)' }}>{students.length}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Students</div>
+                </div>
+                <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary)' }}>{avgScore}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Class Avg /100</div>
+                </div>
+                <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>{passCount}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Passing (A–D)</div>
+                </div>
+                <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.5rem' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: failCount > 0 ? 'var(--color-secondary)' : 'var(--color-text-muted)' }}>{failCount}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Failing (F)</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '0.75rem',
+                  background: 'rgba(17,47,66,0.06)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',
+                  color: 'var(--color-text-muted)',
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <MdInfo size={18} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    Once submitted, all scores are committed to the examination registry and locked from further edits. The mark sheet moves to administrator review for official approval and publishing.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ConfirmDialog>
+
+          {/* Sync Attendance Scores Confirmation Dialog */}
+          <ConfirmDialog
+            isOpen={syncAttModalOpen}
+            onClose={() => setSyncAttModalOpen(false)}
+            onConfirm={handleSyncAttendance}
+            title="Sync Attendance Scores from Registers"
+            confirmLabel={syncingAtt ? 'Calculating…' : 'Calculate & Fill Scores'}
+            variant="primary"
+            icon={<MdFactCheck />}
+            isLoading={syncingAtt}
+            maxWidth="480px"
+          >
+            <div style={{ marginTop: '0.75rem' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', lineHeight: 1.6, margin: 0 }}>
+                This will read all conducted class session registers for <strong>{selectedCourse?.courses?.code}</strong> and compute each student's attendance score out of <strong>{ATT_MAX}</strong> based on their verified attendance percentage.
+              </p>
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.6rem 0.75rem',
+                  background: 'rgba(17, 47, 66, 0.05)',
+                  borderLeft: '3px solid var(--color-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text)',
+                }}
+              >
+                Formula: <code>(Attended Sessions / Total Sessions) × {ATT_MAX}</code>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.75rem', marginBottom: 0 }}>
+                Existing scores for coursework and final exam will not be changed.
+              </p>
+            </div>
+          </ConfirmDialog>
         </>
       )}
     </AppLayout>
