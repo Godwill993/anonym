@@ -167,7 +167,7 @@ export default function FrontDeskDashboard() {
       </div>
 
       {/* Main Register & Live Status */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1fr)', gap: '1.25rem' }}>
+      <div className="frontdesk-dashboard-grid">
         {/* Left Column: Interactive Register Table */}
         <div className="card">
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>

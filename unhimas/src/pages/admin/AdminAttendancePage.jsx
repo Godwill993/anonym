@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdHowToReg, MdAccessTime, MdPeople } from 'react-icons/md';
+import { MdHowToReg, MdAccessTime } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import DataTable from '../../components/common/DataTable';
 import { supabase } from '../../lib/supabase';
@@ -210,6 +210,7 @@ export default function AdminAttendancePage() {
         <DataTable
           columns={shiftColumns}
           data={shifts}
+          isLoading={shiftsLoading}
           searchPlaceholder="Search shifts by lecturer, ID, department..."
           emptyTitle="No Shift Records Found"
           emptySubtitle="Front desk shift registrations will appear here."
@@ -221,6 +222,7 @@ export default function AdminAttendancePage() {
         <DataTable
           columns={sessionColumns}
           data={sessions}
+          isLoading={sessionsLoading}
           searchPlaceholder="Search sessions by course, lecturer, batch, room..."
           emptyTitle="No Class Sessions Logged"
           emptySubtitle="Sessions created by lecturers for attendance will show here."

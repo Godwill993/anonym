@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdBook, MdSearch, MdEdit, MdToggleOn, MdToggleOff } from 'react-icons/md';
+import { MdAdd, MdBook, MdEdit, MdToggleOn, MdToggleOff } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import DataTable from '../../components/common/DataTable';
 import { toast } from '../../components/common/Toast';
 import {
   getCourses,
@@ -13,7 +14,6 @@ import {
 
 export default function CoursesPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -114,15 +114,77 @@ export default function CoursesPage() {
   };
 
   const filteredCourses = courses.filter((c) => {
-    const s = search.toLowerCase();
-    const matchSearch =
-      c.code.toLowerCase().includes(s) ||
-      c.name.toLowerCase().includes(s) ||
-      (c.departments?.name && c.departments.name.toLowerCase().includes(s));
-
-    const matchDept = deptFilter ? c.department_id === deptFilter : true;
-    return matchSearch && matchDept;
+    if (!deptFilter) return true;
+    return c.department_id === deptFilter;
   });
+
+  const columns = [
+    {
+      key: 'code',
+      header: 'Course Code',
+      sortable: true,
+      render: (row) => (
+        <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '3px 8px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
+          {row.code}
+        </code>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Course Title',
+      sortable: true,
+      render: (row) => <strong>{row.name}</strong>,
+    },
+    {
+      key: 'department',
+      header: 'Department',
+      sortable: true,
+      accessor: (row) => `${row.departments?.name || ''} (${row.departments?.abbreviation || ''})`,
+    },
+    {
+      key: 'credit_units',
+      header: 'Credit Units',
+      sortable: true,
+      render: (row) => <span className="badge badge-blue">{row.credit_units} Credits</span>,
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      render: (row) => (
+        <span className={`badge ${row.is_active ? 'badge-green' : 'badge-gray'}`}>
+          {row.is_active ? 'Active' : 'Archived'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (row) => (
+        <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+          <button
+            className="btn-icon"
+            title="Edit course"
+            onClick={() => handleOpenEdit(row)}
+          >
+            <MdEdit />
+          </button>
+          <button
+            className="btn-icon"
+            title={row.is_active ? 'Deactivate' : 'Activate'}
+            onClick={() => handleToggleStatus(row)}
+          >
+            {row.is_active ? (
+              <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} />
+            ) : (
+              <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />
+            )}
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AppLayout pageTitle="Curriculum Courses">
@@ -139,33 +201,13 @@ export default function CoursesPage() {
       </div>
 
       <div className="card">
-        <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
-            <MdSearch
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-muted)',
-                fontSize: '1.1rem',
-              }}
-            />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search courses by code or name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div style={{ minWidth: '180px' }}>
+        <div style={{ padding: '1rem 1.25rem 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ minWidth: '220px' }}>
             <select
               className="form-input"
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
+              aria-label="Filter by department"
             >
               <option value="">All Departments</option>
               {departments.map((d) => (
@@ -177,81 +219,25 @@ export default function CoursesPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Course Code</th>
-                <th>Course Title</th>
-                <th>Department</th>
-                <th>Credit Units</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading courses...
-                  </td>
-                </tr>
-              ) : filteredCourses.length === 0 ? (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="empty-state">
-                      <MdBook className="empty-state-icon" />
-                      <div className="empty-state-title">No Courses Found</div>
-                      <div className="empty-state-text">
-                        Add courses to your academic department (e.g. SWE 101, CEN 205).
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredCourses.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '3px 8px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {c.code}
-                      </code>
-                    </td>
-                    <td>
-                      <strong>{c.name}</strong>
-                    </td>
-                    <td>{c.departments?.name} ({c.departments?.abbreviation})</td>
-                    <td>
-                      <span className="badge badge-blue">{c.credit_units} Credits</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${c.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {c.is_active ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                        <button
-                          className="btn-icon"
-                          title="Edit course"
-                          onClick={() => handleOpenEdit(c)}
-                        >
-                          <MdEdit />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title={c.is_active ? 'Deactivate' : 'Activate'}
-                          onClick={() => handleToggleStatus(c)}
-                        >
-                          {c.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filteredCourses}
+          isLoading={isLoading}
+          searchPlaceholder="Search courses by code, title, department..."
+          searchFilter={(item, query) => {
+            const q = query.toLowerCase();
+            return (
+              item.code?.toLowerCase().includes(q) ||
+              item.name?.toLowerCase().includes(q) ||
+              item.departments?.name?.toLowerCase().includes(q) ||
+              item.departments?.abbreviation?.toLowerCase().includes(q)
+            );
+          }}
+          exportFileName="unhimas_courses"
+          emptyTitle="No Courses Found"
+          emptySubtitle="Add courses to your academic department (e.g. SWE 101, CEN 205)."
+          emptyIcon={<MdBook />}
+        />
       </div>
 
       {/* Modal */}

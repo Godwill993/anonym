@@ -322,9 +322,50 @@ export default function MarkApprovalPage() {
                 </div>
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
+              <>
+                {(() => {
+                  const totalStudents = detailData.marks.length;
+                  const scoredMarks = detailData.marks.filter((m) => m.total_score != null);
+                  const avgScore = scoredMarks.length > 0
+                    ? (scoredMarks.reduce((sum, m) => sum + Number(m.total_score), 0) / scoredMarks.length).toFixed(1)
+                    : '—';
+                  const passCount = detailData.marks.filter((m) => m.grade && m.grade !== 'F').length;
+                  const failCount = detailData.marks.filter((m) => m.grade === 'F').length;
+                  const passRate = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
+
+                  return (
+                    <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
+                      <div className="stat-card">
+                        <div className="stat-card-body">
+                          <div className="stat-card-value">{totalStudents}</div>
+                          <div className="stat-card-label">Assessed Students</div>
+                        </div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="stat-card-body">
+                          <div className="stat-card-value" style={{ color: 'var(--color-primary)' }}>{avgScore} / 100</div>
+                          <div className="stat-card-label">Class Average</div>
+                        </div>
+                      </div>
+                      <div className="stat-card" style={{ borderLeft: '3px solid #10B981' }}>
+                        <div className="stat-card-body">
+                          <div className="stat-card-value" style={{ color: '#059669' }}>{passCount} ({passRate}%)</div>
+                          <div className="stat-card-label">Passing Grades (A–D)</div>
+                        </div>
+                      </div>
+                      <div className="stat-card" style={{ borderLeft: failCount > 0 ? '3px solid var(--color-secondary)' : '3px solid var(--color-border)' }}>
+                        <div className="stat-card-body">
+                          <div className="stat-card-value" style={{ color: failCount > 0 ? 'var(--color-secondary)' : 'inherit' }}>{failCount}</div>
+                          <div className="stat-card-label">Failing Grades (F)</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="table-wrapper">
+                  <table className="data-table">
+                    <thead>
                     <tr>
                       <th>Matricule</th>
                       <th>Student Name</th>
@@ -381,8 +422,9 @@ export default function MarkApprovalPage() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </>
+          )}
+        </div>
         </div>
       )}
 

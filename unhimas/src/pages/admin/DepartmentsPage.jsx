@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdApartment, MdEdit, MdToggleOn, MdToggleOff, MdSearch } from 'react-icons/md';
+import { MdAdd, MdApartment, MdEdit, MdToggleOn, MdToggleOff } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import DataTable from '../../components/common/DataTable';
 import { toast } from '../../components/common/Toast';
 import {
   getDepartments,
@@ -12,7 +13,6 @@ import {
 
 export default function DepartmentsPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
 
@@ -105,14 +105,94 @@ export default function DepartmentsPage() {
     });
   };
 
-  const filteredDepts = departments.filter((d) => {
-    const s = search.toLowerCase();
-    return (
-      d.name.toLowerCase().includes(s) ||
-      d.abbreviation.toLowerCase().includes(s) ||
-      (d.code && d.code.toLowerCase().includes(s))
-    );
-  });
+  const columns = [
+    {
+      key: 'name',
+      header: 'Department Name',
+      sortable: true,
+      render: (row) => (
+        <div>
+          <strong>{row.name}</strong>
+          {row.description && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+              {row.description}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'abbreviation',
+      header: 'Abbreviation',
+      sortable: true,
+      render: (row) => <span className="badge badge-blue">{row.abbreviation}</span>,
+    },
+    {
+      key: 'code',
+      header: 'Code',
+      sortable: true,
+      render: (row) => (
+        <code style={{ fontSize: '0.8rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px' }}>
+          {row.code || '—'}
+        </code>
+      ),
+    },
+    {
+      key: 'batches',
+      header: 'Batches',
+      sortable: true,
+      accessor: (row) => row.batches?.[0]?.count ?? 0,
+    },
+    {
+      key: 'courses',
+      header: 'Courses',
+      sortable: true,
+      accessor: (row) => row.courses?.[0]?.count ?? 0,
+    },
+    {
+      key: 'lecturers',
+      header: 'Faculty Lecturers',
+      sortable: true,
+      accessor: (row) => row.lecturers?.[0]?.count ?? 0,
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      render: (row) => (
+        <span className={`badge ${row.is_active ? 'badge-green' : 'badge-gray'}`}>
+          {row.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (row) => (
+        <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+          <button
+            className="btn-icon"
+            title="Edit department"
+            onClick={() => handleOpenEdit(row)}
+          >
+            <MdEdit />
+          </button>
+          <button
+            className="btn-icon"
+            title={row.is_active ? 'Deactivate' : 'Activate'}
+            onClick={() => handleToggleStatus(row)}
+          >
+            {row.is_active ? (
+              <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} />
+            ) : (
+              <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />
+            )}
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AppLayout pageTitle="Departments">
@@ -129,116 +209,24 @@ export default function DepartmentsPage() {
       </div>
 
       <div className="card">
-        <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ position: 'relative', minWidth: '260px', flex: '1 1 200px' }}>
-            <MdSearch
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-muted)',
-                fontSize: '1.1rem',
-              }}
-            />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search departments by name, code or abbreviation..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-            Total: <strong>{departments.length}</strong> departments
-          </div>
-        </div>
-
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Department Name</th>
-                <th>Abbreviation</th>
-                <th>Code</th>
-                <th>Batches</th>
-                <th>Courses</th>
-                <th>Faculty Lecturers</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading departments...
-                  </td>
-                </tr>
-              ) : filteredDepts.length === 0 ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="empty-state">
-                      <MdApartment className="empty-state-icon" />
-                      <div className="empty-state-title">No Departments Found</div>
-                      <div className="empty-state-text">
-                        Create your first academic department to begin building curricula.
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredDepts.map((dept) => (
-                  <tr key={dept.id}>
-                    <td>
-                      <strong>{dept.name}</strong>
-                      {dept.description && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {dept.description}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className="badge badge-blue">{dept.abbreviation}</span>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.8rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px' }}>
-                        {dept.code || '—'}
-                      </code>
-                    </td>
-                    <td>{dept.batches?.[0]?.count ?? 0}</td>
-                    <td>{dept.courses?.[0]?.count ?? 0}</td>
-                    <td>{dept.lecturers?.[0]?.count ?? 0}</td>
-                    <td>
-                      <span className={`badge ${dept.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {dept.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                        <button
-                          className="btn-icon"
-                          title="Edit department"
-                          onClick={() => handleOpenEdit(dept)}
-                        >
-                          <MdEdit />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title={dept.is_active ? 'Deactivate' : 'Activate'}
-                          onClick={() => handleToggleStatus(dept)}
-                        >
-                          {dept.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={departments}
+          isLoading={isLoading}
+          searchPlaceholder="Search departments by name, code or abbreviation..."
+          searchFilter={(item, query) => {
+            const q = query.toLowerCase();
+            return (
+              item.name?.toLowerCase().includes(q) ||
+              item.abbreviation?.toLowerCase().includes(q) ||
+              item.code?.toLowerCase().includes(q)
+            );
+          }}
+          exportFileName="unhimas_departments"
+          emptyTitle="No Departments Found"
+          emptySubtitle="Create your first academic department to begin building curricula."
+          emptyIcon={<MdApartment />}
+        />
       </div>
 
       {/* Add / Edit Department Modal */}

@@ -260,7 +260,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Visual Analytics & Breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.25rem', marginBottom: '1.5rem' }}>
+      <div className="admin-dashboard-grid-2-1">
         {/* Department Enrollment Bar Chart */}
         <div className="card">
           <div className="card-header">
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Two-Column Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '1.25rem' }}>
+      <div className="admin-dashboard-grid-1-4-1">
         {/* Left Column: Live Presence & Mark Approval Queue */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Live Lecturer Presence */}

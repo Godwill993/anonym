@@ -108,6 +108,10 @@ export default function Header({ onMenuClick, pageTitle }) {
 
         {/* Breadcrumb / page title */}
         <div className="header-breadcrumb" aria-label={translateText('Breadcrumb')}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+            {translateText(ROLE_LABELS[role] || 'Portal')}
+          </span>
+          <span style={{ color: 'var(--color-border)', margin: '0 0.2rem' }}>/</span>
           <span className="breadcrumb-title">{translateText(pageTitle || 'Dashboard')}</span>
         </div>
 
@@ -123,11 +127,12 @@ export default function Header({ onMenuClick, pageTitle }) {
           <input
             type="search"
             className="header-search-input"
-            placeholder={translateText('Search... (Ctrl+K)')}
+            placeholder={translateText('Search...')}
             aria-label={translateText('Search')}
             readOnly
             onClick={() => setSearchOpen(true)}
           />
+          <kbd className="header-search-kbd">Ctrl K</kbd>
         </div>
 
       {/* Action buttons */}

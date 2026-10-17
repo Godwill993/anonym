@@ -1,9 +1,24 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
 import { NAV_CONFIG } from '../../constants/navConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
+
+const ROLE_PROFILE_PATHS = {
+  admin: '/admin/profile',
+  frontdesk: '/frontdesk/profile',
+  lecturer: '/lecturer/profile',
+  student: '/student/profile',
+};
+
+const ROLE_LABELS = {
+  admin: 'Administrator',
+  frontdesk: 'Front Desk',
+  lecturer: 'Lecturer',
+  student: 'Student',
+};
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const { profile } = useAuth();
@@ -11,6 +26,30 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   const role = profile?.role || 'student';
   const navGroups = NAV_CONFIG[role] || [];
   const location = useLocation();
+
+  // Accessibility: Close on Escape & lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onMobileClose?.();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileOpen, onMobileClose]);
+
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : (profile?.email ? profile.email[0].toUpperCase() : '?');
+
+  const profilePath = ROLE_PROFILE_PATHS[role] || '/';
 
   return (
     <>
@@ -62,6 +101,21 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             </div>
           ))}
         </nav>
+
+        {/* User profile footer */}
+        <Link
+          to={profilePath}
+          className="sidebar-user-footer"
+          onClick={onMobileClose}
+          title={collapsed ? profile?.full_name || translateText('Profile') : undefined}
+          aria-label={translateText('My Profile')}
+        >
+          <div className="sidebar-user-avatar" aria-hidden="true">{initials}</div>
+          <div className="sidebar-user-info">
+            <span className="sidebar-user-name">{profile?.full_name || 'User'}</span>
+            <span className="sidebar-user-role">{translateText(ROLE_LABELS[role] || role)}</span>
+          </div>
+        </Link>
 
         {/* Collapse toggle — desktop only */}
         <button

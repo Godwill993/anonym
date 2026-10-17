@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdGroups, MdSearch, MdToggleOn, MdToggleOff, MdEdit } from 'react-icons/md';
+import { MdAdd, MdGroups, MdToggleOn, MdToggleOff, MdEdit } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import DataTable from '../../components/common/DataTable';
 import { toast } from '../../components/common/Toast';
 import {
   getBatches,
@@ -14,7 +15,6 @@ import {
 
 export default function BatchesPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
@@ -124,15 +124,90 @@ export default function BatchesPage() {
   };
 
   const filteredBatches = batches.filter((b) => {
-    const s = search.toLowerCase();
-    const matchSearch =
-      b.name.toLowerCase().includes(s) ||
-      (b.code && b.code.toLowerCase().includes(s)) ||
-      (b.departments?.name && b.departments.name.toLowerCase().includes(s));
-
-    const matchDept = selectedDeptFilter ? b.department_id === selectedDeptFilter : true;
-    return matchSearch && matchDept;
+    if (!selectedDeptFilter) return true;
+    return b.department_id === selectedDeptFilter;
   });
+
+  const columns = [
+    {
+      key: 'name',
+      header: 'Batch Name',
+      sortable: true,
+      render: (row) => <strong>{row.name}</strong>,
+    },
+    {
+      key: 'code',
+      header: 'Generated Code',
+      sortable: true,
+      render: (row) => (
+        <code style={{ fontSize: '0.8rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+          {row.code || '—'}
+        </code>
+      ),
+    },
+    {
+      key: 'department',
+      header: 'Department',
+      sortable: true,
+      accessor: (row) => `${row.departments?.name || ''} (${row.departments?.abbreviation || ''})`,
+    },
+    {
+      key: 'academic_year',
+      header: 'Academic Year',
+      sortable: true,
+      accessor: (row) => row.academic_years?.name || '—',
+    },
+    {
+      key: 'level_name',
+      header: 'Level',
+      sortable: true,
+      render: (row) => <span className="badge badge-purple">{row.level_name || 'Level 1'}</span>,
+    },
+    {
+      key: 'enrolled',
+      header: 'Enrolled Students',
+      sortable: true,
+      accessor: (row) => row.students?.[0]?.count ?? 0,
+      render: (row) => <span><strong>{row.students?.[0]?.count ?? 0}</strong> students</span>,
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      render: (row) => (
+        <span className={`badge ${row.is_active ? 'badge-green' : 'badge-gray'}`}>
+          {row.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (row) => (
+        <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+          <button
+            className="btn-icon"
+            title="Edit batch"
+            onClick={() => handleOpenEdit(row)}
+          >
+            <MdEdit />
+          </button>
+          <button
+            className="btn-icon"
+            title={row.is_active ? 'Deactivate' : 'Activate'}
+            onClick={() => handleToggleStatus(row)}
+          >
+            {row.is_active ? (
+              <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} />
+            ) : (
+              <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />
+            )}
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AppLayout pageTitle="Academic Batches">
@@ -149,33 +224,13 @@ export default function BatchesPage() {
       </div>
 
       <div className="card">
-        <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
-            <MdSearch
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--color-text-muted)',
-                fontSize: '1.1rem',
-              }}
-            />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search batches by name, batch code..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div style={{ minWidth: '180px' }}>
+        <div style={{ padding: '1rem 1.25rem 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ minWidth: '220px' }}>
             <select
               className="form-input"
               value={selectedDeptFilter}
               onChange={(e) => setSelectedDeptFilter(e.target.value)}
+              aria-label="Filter by department"
             >
               <option value="">All Departments</option>
               {departments.map((d) => (
@@ -187,87 +242,25 @@ export default function BatchesPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Batch Name</th>
-                <th>Generated Code</th>
-                <th>Department</th>
-                <th>Academic Year</th>
-                <th>Level</th>
-                <th>Enrolled Students</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading batches...
-                  </td>
-                </tr>
-              ) : filteredBatches.length === 0 ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="empty-state">
-                      <MdGroups className="empty-state-icon" />
-                      <div className="empty-state-title">No Batches Found</div>
-                      <div className="empty-state-text">
-                        Create your first cohort (e.g. UNH-SWE-26 Batch 1) to start registering students.
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredBatches.map((batch) => (
-                  <tr key={batch.id}>
-                    <td>
-                      <strong>{batch.name}</strong>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.8rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                        {batch.code || '—'}
-                      </code>
-                    </td>
-                    <td>{batch.departments?.name} ({batch.departments?.abbreviation})</td>
-                    <td>{batch.academic_years?.name}</td>
-                    <td>
-                      <span className="badge badge-purple">{batch.level_name || 'Level 1'}</span>
-                    </td>
-                    <td>
-                      <strong>{batch.students?.[0]?.count ?? 0}</strong> students
-                    </td>
-                    <td>
-                      <span className={`badge ${batch.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {batch.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                        <button
-                          className="btn-icon"
-                          title="Edit batch"
-                          onClick={() => handleOpenEdit(batch)}
-                        >
-                          <MdEdit />
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title={batch.is_active ? 'Deactivate' : 'Activate'}
-                          onClick={() => handleToggleStatus(batch)}
-                        >
-                          {batch.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filteredBatches}
+          isLoading={isLoading}
+          searchPlaceholder="Search batches by name, code, department..."
+          searchFilter={(item, query) => {
+            const q = query.toLowerCase();
+            return (
+              item.name?.toLowerCase().includes(q) ||
+              item.code?.toLowerCase().includes(q) ||
+              item.departments?.name?.toLowerCase().includes(q) ||
+              item.departments?.abbreviation?.toLowerCase().includes(q)
+            );
+          }}
+          exportFileName="unhimas_batches"
+          emptyTitle="No Batches Found"
+          emptySubtitle="Create your first cohort (e.g. UNH-SWE-26 Batch 1) to start registering students."
+          emptyIcon={<MdGroups />}
+        />
       </div>
 
       {/* Add / Edit Batch Modal */}

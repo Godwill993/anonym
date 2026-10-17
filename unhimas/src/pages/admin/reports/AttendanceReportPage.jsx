@@ -114,6 +114,13 @@ export default function AttendanceReportPage() {
           </div>
         </div>
         <div className="stat-card">
+          <div className="stat-card-icon blue"><MdHowToReg /></div>
+          <div className="stat-card-body">
+            <div className="stat-card-value">{totalSessions}</div>
+            <div className="stat-card-label">{translateText('Total Student Slots Logged')}</div>
+          </div>
+        </div>
+        <div className="stat-card">
           <div className="stat-card-icon red"><MdFactCheck /></div>
           <div className="stat-card-body">
             <div className="stat-card-value">{coursesBelowThreshold}</div>
@@ -154,6 +161,7 @@ export default function AttendanceReportPage() {
       <DataTable
         columns={columns}
         data={report}
+        isLoading={isLoading}
         searchPlaceholder="Search course code or course name..."
         emptyTitle="No attendance records found"
         emptySubtitle="Attendance records will appear here as lecturers record class sessions."
