@@ -13,7 +13,15 @@ alter table public.lecturers
 
 -- 2. Enrich published results view with profile_id so student clients
 --    can filter by auth.uid() without an extra join.
-create or replace view public.results
+--
+-- Postgres forbids CREATE OR REPLACE VIEW when column names/order change
+-- (error 42P16). Drop dependents first, then recreate cleanly.
+drop view if exists public.course_performance cascade;
+drop view if exists public.student_semester_gpa cascade;
+drop view if exists public.student_overall_gpa cascade;
+drop view if exists public.results cascade;
+
+create view public.results
 with (security_invoker = true)
 as
 select
@@ -54,7 +62,7 @@ join public.courses c on c.id = bc.course_id
 where ms.status = 'published';
 
 -- Keep GPA views consistent with the enriched results definition
-create or replace view public.student_semester_gpa
+create view public.student_semester_gpa
 with (security_invoker = true)
 as
 select
@@ -66,7 +74,7 @@ select
 from public.results r
 group by r.student_id, r.academic_year_id, r.semester_id;
 
-create or replace view public.student_overall_gpa
+create view public.student_overall_gpa
 with (security_invoker = true)
 as
 select
@@ -76,7 +84,7 @@ select
 from public.results r
 group by r.student_id;
 
-create or replace view public.course_performance
+create view public.course_performance
 with (security_invoker = true)
 as
 select
@@ -89,6 +97,12 @@ select
   count(*) filter (where r.grade = 'F') as failures
 from public.results r
 group by r.course_id, r.course_code, r.course_name;
+
+-- Re-grant SELECT (CASCADE drop removes prior grants)
+grant select on public.results to authenticated;
+grant select on public.student_semester_gpa to authenticated;
+grant select on public.student_overall_gpa to authenticated;
+grant select on public.course_performance to authenticated;
 
 -- 3. Seed zero mark rows for every active student in the batch
 --    so lecturers see a full roster without manual inserts.
