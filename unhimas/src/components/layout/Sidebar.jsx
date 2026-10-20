@@ -3,18 +3,25 @@ import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
 import { NAV_CONFIG } from '../../constants/navConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
+import { can } from '../../lib/permissions';
 import logo from '../../assets/unhimas_logo.jpg';
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const { profile } = useAuth();
   const { translateText } = useTranslation();
   const role = profile?.role || 'student';
-  const navGroups = NAV_CONFIG[role] || [];
   const location = useLocation();
+
+  // Filter groups/items by capability when declared
+  const navGroups = (NAV_CONFIG[role] || [])
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.capability || can(profile, item.capability)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <>
-      {/* Mobile overlay */}
       <div
         className={`sidebar-overlay ${mobileOpen ? 'visible' : ''}`}
         onClick={onMobileClose}
@@ -25,7 +32,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}
         aria-label={translateText('Main navigation')}
       >
-        {/* Logo */}
         <div className="sidebar-logo">
           <img src={logo} alt="UNHIMAS logo" />
           <div className="sidebar-logo-text">
@@ -34,17 +40,19 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           </div>
         </div>
 
-        {/* Nav groups */}
         <nav className="sidebar-nav" role="navigation">
           {navGroups.map((group) => (
             <div className="sidebar-group" key={group.group}>
               <div className="sidebar-group-label">{translateText(group.group)}</div>
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path ||
-                  (item.path !== '/admin' && item.path !== '/lecturer' &&
-                   item.path !== '/student' && item.path !== '/frontdesk' &&
-                   location.pathname.startsWith(item.path));
+                const isActive =
+                  location.pathname === item.path ||
+                  (item.path !== '/admin' &&
+                    item.path !== '/lecturer' &&
+                    item.path !== '/student' &&
+                    item.path !== '/frontdesk' &&
+                    location.pathname.startsWith(item.path));
                 return (
                   <NavLink
                     key={item.key}
@@ -63,7 +71,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           ))}
         </nav>
 
-        {/* Collapse toggle — desktop only */}
         <button
           className="sidebar-toggle-btn"
           onClick={onToggle}
