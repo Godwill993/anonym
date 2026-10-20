@@ -12,14 +12,13 @@ export default function AppLayout({ children, pageTitle }) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  // Scroll progress + back-to-top
   useEffect(() => {
     const handleScroll = () => {
       const el = document.documentElement;
       const scrolled = el.scrollTop;
       const total = el.scrollHeight - el.clientHeight;
       setScrollProgress(total > 0 ? (scrolled / total) * 100 : 0);
-      setShowBackToTop(scrolled > 300);
+      setShowBackToTop(scrolled > 400);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -32,7 +31,6 @@ export default function AppLayout({ children, pageTitle }) {
 
   return (
     <div className="app-shell">
-      {/* Scroll progress bar */}
       <div
         className="scroll-progress"
         style={{ width: `${scrollProgress}%` }}
@@ -40,7 +38,6 @@ export default function AppLayout({ children, pageTitle }) {
         aria-hidden="true"
       />
 
-      {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(v => !v)}
@@ -48,19 +45,17 @@ export default function AppLayout({ children, pageTitle }) {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      {/* Main area */}
       <div className={`main-area ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Header
           onMenuClick={() => setMobileOpen(v => !v)}
           pageTitle={pageTitle}
         />
 
-        <main id="main-content" className="page-content" tabIndex="-1">
+        <main id="main-content" className="page-content page-enter" tabIndex="-1">
           {children}
         </main>
       </div>
 
-      {/* Back to top */}
       <button
         className={`back-to-top ${showBackToTop ? 'visible' : ''}`}
         onClick={scrollToTop}
