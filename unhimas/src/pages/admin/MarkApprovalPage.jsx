@@ -12,6 +12,7 @@ import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
 import { useTranslation } from '../../i18n';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   getMarkSubmissions,
   getSubmissionDetail,
@@ -20,6 +21,7 @@ import {
 
 export default function MarkApprovalPage() {
   const { translateText } = useTranslation();
+  const { canApproveMarks, canPublishResults } = usePermissions();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -208,7 +210,7 @@ export default function MarkApprovalPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {detailData?.status === 'submitted' && (
+              {detailData?.status === 'submitted' && canApproveMarks && (
                 <>
                   <button className="btn btn-secondary btn-sm" onClick={() => handleOpenReturnModal(detailData)} disabled={reviewMutation.isPending}>
                     <MdAssignmentReturn /> {translateText('Return with Comments')}
@@ -218,7 +220,7 @@ export default function MarkApprovalPage() {
                   </button>
                 </>
               )}
-              {detailData?.status === 'approved' && (
+              {detailData?.status === 'approved' && canPublishResults && (
                 <button className="btn btn-primary btn-sm" style={{ background: '#059669' }} onClick={() => reviewMutation.mutate({ id: detailData.id, status: 'published', admin_comment: 'Officially published to transcripts' })} disabled={reviewMutation.isPending}>
                   <MdPublish /> {translateText('Publish Results to Students')}
                 </button>
