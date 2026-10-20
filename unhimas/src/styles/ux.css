@@ -3,9 +3,26 @@
    Loaded after components.css + layout.css
    ============================================================ */
 
-/* ---- Page enter (route content) ---- */
+/* ---- Smooth page transitions (keyed by route in AppLayout) ---- */
+.page-transition {
+  animation: pageTransitionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes pageTransitionIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Legacy class kept for any remaining uses */
 .page-content.page-enter {
-  animation: pageEnter 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: pageTransitionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes pageEnter {
@@ -230,6 +247,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .page-transition,
   .page-content.page-enter,
   .stagger-children > *,
   .auth-card,
