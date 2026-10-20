@@ -11,7 +11,7 @@
   --color-secondary-light: #dc2626;
   --color-secondary-rgb: 183, 0, 50;
 
-  --color-bg: #f8fafc;
+  --color-bg: #f4f6f9;
   --color-surface: #ffffff;
   --color-surface-hover: #f1f5f9;
   --color-text: #0f172a;
@@ -24,19 +24,19 @@
   --color-info: #0284c7;
 
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.12);
 
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
 
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s ease;
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-theme='dark'] {
@@ -50,7 +50,7 @@
   --color-secondary-light: #fb7185;
   --color-secondary-rgb: 244, 63, 94;
 
-  --color-bg: #090e17;
+  --color-bg: #0b1018;
   --color-surface: #121a29;
   --color-surface-hover: #1b263b;
   --color-text: #f8fafc;
@@ -59,9 +59,9 @@
 
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.65);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.65);
 }
 
 * {
@@ -82,23 +82,11 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* Subtle square grid pattern */
-  background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-[data-theme='dark'] body {
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
 h1, h2, h3, h4, .page-title, .auth-school-name, .sidebar-logo-name {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   font-weight: 700;
   color: var(--color-text);
 }
@@ -125,7 +113,6 @@ button {
   outline-offset: 2px;
 }
 
-/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -143,10 +130,6 @@ button {
 
 [data-theme='dark'] ::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.25);
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
