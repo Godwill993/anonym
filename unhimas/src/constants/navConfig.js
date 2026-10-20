@@ -21,13 +21,14 @@ import {
   MdAccessTime,
   MdAnalytics,
   MdHistory,
-  MdAccountCircle,
   MdLogin,
   MdBook,
   MdCheckCircle,
 } from 'react-icons/md';
 
-/** Navigation tree keyed by role. Optional `capability` hides the item when can() is false. */
+/** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
+ *  Profile is intentionally omitted — it lives in the header user menu to reduce sidebar noise.
+ */
 export const NAV_CONFIG = {
   admin: [
     {
@@ -90,7 +91,6 @@ export const NAV_CONFIG = {
       items: [
         { key: 'settings', label: 'Settings', path: '/admin/settings', icon: MdSettings, capability: 'manage_settings' },
         { key: 'audit-log', label: 'Audit Log', path: '/admin/audit-log', icon: MdHistory, capability: 'view_audit_log' },
-        { key: 'profile', label: 'Profile', path: '/admin/profile', icon: MdAccountCircle },
       ],
     },
   ],
@@ -107,12 +107,6 @@ export const NAV_CONFIG = {
       items: [
         { key: 'lecturer-attendance', label: 'Lecturer Attendance', path: '/frontdesk/lecturer-attendance', icon: MdLogin, capability: 'clock_lecturers' },
         { key: 'history', label: 'Shift History', path: '/frontdesk/history', icon: MdHistory, capability: 'clock_lecturers' },
-      ],
-    },
-    {
-      group: 'Account',
-      items: [
-        { key: 'profile', label: 'Profile', path: '/frontdesk/profile', icon: MdAccountCircle },
       ],
     },
   ],
@@ -139,7 +133,6 @@ export const NAV_CONFIG = {
         { key: 'my-hours', label: 'My Hours', path: '/lecturer/hours', icon: MdAccessTime },
         { key: 'notifications', label: 'Notifications', path: '/lecturer/notifications', icon: MdNotifications },
         { key: 'resources', label: 'Resources', path: '/lecturer/resources', icon: MdFolder },
-        { key: 'profile', label: 'Profile', path: '/lecturer/profile', icon: MdAccountCircle },
       ],
     },
   ],
@@ -166,7 +159,6 @@ export const NAV_CONFIG = {
       items: [
         { key: 'announcements', label: 'Announcements', path: '/student/announcements', icon: MdCampaign },
         { key: 'resources', label: 'Resources', path: '/student/resources', icon: MdFolder },
-        { key: 'profile', label: 'Profile', path: '/student/profile', icon: MdAccountCircle },
       ],
     },
   ],
