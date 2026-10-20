@@ -1,1 +1,5 @@
-SEE_FILE
+export const fr = {
+  ui: {
+    'School Management': 'Gestion scolaire',
+  },
+};
