@@ -201,3 +201,35 @@ export async function toggleProfileStatus(id, is_active) {
   if (error) throw error;
   return data;
 }
+
+// ============================================================
+// STUDENT TRANSFERS (uses public.student_transfers + RPC)
+// ============================================================
+
+export async function transferStudent({ studentId, toBatchId, reason = null }) {
+  const { data, error } = await supabase.rpc('transfer_student', {
+    p_student_id: studentId,
+    p_to_batch_id: toBatchId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getStudentTransfers(studentId) {
+  let query = supabase
+    .from('student_transfers')
+    .select(`
+      *,
+      from_batch:from_batch_id (id, name, code),
+      to_batch:to_batch_id (id, name, code),
+      transferred_by_profile:transferred_by (full_name, login_id)
+    `)
+    .order('transferred_at', { ascending: false });
+
+  if (studentId) query = query.eq('student_id', studentId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
