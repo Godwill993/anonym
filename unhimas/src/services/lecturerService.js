@@ -306,6 +306,16 @@ export async function getMyNotifications(profileId, { limit = 30 } = {}) {
 }
 
 export async function getLecturerResources(lecturerId) {
+  const { data: assigned, error: assignedError } = await supabase
+    .from('batch_courses')
+    .select('course_id')
+    .eq('lecturer_id', lecturerId);
+
+  if (assignedError) throw assignedError;
+
+  const courseIds = [...new Set((assigned || []).map((row) => row.course_id).filter(Boolean))];
+  if (courseIds.length === 0) return [];
+
   const { data, error } = await supabase
     .from('resources')
     .select(`
@@ -321,7 +331,7 @@ export async function getLecturerResources(lecturerId) {
       courses:course_id (id, code, name),
       batches:batch_id (id, name, code)
     `)
-    .in('course_id', (await supabase.from('batch_courses').select('course_id').eq('lecturer_id', lecturerId)).data?.map((item) => item.course_id) || [])
+    .in('course_id', courseIds)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
