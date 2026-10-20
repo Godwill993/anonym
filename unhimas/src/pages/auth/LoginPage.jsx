@@ -10,10 +10,6 @@ import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
 import '../../styles/components.css';
 
-/**
- * Check whether the freshly-logged-in user has must_reset_password = true
- * on their linked student or lecturer record.
- */
 async function checkMustResetPassword(role) {
   if (role !== 'student' && role !== 'lecturer') return false;
   const table = role === 'student' ? 'students' : 'lecturers';
@@ -25,11 +21,6 @@ async function checkMustResetPassword(role) {
   return data?.must_reset_password === true;
 }
 
-const schema = z.object({
-  email: z.string().min(1, 'Email is required').email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
-
 const ROLE_HOME = {
   admin: '/admin',
   frontdesk: '/frontdesk',
@@ -37,33 +28,36 @@ const ROLE_HOME = {
   student: '/student',
 };
 
-function getLoginErrorMessage(error) {
-  if (error?.code === 'email_not_confirmed' || /email not confirmed/i.test(error?.message || '')) {
-    return 'Your email address has not been confirmed. Check your inbox and spam folder for the confirmation link.';
-  }
-
-  if (error?.message === 'Invalid login credentials') {
-    return 'Incorrect email or password. Please try again.';
-  }
-
-  return error?.message || 'Unable to sign in. Check your connection and try again.';
-}
-
 export default function LoginPage() {
-  const { language, toggleLanguage, t } = useTranslation();
+  const { language, toggleLanguage, t, translateText } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const navigate = useNavigate();
   const { refetchProfile } = useAuth();
 
+  const schema = z.object({
+    email: z.string().min(1, t('auth.email_required')).email(t('auth.email_invalid')),
+    password: z.string().min(1, t('auth.password_required')),
+  });
+
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   });
 
+  const getLoginErrorMessage = (error) => {
+    if (error?.code === 'email_not_confirmed' || /email not confirmed/i.test(error?.message || '')) {
+      return t('auth.email_not_confirmed');
+    }
+    if (error?.message === 'Invalid login credentials') {
+      return t('auth.incorrect_credentials');
+    }
+    return error?.message || t('auth.unable_to_sign_in');
+  };
+
   const onSubmit = async ({ email, password }) => {
     if (!isSupabaseConfigured) {
-      setServerError('Supabase is not configured. Please add your .env credentials first.');
+      setServerError(t('auth.supabase_not_configured'));
       return;
     }
 
@@ -80,11 +74,10 @@ export default function LoginPage() {
       const profile = await refetchProfile();
       if (!profile?.role || !profile.is_active) {
         await supabase.auth.signOut();
-        setServerError('Your account role could not be verified or the account is inactive. Contact the administrator.');
+        setServerError(t('auth.account_inactive'));
         return;
       }
 
-      // Check if the user must reset their password before accessing the app
       const mustReset = await checkMustResetPassword(profile.role);
       if (mustReset) {
         navigate('/set-new-password', { replace: true });
@@ -102,7 +95,6 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        {/* Header */}
         <div className="auth-card-header" style={{ position: 'relative' }}>
           <button
             type="button"
@@ -120,30 +112,27 @@ export default function LoginPage() {
               fontSize: '0.75rem',
               fontWeight: 700,
             }}
-            title="Toggle Language"
+            title={t('auth.toggle_language')}
           >
             {language === 'en' ? 'FR' : 'EN'}
           </button>
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
-            <div className="auth-school-subtitle">Universal Higher Institute of Management and Sciences</div>
+            <div className="auth-school-subtitle">{t('auth.school_subtitle')}</div>
           </div>
         </div>
 
-        {/* Body */}
         <div className="auth-card-body">
-          <h1 className="auth-title">{t('auth.login_title') || 'Sign in to your account'}</h1>
+          <h1 className="auth-title">{t('auth.login_title')}</h1>
 
-          {/* Setup warning — only shown when .env is missing */}
           {!isSupabaseConfigured && (
             <div className="auth-alert error" role="alert" style={{ marginBottom: '1rem', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
-                <MdWarning style={{ flexShrink: 0 }} /> Supabase credentials not configured
+                <MdWarning style={{ flexShrink: 0 }} /> {t('auth.supabase_credentials_missing')}
               </div>
               <div style={{ fontSize: '0.78rem', lineHeight: 1.5 }}>
-                Create a <code style={{ background: 'rgba(183,0,50,0.1)', padding: '0 4px', borderRadius: 3 }}>.env</code> file
-                in the project root with your Supabase project URL and anon key.
+                {translateText('Create a .env file in the project root with your Supabase project URL and anon key.')}
               </div>
               <a
                 href="https://supabase.com/dashboard"
@@ -151,7 +140,7 @@ export default function LoginPage() {
                 rel="noopener noreferrer"
                 style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#9a002a' }}
               >
-                Open Supabase Dashboard <MdOpenInNew style={{ fontSize: '0.9rem' }} />
+                {translateText('Open Supabase Dashboard')} <MdOpenInNew style={{ fontSize: '0.9rem' }} />
               </a>
               <div style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.05)', padding: '0.5rem 0.75rem', borderRadius: 4, fontFamily: 'monospace', lineHeight: 1.6 }}>
                 VITE_SUPABASE_URL=https://xxx.supabase.co<br />
@@ -168,9 +157,8 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            {/* Email */}
             <div className="form-group">
-              <label htmlFor="email" className="form-label">Email address</label>
+              <label htmlFor="email" className="form-label">{t('auth.email')}</label>
               <input
                 id="email"
                 type="email"
@@ -184,9 +172,8 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Password */}
             <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
+              <label htmlFor="password" className="form-label">{t('auth.password')}</label>
               <div className="form-input-wrapper">
                 <input
                   id="password"
@@ -200,7 +187,7 @@ export default function LoginPage() {
                   type="button"
                   className="input-icon-right"
                   onClick={() => setShowPassword(v => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
                 </button>
@@ -210,54 +197,55 @@ export default function LoginPage() {
               )}
             </div>
 
-              {/* Forgot password and public verify */}
-              <div className="auth-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <Link to="/results" className="auth-link" style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                  Verify official result →
-                </Link>
-                <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
-              </div>
+            <div className="auth-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <Link to="/results" className="auth-link" style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                {t('auth.verify_result')}
+              </Link>
+              <Link to="/forgot-password" className="auth-link">{t('auth.forgot_password')}</Link>
+            </div>
 
-              <button
-                type="submit"
-                className="btn btn-primary btn-full"
-                disabled={loading || !isSupabaseConfigured}
-              >
-                {loading ? (
-                  <>
-                    <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                    Signing in…
-                  </>
-                ) : (
-                  'Sign in'
-                )}
-              </button>
-            </form>
+            <button
+              type="submit"
+              className="btn btn-primary btn-full"
+              disabled={loading || !isSupabaseConfigured}
+            >
+              {loading ? (
+                <>
+                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                  {t('auth.signing_in')}
+                </>
+              ) : (
+                t('auth.sign_in')
+              )}
+            </button>
+          </form>
 
-            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-              <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                Official Public Portal: <Link to="/results" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>Results & Verification</Link>
-              </div>
+          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              {t('auth.official_portal')}{' '}
+              <Link to="/results" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
+                {t('auth.results_verification')}
+              </Link>
             </div>
           </div>
+        </div>
 
-          {/* Footer */}
-          <div style={{
-            padding: '0.875rem 2rem',
-            borderTop: '1px solid var(--color-border)',
-            textAlign: 'center',
-            fontSize: '0.75rem',
-            color: 'var(--color-text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <span>© {new Date().getFullYear()} UNHIMAS</span>
-            <Link to="/results" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Verification Portal
-            </Link>
-          </div>
+        <div style={{
+          padding: '0.875rem 2rem',
+          borderTop: '1px solid var(--color-border)',
+          textAlign: 'center',
+          fontSize: '0.75rem',
+          color: 'var(--color-text-muted)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span>© {new Date().getFullYear()} UNHIMAS</span>
+          <Link to="/results" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+            {t('auth.verification_portal')}
+          </Link>
         </div>
       </div>
+    </div>
   );
 }
