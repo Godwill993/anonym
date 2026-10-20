@@ -85,7 +85,6 @@ export async function getMyAttendance(studentId, { batchCourseId = null } = {}) 
 // ============================================================
 
 export async function getMyAttendanceSummary(studentId, batchId) {
-  // Get all batch_courses for this batch
   const { data: batchCourses, error: bcErr } = await supabase
     .from('batch_courses')
     .select(`
@@ -173,7 +172,6 @@ export async function getMyResults(studentId) {
 
   if (error) throw error;
 
-  // Filter out marks where submission is not published
   const published = (data || []).filter((m) => m.mark_submissions?.status === 'published');
   return published;
 }
@@ -222,7 +220,6 @@ export async function getMyAnnouncements(batchId, departmentId) {
     .order('published_at', { ascending: false })
     .limit(20);
 
-  // Match only global, this student's batch, or this student's department.
   if (batchId && departmentId) {
     query = query.or(`and(batch_id.is.null,department_id.is.null),batch_id.eq.${batchId},department_id.eq.${departmentId}`);
   } else if (batchId) {
@@ -240,19 +237,34 @@ export async function getMyAnnouncements(batchId, departmentId) {
 // COURSE RESOURCES
 // ============================================================
 
-export async function getStudentResources(batchId, departmentId) {
-  if (!batchId || !departmentId) return [];
+export async function getStudentResources(batchId, _departmentId) {
+  if (!batchId) return [];
 
-  const { data, error } = await supabase
+  const { data: batchCourses, error: coursesError } = await supabase
+    .from('batch_courses')
+    .select('course_id')
+    .eq('batch_id', batchId);
+
+  if (coursesError) throw coursesError;
+
+  const courseIds = [...new Set((batchCourses || []).map((row) => row.course_id).filter(Boolean))];
+
+  let query = supabase
     .from('resources')
     .select(`
       id, title, description, course_id, batch_id, file_path, file_name,
       mime_type, created_at,
       course:course_id (id, code, name)
     `)
-    .or(`batch_id.eq.${batchId},course_id.in.(select course_id from batch_courses where batch_id.eq.${batchId})`)
     .order('created_at', { ascending: false });
 
+  if (courseIds.length > 0) {
+    query = query.or(`batch_id.eq.${batchId},course_id.in.(${courseIds.join(',')})`);
+  } else {
+    query = query.eq('batch_id', batchId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
