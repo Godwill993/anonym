@@ -5,9 +5,11 @@ import {
   MdGrade,
   MdSave,
   MdSend,
+  MdPublish,
   MdWarning,
   MdInfo,
   MdClose,
+  MdCheckCircle,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -25,34 +27,52 @@ import {
 } from '../../services/lecturerService';
 import { getSystemSettings } from '../../services/operationsService';
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
-
 const STATUS_LABELS = {
   draft: { cls: 'badge-gray', text: 'Draft — Not Submitted' },
   submitted: { cls: 'badge-blue', text: 'Submitted — Pending Review' },
   returned: { cls: 'badge-red', text: 'Returned — Needs Correction' },
-  approved: { cls: 'badge-green', text: 'Approved' },
-  published: { cls: 'badge-purple', text: 'Published' },
+  approved: { cls: 'badge-green', text: 'Approved — Awaiting Batch Publish' },
+  published: { cls: 'badge-purple', text: 'Published to Students' },
 };
 
 function StatusBanner({ submission }) {
   if (!submission) return null;
   const s = STATUS_LABELS[submission.status] || { cls: 'badge-gray', text: submission.status };
   const isReturned = submission.status === 'returned';
+  const isApproved = submission.status === 'approved';
+  const isPublished = submission.status === 'published';
   return (
     <div
       style={{
         padding: '0.875rem 1.25rem',
         borderRadius: 'var(--radius-md)',
         marginBottom: '1.25rem',
-        background: isReturned ? 'rgba(183,0,50,0.06)' : 'rgba(17,47,66,0.05)',
-        border: `1px solid ${isReturned ? 'rgba(183,0,50,0.25)' : 'var(--color-border)'}`,
+        background: isReturned
+          ? 'rgba(183,0,50,0.06)'
+          : isPublished
+            ? 'rgba(5,150,105,0.08)'
+            : isApproved
+              ? 'rgba(5,150,105,0.06)'
+              : 'rgba(17,47,66,0.05)',
+        border: `1px solid ${
+          isReturned
+            ? 'rgba(183,0,50,0.25)'
+            : isPublished || isApproved
+              ? 'rgba(5,150,105,0.3)'
+              : 'var(--color-border)'
+        }`,
         display: 'flex',
         alignItems: 'flex-start',
         gap: '0.75rem',
       }}
     >
-      {isReturned ? <MdWarning color="var(--color-secondary)" size={20} /> : <MdInfo color="var(--color-primary)" size={20} />}
+      {isReturned ? (
+        <MdWarning color="var(--color-secondary)" size={20} />
+      ) : isPublished || isApproved ? (
+        <MdCheckCircle color="#059669" size={20} />
+      ) : (
+        <MdInfo color="var(--color-primary)" size={20} />
+      )}
       <div>
         <div style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: 4 }}>
           <span className={`badge ${s.cls}`}>{s.text}</span>
@@ -62,7 +82,18 @@ function StatusBanner({ submission }) {
             Administrator note: "{submission.admin_comment}"
           </div>
         )}
-        {submission.submitted_at && (
+        {isApproved && (
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            Your marksheet is approved. Results will appear for students once the administrator
+            publishes the full batch (all courses must be approved first).
+          </div>
+        )}
+        {isPublished && submission.published_at && (
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            Published: {new Date(submission.published_at).toLocaleString('en-GB')}
+          </div>
+        )}
+        {submission.submitted_at && !isPublished && (
           <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
             Submitted: {new Date(submission.submitted_at).toLocaleString('en-GB')}
           </div>
@@ -71,8 +102,6 @@ function StatusBanner({ submission }) {
     </div>
   );
 }
-
-// ─── Score input ──────────────────────────────────────────────────────────────
 
 function ScoreInput({ value, onChange, max, disabled }) {
   const num = Number(value);
@@ -111,8 +140,6 @@ function ScoreInput({ value, onChange, max, disabled }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function LecturerMarksPage() {
   const { session } = useAuth();
   const [searchParams] = useSearchParams();
@@ -121,11 +148,10 @@ export default function LecturerMarksPage() {
   const { showToast } = useToast();
 
   const [selectedBcId, setSelectedBcId] = useState(initialBc);
-  const [localScores, setLocalScores] = useState({});   // { studentId: { attendance_score, coursework_score, exam_score } }
+  const [localScores, setLocalScores] = useState({});
   const [submitModal, setSubmitModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Lecturer profile
   const { data: lecturerProfile } = useQuery({
     queryKey: ['my-lecturer-profile'],
     queryFn: getMyLecturerProfile,
@@ -133,7 +159,6 @@ export default function LecturerMarksPage() {
   });
   const lecturerId = lecturerProfile?.id;
 
-  // System settings (for max scores)
   const { data: settings } = useQuery({
     queryKey: ['system-settings'],
     queryFn: getSystemSettings,
@@ -142,7 +167,6 @@ export default function LecturerMarksPage() {
   const CW_MAX = settings?.coursework_max ?? 25;
   const EXAM_MAX = settings?.exam_max ?? 70;
 
-  // My courses
   const { data: courses = [] } = useQuery({
     queryKey: ['my-courses', lecturerId],
     queryFn: () => getMyCourses(lecturerId),
@@ -151,7 +175,6 @@ export default function LecturerMarksPage() {
 
   const selectedCourse = courses.find((c) => c.id === selectedBcId);
 
-  // Submission record
   const {
     data: submission,
     isLoading: subLoading,
@@ -162,14 +185,12 @@ export default function LecturerMarksPage() {
     enabled: !!selectedBcId && !!lecturerId,
   });
 
-  // Students in batch
   const { data: students = [], isLoading: stuLoading } = useQuery({
     queryKey: ['students-in-batch', selectedCourse?.batches?.id],
     queryFn: () => getStudentsInBatch(selectedCourse.batches.id),
     enabled: !!selectedCourse?.batches?.id,
   });
 
-  // Existing marks
   const { data: existingMarks = [], isLoading: marksLoading, refetch: refetchMarks } = useQuery({
     queryKey: ['marks-for-submission', submission?.id],
     queryFn: () => getMarksForSubmission(submission.id),
@@ -203,7 +224,6 @@ export default function LecturerMarksPage() {
 
   const canEdit = submission && (submission.status === 'draft' || submission.status === 'returned');
 
-  // Upsert a single mark
   const saveOneMark = useCallback(async (studentId) => {
     if (!submission?.id || !canEdit) return;
     const scores = getStudentScores(studentId);
@@ -226,19 +246,20 @@ export default function LecturerMarksPage() {
     }
   }, [submission, canEdit, getStudentScores, showToast, refetchMarks]);
 
-  // Save all marks in sequence
   const saveAllMarks = async () => {
     if (!submission?.id || !canEdit || students.length === 0) return;
     setSaving(true);
     try {
-      // Validate all scores first before persisting
       for (const stu of students) {
         const scores = getStudentScores(stu.id);
         const att = Number(scores.attendance_score) || 0;
         const cw = Number(scores.coursework_score) || 0;
         const ex = Number(scores.exam_score) || 0;
         if (att < 0 || att > ATT_MAX || cw < 0 || cw > CW_MAX || ex < 0 || ex > EXAM_MAX) {
-          showToast(`Invalid scores detected for ${stu.first_name} ${stu.last_name}. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`, 'error');
+          showToast(
+            `Invalid scores detected for ${stu.first_name} ${stu.last_name}. Limits: Att ≤ ${ATT_MAX}, CW ≤ ${CW_MAX}, Exam ≤ ${EXAM_MAX}`,
+            'error'
+          );
           setSaving(false);
           return;
         }
@@ -264,7 +285,6 @@ export default function LecturerMarksPage() {
     }
   };
 
-  // Submit
   const submitMutation = useMutation({
     mutationFn: async () => {
       await saveAllMarks();
@@ -274,7 +294,7 @@ export default function LecturerMarksPage() {
       return submitMarkSubmission(submission.id);
     },
     onSuccess: () => {
-      showToast('Marks submitted for review', 'success');
+      showToast('Marks submitted for review. Admin will approve, then publish the batch.', 'success');
       setSubmitModal(false);
       refetchSub();
       qc.invalidateQueries(['my-mark-submissions']);
@@ -287,13 +307,21 @@ export default function LecturerMarksPage() {
   const updateScore = (studentId, field, val) => {
     setLocalScores((prev) => ({
       ...prev,
-      [studentId]: { ...(prev[studentId] || {}), [field]: val },
+      [studentId]: {
+        ...getStudentScores(studentId),
+        ...(prev[studentId] || {}),
+        [field]: val,
+      },
     }));
   };
 
   const getTotal = (studentId) => {
-    const s = localScores[studentId] || {};
-    return (Number(s.attendance_score) || 0) + (Number(s.coursework_score) || 0) + (Number(s.exam_score) || 0);
+    const s = getStudentScores(studentId);
+    return (
+      (Number(s.attendance_score) || 0) +
+      (Number(s.coursework_score) || 0) +
+      (Number(s.exam_score) || 0)
+    );
   };
 
   const getGrade = (total) => {
@@ -305,7 +333,7 @@ export default function LecturerMarksPage() {
   };
 
   const hasErrors = students.some((stu) => {
-    const s = localScores[stu.id] || {};
+    const s = getStudentScores(stu.id);
     return (
       Number(s.attendance_score) > ATT_MAX ||
       Number(s.coursework_score) > CW_MAX ||
@@ -317,17 +345,20 @@ export default function LecturerMarksPage() {
   });
 
   const loading = subLoading || stuLoading || marksLoading;
+  const submitLabel =
+    submission?.status === 'returned' ? 'Resubmit for Review' : 'Submit for Review';
 
   return (
     <AppLayout pageTitle="Mark Entry">
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Mark Entry</h1>
-          <p className="page-subtitle">Enter and submit student marks for your courses</p>
+          <p className="page-subtitle">
+            Enter marks, submit for review, then administration publishes the full batch to students
+          </p>
         </div>
       </div>
 
-      {/* Course selector */}
       <div className="card" style={{ marginBottom: '1.25rem', padding: '1.25rem' }}>
         <label className="form-label" htmlFor="bc-select">Select Course</label>
         <select
@@ -359,10 +390,8 @@ export default function LecturerMarksPage() {
 
       {selectedBcId && (
         <>
-          {/* Status banner */}
           {!loading && <StatusBanner submission={submission} />}
 
-          {/* Score legend */}
           <div
             style={{
               display: 'flex',
@@ -383,30 +412,61 @@ export default function LecturerMarksPage() {
             <span><strong>Total:</strong> / 100</span>
           </div>
 
-          {/* Actions */}
           {canEdit && (
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline btn-sm" onClick={saveAllMarks} disabled={saving || hasErrors}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                marginBottom: '1rem',
+                justifyContent: 'flex-end',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={saveAllMarks}
+                disabled={saving || hasErrors}
+              >
                 <MdSave /> {saving ? 'Saving…' : 'Save All'}
               </button>
               <button
-                className="btn btn-primary btn-sm"
+                type="button"
+                className="btn btn-primary"
                 onClick={() => setSubmitModal(true)}
                 disabled={saving || hasErrors || students.length === 0}
+                style={{ minWidth: '200px' }}
               >
-                <MdSend /> Submit for Review
+                <MdPublish /> {submitLabel}
               </button>
+            </div>
+          )}
+
+          {!canEdit && submission?.status === 'submitted' && (
+            <div
+              style={{
+                marginBottom: '1rem',
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(17,47,66,0.05)',
+                border: '1px solid var(--color-border)',
+                fontSize: '0.875rem',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              <MdPublish style={{ verticalAlign: 'middle', marginRight: 6 }} />
+              Marks are locked while under review. You can edit again only if the administrator returns them.
             </div>
           )}
 
           {hasErrors && (
             <div className="auth-alert error" style={{ marginBottom: '1rem' }}>
               <MdWarning />
-              Some scores exceed the maximum or are negative. Please correct them before saving.
+              Some scores exceed the maximum or are negative. Please correct them before saving or submitting.
             </div>
           )}
 
-          {/* Marks table */}
           {loading ? (
             <div className="card">
               <div style={{ padding: '1.5rem' }}>
@@ -443,14 +503,18 @@ export default function LecturerMarksPage() {
                     {students.map((stu) => {
                       const total = getTotal(stu.id);
                       const { grade, gp, cls } = getGrade(total);
-                      const scores = localScores[stu.id] || {};
+                      const scores = getStudentScores(stu.id);
                       return (
                         <tr key={stu.id}>
                           <td>
                             <span className="badge badge-blue">{stu.matricule}</span>
                           </td>
                           <td>
-                            <div style={{ fontWeight: 600 }}>{stu.first_name} {stu.middle_name ? `${stu.middle_name.charAt(0)}. ` : ''}{stu.last_name}</div>
+                            <div style={{ fontWeight: 600 }}>
+                              {stu.first_name}{' '}
+                              {stu.middle_name ? `${stu.middle_name.charAt(0)}. ` : ''}
+                              {stu.last_name}
+                            </div>
                           </td>
                           <td>
                             <ScoreInput
@@ -477,16 +541,24 @@ export default function LecturerMarksPage() {
                             />
                           </td>
                           <td>
-                            <strong style={{ fontSize: '1rem', color: grade === 'F' ? 'var(--color-secondary)' : 'var(--color-text)' }}>
+                            <strong
+                              style={{
+                                fontSize: '1rem',
+                                color: grade === 'F' ? 'var(--color-secondary)' : 'var(--color-text)',
+                              }}
+                            >
                               {total.toFixed(1)}
                             </strong>
                           </td>
                           <td>
-                            <span className={`badge ${cls}`}>{grade} ({gp})</span>
+                            <span className={`badge ${cls}`}>
+                              {grade} ({gp})
+                            </span>
                           </td>
                           {canEdit && (
                             <td>
                               <button
+                                type="button"
                                 className="btn btn-outline btn-sm"
                                 onClick={() => saveOneMark(stu.id)}
                                 disabled={saving}
@@ -504,28 +576,59 @@ export default function LecturerMarksPage() {
             </div>
           )}
 
-          {/* Submit Modal */}
           {submitModal && (
             <Modal title="Submit Marks for Review" onClose={() => setSubmitModal(false)}>
               <div>
                 <p style={{ marginBottom: '1rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
                   You are about to submit marks for{' '}
-                  <strong>{selectedCourse?.courses?.code} — {selectedCourse?.courses?.name}</strong>.
+                  <strong>
+                    {selectedCourse?.courses?.code} — {selectedCourse?.courses?.name}
+                  </strong>
+                  .
                 </p>
-                <div className="auth-alert" style={{ borderRadius: 'var(--radius-sm)', background: 'rgba(17,47,66,0.06)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
+                <div
+                  className="auth-alert"
+                  style={{
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(17,47,66,0.06)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: '0.75rem',
+                  }}
+                >
                   <MdInfo />
-                  After submission, you will not be able to edit marks until the administrator returns them.
+                  After submission you cannot edit until the administrator returns the marksheet.
+                </div>
+                <div
+                  className="auth-alert"
+                  style={{
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(5,150,105,0.08)',
+                    border: '1px solid rgba(5,150,105,0.25)',
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
+                  <MdPublish />
+                  Workflow: Submit → Admin approves → Admin publishes the <strong>full batch</strong> to
+                  students (all courses must be approved first).
                 </div>
                 <div className="modal-footer" style={{ marginTop: '1.5rem', padding: 0 }}>
-                  <button className="btn btn-outline" onClick={() => setSubmitModal(false)} disabled={submitMutation.isPending}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setSubmitModal(false)}
+                    disabled={submitMutation.isPending}
+                  >
                     <MdClose /> Cancel
                   </button>
                   <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={() => submitMutation.mutate()}
                     disabled={submitMutation.isPending}
                   >
-                    <MdSend /> {submitMutation.isPending ? 'Submitting…' : 'Confirm Submission'}
+                    <MdPublish />{' '}
+                    {submitMutation.isPending ? 'Submitting…' : 'Confirm & Submit'}
                   </button>
                 </div>
               </div>
