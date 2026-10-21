@@ -12,7 +12,12 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
 !.env.example
+
+# Supabase CLI local state (must not be committed)
+supabase/.temp/
+supabase/.branches/
 
 # Editor directories and files
 .vscode/*
@@ -24,3 +29,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS / tooling
+*.pem
+.turbo
+coverage
