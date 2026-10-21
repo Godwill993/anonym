@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
@@ -9,8 +9,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState(null);
 
-  const fetchProfile = async (userId) => {
-    setProfile(null);
+  const fetchProfile = useCallback(async (userId) => {
     setProfileError(null);
     const { data, error } = await supabase
       .from('profiles')
@@ -18,46 +17,59 @@ export function AuthProvider({ children }) {
       .eq('id', userId)
       .single();
     if (error) {
+      setProfile(null);
       setProfileError(error);
       return null;
     }
     setProfile(data);
     return data;
-  };
+  }, []);
 
-  const refetchProfile = async () => {
+  const refetchProfile = useCallback(async () => {
     setLoading(true);
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      setProfile(null);
-      setProfileError(error || new Error('No authenticated user'));
-      setLoading(false);
-      return null;
-    }
-
     try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        setProfile(null);
+        setProfileError(error || new Error('No authenticated user'));
+        return null;
+      }
       return await fetchProfile(user.id);
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchProfile]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-        setLoading(false);
-      } else {
-        setLoading(false);
-      }
-    });
+    let cancelled = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
+    const init = async () => {
+      try {
+        const { data: { session: current } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        setSession(current);
+        if (current?.user) {
+          await fetchProfile(current.user.id);
+        } else {
+          setProfile(null);
+          setProfileError(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (nextSession?.user) {
         setLoading(true);
-        Promise.resolve().then(() => fetchProfile(session.user.id)).finally(() => setLoading(false));
+        Promise.resolve()
+          .then(() => fetchProfile(nextSession.user.id))
+          .finally(() => {
+            if (!cancelled) setLoading(false);
+          });
       } else {
         setProfile(null);
         setProfileError(null);
@@ -65,13 +77,17 @@ export function AuthProvider({ children }) {
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    setProfileError(null);
   };
 
   return (
