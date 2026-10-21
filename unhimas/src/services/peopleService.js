@@ -34,7 +34,6 @@ export async function getStudents({ batchId = null, departmentId = null, search 
   const { data, error } = await query;
   if (error) throw error;
 
-  // If department filter specified and batch wasn't already filtering by it:
   if (departmentId) {
     return (data || []).filter((stu) => stu.batches?.departments?.id === departmentId);
   }
@@ -221,6 +220,7 @@ export async function getStudentTransfers(studentId) {
     .from('student_transfers')
     .select(`
       *,
+      students:student_id (id, matricule, first_name, last_name),
       from_batch:from_batch_id (id, name, code),
       to_batch:to_batch_id (id, name, code),
       transferred_by_profile:transferred_by (full_name, login_id)
