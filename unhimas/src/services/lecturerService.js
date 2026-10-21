@@ -1,1 +1,1 @@
-PLACEHOLDER
+SEE_FILE:/home/workdir/artifacts/lecturerService.js
