@@ -1,111 +1,90 @@
-# React + TypeScript + Vite
+# UNHIMAS — School Management System
+
+Universal Higher Institute of Management and Sciences (UNHIMAS) portal.
+
+Live: https://schoolmanagement-two-olive.vercel.app
+
+## Stack
+
+- **Frontend:** React 19, Vite 8, React Router 7, TanStack Query, React Hook Form + Zod, Recharts
+- **Backend:** Supabase (Auth, Postgres, Storage, Edge Functions, Vault)
+- **i18n:** English / French
+- **Push:** Web Push (VAPID) + `send-push-notification` Edge Function
+
+## Roles
+
+| Role | Capabilities |
+|------|----------------|
+| **Admin** | Academic structure, people, marks approval, results publish, announcements, reports, settings, audit log |
+| **Front desk** | Lecturer clock-in / clock-out, shift history |
+| **Lecturer** | Courses, sessions, attendance, mark entry & submit |
+| **Student** | Courses, attendance, results, transcript, timetable, resources |
+
+Public results verification is available at `/results` without login.
+
+## Local setup
+
+```bash
+cd unhimas
+cp .env.example .env
+# Fill VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from Supabase → Settings → API
+npm install
+npm run dev
+```
+
+Apply SQL migrations under `supabase/migrations/` (or run `supabase/schema.sql` on a fresh project), then deploy Edge Functions if you use browser push.
+
+### Scripts
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run lint` | ESLint |
+| `npm test` | Transcript unit tests |
 
 ## Browser push notifications
 
-Push notifications require HTTPS (localhost is supported for development), a browser
-that supports the Push API, and a one-time opt-in on each device. On iOS, users
-must first add the site to their Home Screen. The in-app notification list continues
-to work when browser push is unavailable or disabled.
+Requires HTTPS (localhost is fine for development), Push API support, and user opt-in. On iOS the site must be added to the Home Screen.
 
-1. Generate a VAPID key pair, for example with `npx web-push generate-vapid-keys`.
-   Add the public key to the frontend environment as `VITE_VAPID_PUBLIC_KEY`.
-2. Generate a separate random webhook secret. Keep it private and set the same
-   value as `PUSH_WEBHOOK_SECRET` for the Edge Function and in Supabase Vault as
-   `push_webhook_secret`. Add the Supabase project URL to Vault as `project_url`.
-   Do not put either secret in frontend environment variables or source control.
-3. Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and
-   `PUSH_WEBHOOK_SECRET` as Supabase Edge Function secrets using
-   `supabase secrets set VAPID_PUBLIC_KEY=<public-key>
-   VAPID_PRIVATE_KEY=<private-key> VAPID_SUBJECT=mailto:lendzelegoodwill@gmail.com
-   PUSH_WEBHOOK_SECRET=<random-secret>`. Deploy `send-push-notification` with
-   `supabase functions deploy send-push-notification`.
-4. Apply `20261015000000_browser_push_notifications.sql` to the Supabase project,
-   then rebuild and deploy the frontend with its public VAPID key.
+1. Generate VAPID keys: `npx web-push generate-vapid-keys`
+2. Set `VITE_VAPID_PUBLIC_KEY` in the frontend env.
+3. Set Edge Function secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_WEBHOOK_SECRET`
+4. Deploy: `supabase functions deploy send-push-notification`
+5. Apply migration `20261015000000_browser_push_notifications.sql`
+6. Store `project_url` and `push_webhook_secret` in Supabase Vault (see migration comments)
 
-The migration creates per-user push subscriptions and a database trigger that
-dispatches every newly inserted notification to the Edge Function. Users enable
-or disable push on each device using the notification bell controls.
+Do **not** put private keys or webhook secrets in frontend env or source control.
 
-Vault setup (run in the Supabase SQL editor, replacing placeholders with the
-project URL and the same random webhook secret used for the Edge Function):
-
-```sql
-select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');
-select vault.create_secret('<random-webhook-secret>', 'push_webhook_secret');
-```
-
-The database migration requires Supabase's `pg_net` and Vault extensions.
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project layout
 
 ```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+unhimas/
+├── public/                 # PWA assets, service worker
+├── src/
+│   ├── components/         # Shared UI + app shell
+│   ├── context/            # Auth, theme
+│   ├── hooks/
+│   ├── i18n/
+│   ├── lib/                # supabase client, permissions, transcript
+│   ├── pages/              # admin | frontdesk | lecturer | student | auth | public
+│   ├── routes/             # ProtectedRoute
+│   ├── services/           # Supabase data access
+│   └── styles/
+├── supabase/
+│   ├── migrations/
+│   ├── functions/send-push-notification/
+│   └── schema.sql          # Full schema for fresh projects
+└── package.json
 ```
+
+## Security notes
+
+- Never commit `.env` or Supabase service-role keys.
+- Account provisioning uses an isolated Auth client so admin sessions are not replaced on signup.
+- Role and capability checks on the client are for UX only; enforce access with Supabase RLS and SECURITY DEFINER RPCs.
+
+## License
+
+Private / institutional use unless otherwise stated.
