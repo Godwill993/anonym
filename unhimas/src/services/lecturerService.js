@@ -138,7 +138,9 @@ export async function getOrCreateMarkSubmission(batchCourseId, lecturerId) {
 
   try {
     await supabase.rpc('ensure_marks_for_submission', { p_submission_id: submission.id });
-  } catch (_) {}
+  } catch (_) {
+    // RPC may not exist on older deployments; marks can still be entered manually
+  }
 
   return submission;
 }
@@ -160,7 +162,7 @@ export async function getMarksForSubmission(submissionId) {
     .from('marks')
     .select(`*, students:student_id (id, matricule, first_name, middle_name, last_name)`)
     .eq('mark_submission_id', submissionId)
-    .order('students(matricule)');
+    .order('matricule', { foreignTable: 'students', ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -296,7 +298,7 @@ export async function getAttendanceForSession(sessionId) {
     .from('attendance')
     .select(`*, students:student_id (id, matricule, first_name, middle_name, last_name)`)
     .eq('session_id', sessionId)
-    .order('students(matricule)');
+    .order('matricule', { foreignTable: 'students', ascending: true });
   if (error) throw error;
   return data || [];
 }
