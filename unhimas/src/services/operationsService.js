@@ -67,10 +67,12 @@ export async function getSubmissionDetail(id) {
           credit_units
         ),
         batches (
+          id,
           name,
           code
         ),
         semesters (
+          id,
           name,
           number,
           academic_years (
@@ -142,6 +144,39 @@ export async function reviewSubmission(id, { status, admin_comment = '' }) {
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Readiness of every course in a batch + semester.
+ * A course is ready when its mark submission is approved or already published.
+ */
+export async function getBatchResultsReadiness(batchId, semesterId) {
+  const { data, error } = await supabase.rpc('get_batch_results_readiness', {
+    p_batch_id: batchId,
+    p_semester_id: semesterId,
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Overview rows for all batch + semester combinations that have courses. */
+export async function listBatchSemesterReadiness() {
+  const { data, error } = await supabase.rpc('list_batch_semester_readiness');
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Publish all approved mark submissions for a batch + semester.
+ * Fails unless every course in that pair is approved (or already published).
+ */
+export async function publishBatchResults(batchId, semesterId) {
+  const { data, error } = await supabase.rpc('publish_batch_results', {
+    p_batch_id: batchId,
+    p_semester_id: semesterId,
+  });
+  if (error) throw error;
+  return data; // integer count of newly published submissions
 }
 
 // ============================================================
