@@ -1,5 +1,38 @@
 import { supabase } from '../lib/supabase';
 
+/**
+ * Parse form datetime values as local wall-clock time.
+ * Supports:
+ *  - "YYYY-MM-DDTHH:mm" / "YYYY-MM-DDTHH:mm:ss" (datetime-local)
+ *  - full ISO strings already in UTC
+ * Avoids treating timezone-less strings inconsistently across browsers.
+ */
+function parseSessionDateTime(value) {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const str = String(value).trim();
+  const localMatch = str.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (localMatch && !/[zZ]|[+\-]\d{2}:?\d{2}$/.test(str)) {
+    const [, y, mo, d, h, mi, s] = localMatch;
+    const dt = new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(s || 0),
+      0,
+    );
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+  const dt = new Date(str);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 // ============================================================
 // LECTURER PROFILE
 // ============================================================
@@ -238,12 +271,12 @@ export async function getSessionsForBatchCourse(batchCourseId, lecturerId) {
 }
 
 export async function createClassSession({ batch_course_id, lecturer_id, room, scheduled_start, scheduled_end, topic, notes }) {
-  const start = new Date(scheduled_start);
-  const end = new Date(scheduled_end);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  const start = parseSessionDateTime(scheduled_start);
+  const end = parseSessionDateTime(scheduled_end);
+  if (!start || !end) {
     throw new Error('Invalid session date or time.');
   }
-  if (!(end > start)) {
+  if (!(end.getTime() > start.getTime())) {
     throw new Error('End time must be after start time.');
   }
   const { data, error } = await supabase
@@ -265,13 +298,23 @@ export async function createClassSession({ batch_course_id, lecturer_id, room, s
 
 export async function updateClassSession(id, { room, scheduled_start, scheduled_end, topic, notes }) {
   const row = {};
-  if (scheduled_start) row.scheduled_start = new Date(scheduled_start).toISOString();
-  if (scheduled_end) row.scheduled_end = new Date(scheduled_end).toISOString();
+  if (scheduled_start) {
+    const start = parseSessionDateTime(scheduled_start);
+    if (!start) throw new Error('Invalid session start time.');
+    row.scheduled_start = start.toISOString();
+  }
+  if (scheduled_end) {
+    const end = parseSessionDateTime(scheduled_end);
+    if (!end) throw new Error('Invalid session end time.');
+    row.scheduled_end = end.toISOString();
+  }
   if (room !== undefined) row.room = room?.trim() || null;
   if (topic !== undefined) row.topic = topic?.trim() || null;
   if (notes !== undefined) row.notes = notes?.trim() || null;
-  if (row.scheduled_start && row.scheduled_end && !(new Date(row.scheduled_end) > new Date(row.scheduled_start))) {
-    throw new Error('End time must be after start time.');
+  if (row.scheduled_start && row.scheduled_end) {
+    if (!(new Date(row.scheduled_end).getTime() > new Date(row.scheduled_start).getTime())) {
+      throw new Error('End time must be after start time.');
+    }
   }
   const { data, error } = await supabase
     .from('class_sessions')
