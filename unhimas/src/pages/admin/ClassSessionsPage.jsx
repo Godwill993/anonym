@@ -4,6 +4,7 @@ import { MdAdd, MdDelete, MdEdit, MdSearch, MdSchedule } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
+import { useTranslation } from '../../i18n';
 import {
   getBatchCourses,
   getClassSessions,
@@ -33,6 +34,7 @@ const emptyForm = {
 };
 
 export default function ClassSessionsPage() {
+  const { translateText: tx } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('upcoming');
@@ -65,19 +67,19 @@ export default function ClassSessionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
-      toast.success(editing ? 'Class session updated' : 'Class session created');
+      toast.success(tx(editing ? 'Class session updated' : 'Class session created'));
       closeModal();
     },
-    onError: (err) => toast.error(err.message || 'Could not save session'),
+    onError: (err) => toast.error(err.message || tx('Could not save session')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteClassSessionAdmin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
-      toast.success('Class session removed');
+      toast.success(tx('Class session removed'));
     },
-    onError: (err) => toast.error(err.message || 'Could not delete session'),
+    onError: (err) => toast.error(err.message || tx('Could not delete session')),
   });
 
   const now = Date.now();
@@ -131,11 +133,11 @@ export default function ClassSessionsPage() {
   const submit = (event) => {
     event.preventDefault();
     if (!form.batch_course_id || !form.lecturer_id || !form.scheduled_start || !form.scheduled_end) {
-      toast.error('Course, lecturer, start and end times are required.');
+      toast.error(tx('Course, lecturer, start and end times are required.'));
       return;
     }
     if (!(new Date(form.scheduled_end) > new Date(form.scheduled_start))) {
-      toast.error('End time must be after start time.');
+      toast.error(tx('End time must be after start time.'));
       return;
     }
     saveMutation.mutate(form);
@@ -143,11 +145,11 @@ export default function ClassSessionsPage() {
 
   const handleGenerate = async () => {
     if (!genFrom || !genTo) {
-      toast.error('Please select both start and end dates.');
+      toast.error(tx('Please select both start and end dates.'));
       return;
     }
     if (genTo < genFrom) {
-      toast.error('End date must be on or after the start date.');
+      toast.error(tx('End date must be on or after the start date.'));
       return;
     }
     setGenerating(true);
@@ -155,14 +157,14 @@ export default function ClassSessionsPage() {
       const count = await generateSessionsFromTimetable({ from: genFrom, to: genTo });
       toast.success(
         count === 0
-          ? 'No new sessions created (slots may already exist for these days, or no timetable slots match)'
+          ? tx('No new sessions created (slots may already exist for these days, or no timetable slots match)')
           : `${count} session(s) created from timetable`
       );
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
     } catch (err) {
       const msg = err?.message || 'Failed to generate sessions';
       if (msg.includes('generate_sessions_from_timetable') || msg.includes('function') || msg.includes('does not exist')) {
-        toast.error('Session generation is not available yet. Apply migration 20261022000000 on Supabase first.');
+        toast.error(tx('Session generation is not available yet. Apply migration 20261022000000 on Supabase first.'));
       } else {
         toast.error(msg);
       }
@@ -172,30 +174,29 @@ export default function ClassSessionsPage() {
   };
 
   return (
-    <AppLayout pageTitle="Class Sessions">
+    <AppLayout pageTitle={tx('Class Sessions')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Class Sessions</h1>
+          <h1 className="page-title">{tx('Class Sessions')}</h1>
           <p className="page-subtitle">
-            Schedule, edit and remove lecture sessions. Lecturers mark student attendance against these sessions.
+            {tx('Schedule, edit and remove lecture sessions. Lecturers mark student attendance against these sessions.')}
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <MdAdd /> Create session
+          <MdAdd /> {tx('Create session')}
         </button>
       </div>
 
       <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
         <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <MdSchedule /> Generate sessions from weekly timetable
+          <MdSchedule /> {tx('Generate sessions from weekly timetable')}
         </div>
         <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-          Creates concrete class sessions for every timetable slot in the date range (max 90 days).
-          Existing sessions on the same day for the same course and lecturer are skipped.
+          {tx('Creates concrete class sessions for every timetable slot in the date range (max 90 days). Existing sessions on the same day for the same course and lecturer are skipped.')}
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
           <div>
-            <label className="form-label" htmlFor="gen-from">From</label>
+            <label className="form-label" htmlFor="gen-from">{tx('From')}</label>
             <input
               id="gen-from"
               type="date"
@@ -205,7 +206,7 @@ export default function ClassSessionsPage() {
             />
           </div>
           <div>
-            <label className="form-label" htmlFor="gen-to">To</label>
+            <label className="form-label" htmlFor="gen-to">{tx('To')}</label>
             <input
               id="gen-to"
               type="date"
@@ -220,7 +221,7 @@ export default function ClassSessionsPage() {
             disabled={generating || !genFrom || !genTo}
             onClick={handleGenerate}
           >
-            {generating ? 'Generating…' : 'Generate sessions'}
+            {generating ? tx('Generating…') : tx('Generate sessions')}
           </button>
         </div>
       </div>
@@ -234,13 +235,13 @@ export default function ClassSessionsPage() {
               style={{ paddingLeft: 40 }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search course, batch, lecturer, room, topic…"
+              placeholder={tx('Search course, batch, lecturer, room, topic…')}
             />
           </div>
           <select className="form-input" style={{ maxWidth: 180 }} value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
-            <option value="all">All sessions</option>
+            <option value="upcoming">{tx('Upcoming')}</option>
+            <option value="past">{tx('Past')}</option>
+            <option value="all">{tx('All sessions')}</option>
           </select>
         </div>
 
@@ -248,20 +249,20 @@ export default function ClassSessionsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Course</th>
-                <th>Batch</th>
-                <th>Lecturer</th>
-                <th>Schedule</th>
-                <th>Room</th>
-                <th>Topic</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>{tx('Course')}</th>
+                <th>{tx('Batch')}</th>
+                <th>{tx('Lecturer')}</th>
+                <th>{tx('Schedule')}</th>
+                <th>{tx('Room')}</th>
+                <th>{tx('Topic')}</th>
+                <th style={{ textAlign: 'right' }}>{tx('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading sessions…
+                    {tx('Loading sessions…')}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
@@ -269,8 +270,8 @@ export default function ClassSessionsPage() {
                   <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
-                      <div className="empty-state-title">No class sessions found</div>
-                      <div className="empty-state-text">Create a session, generate from the timetable, or adjust the filters.</div>
+                      <div className="empty-state-title">{tx('No class sessions found')}</div>
+                      <div className="empty-state-text">{tx('Create a session, generate from the timetable, or adjust the filters.')}</div>
                     </div>
                   </td>
                 </tr>
@@ -306,14 +307,14 @@ export default function ClassSessionsPage() {
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
                           <button type="button" className="btn btn-outline btn-sm" onClick={() => openEdit(session)}>
-                            <MdEdit /> Edit
+                            <MdEdit /> {tx('Edit')}
                           </button>
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
-                            title="Delete session"
+                            title={tx('Delete')}
                             onClick={() => {
-                              if (window.confirm('Delete this class session? Attendance records for it will also be removed.')) {
+                              if (window.confirm(tx('Delete this class session? Attendance records for it will also be removed.'))) {
                                 deleteMutation.mutate(session.id);
                               }
                             }}
@@ -334,28 +335,28 @@ export default function ClassSessionsPage() {
       <Modal
         isOpen={open}
         onClose={closeModal}
-        title={editing ? 'Edit class session' : 'Create class session'}
+        title={tx(editing ? 'Edit class session' : 'Create class session')}
         footer={
           <>
             <button type="button" className="btn btn-outline" onClick={closeModal}>
-              Cancel
+              {tx('Cancel')}
             </button>
             <button type="button" className="btn btn-primary" onClick={submit} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Saving…' : editing ? 'Save changes' : 'Create session'}
+              {saveMutation.isPending ? tx('Loading...') : editing ? tx('Save changes') : tx('Create session')}
             </button>
           </>
         }
       >
         <form onSubmit={submit}>
           <div className="form-group">
-            <label className="form-label">Batch course *</label>
+            <label className="form-label">{tx('Batch course *')}</label>
             <select
               className="form-input"
               value={form.batch_course_id}
               onChange={(e) => onBatchCourseChange(e.target.value)}
               required
             >
-              <option value="">Select course and batch</option>
+              <option value="">{tx('Select course and batch')}</option>
               {batchCourses.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.courses?.code} — {item.courses?.name} ({item.batches?.name}
@@ -365,14 +366,14 @@ export default function ClassSessionsPage() {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Lecturer *</label>
+            <label className="form-label">{tx('Lecturer *')}</label>
             <select
               className="form-input"
               value={form.lecturer_id}
               onChange={(e) => setForm({ ...form, lecturer_id: e.target.value })}
               required
             >
-              <option value="">Select lecturer</option>
+              <option value="">{tx('Select lecturer')}</option>
               {lecturers.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.first_name} {item.last_name}
@@ -381,12 +382,12 @@ export default function ClassSessionsPage() {
               ))}
             </select>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-              Selecting a batch course auto-fills the assigned lecturer when available.
+              {tx('Selecting a batch course auto-fills the assigned lecturer when available.')}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">
-              <label className="form-label">Start *</label>
+              <label className="form-label">{tx('Start')} *</label>
               <input
                 className="form-input"
                 type="datetime-local"
@@ -396,7 +397,7 @@ export default function ClassSessionsPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">End *</label>
+              <label className="form-label">{tx('End')} *</label>
               <input
                 className="form-input"
                 type="datetime-local"
@@ -407,31 +408,31 @@ export default function ClassSessionsPage() {
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Room</label>
+            <label className="form-label">{tx('Room')}</label>
             <input
               className="form-input"
               value={form.room}
               onChange={(e) => setForm({ ...form, room: e.target.value })}
-              placeholder="e.g. Hall A, Lab 2"
+              placeholder={tx('e.g. Hall A, Lab 2')}
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Topic</label>
+            <label className="form-label">{tx('Topic')}</label>
             <input
               className="form-input"
               value={form.topic}
               onChange={(e) => setForm({ ...form, topic: e.target.value })}
-              placeholder="Lecture topic"
+              placeholder={tx('Lecture topic')}
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Notes</label>
+            <label className="form-label">{tx('Notes')}</label>
             <textarea
               className="form-input"
               rows={2}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Optional notes for staff"
+              placeholder={tx('Optional notes for staff')}
             />
           </div>
         </form>
