@@ -68,16 +68,28 @@ create trigger trg_marks_set_grade
   execute function public.set_mark_grade_from_total();
 
 -- Backfill existing rows that lack grade
-update public.marks m
-set grade = r.grade,
-    grade_point = r.grade_point,
-    updated_at = now()
-from public.resolve_grade(
-  coalesce(m.attendance_score, 0)
-  + coalesce(m.coursework_score, 0)
-  + coalesce(m.exam_score, 0)
-) r
-where m.grade is null or m.grade_point is null;
+-- (correlated subqueries: UPDATE target cannot be referenced in FROM the way
+--  a set-returning function call would require — avoids Postgres error 42P10)
+update public.marks
+set
+  grade = (
+    select r.grade
+    from public.resolve_grade(
+      coalesce(attendance_score, 0)
+      + coalesce(coursework_score, 0)
+      + coalesce(exam_score, 0)
+    ) r
+  ),
+  grade_point = (
+    select r.grade_point
+    from public.resolve_grade(
+      coalesce(attendance_score, 0)
+      + coalesce(coursework_score, 0)
+      + coalesce(exam_score, 0)
+    ) r
+  ),
+  updated_at = now()
+where grade is null or grade_point is null;
 
 -- 3. Generate class sessions from timetable slots for a date range
 create or replace function public.generate_sessions_from_timetable(
