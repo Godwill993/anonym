@@ -9,14 +9,15 @@ import {
   createDepartment,
   updateDepartment,
 } from '../../services/academicService';
+import { useTranslation } from '../../i18n';
 
 export default function DepartmentsPage() {
+  const { translateText: tx } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
 
-  // Form State
   const [formData, setFormData] = useState({
     name: '',
     abbreviation: '',
@@ -32,11 +33,11 @@ export default function DepartmentsPage() {
     mutationFn: createDepartment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-departments'] });
-      toast.success('Department created successfully');
+      toast.success(tx('Department created successfully'));
       handleCloseModal();
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to create department');
+      toast.error(err.message || tx('Failed to create department'));
     },
   });
 
@@ -44,11 +45,11 @@ export default function DepartmentsPage() {
     mutationFn: ({ id, updates }) => updateDepartment(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-departments'] });
-      toast.success('Department updated successfully');
+      toast.success(tx('Department updated successfully'));
       handleCloseModal();
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to update department');
+      toast.error(err.message || tx('Failed to update department'));
     },
   });
 
@@ -76,7 +77,7 @@ export default function DepartmentsPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.abbreviation.trim()) {
-      toast.error('Name and abbreviation are required');
+      toast.error(tx('Name and abbreviation are required'));
       return;
     }
 
@@ -115,15 +116,15 @@ export default function DepartmentsPage() {
   });
 
   return (
-    <AppLayout pageTitle="Departments">
+    <AppLayout pageTitle={tx('Departments')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Departments</h1>
-          <p className="page-subtitle">Manage university academic faculties & departmental codes</p>
+          <h1 className="page-title">{tx('Departments')}</h1>
+          <p className="page-subtitle">{tx('Manage university academic faculties & departmental codes')}</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Add Department
+            <MdAdd /> {tx('Add')} {tx('Department')}
           </button>
         </div>
       </div>
@@ -145,13 +146,13 @@ export default function DepartmentsPage() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search departments by name, code or abbreviation..."
+              placeholder={tx('Search departments by name, code or abbreviation...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-            Total: <strong>{departments.length}</strong> departments
+            {tx('Total')}: <strong>{departments.length}</strong>
           </div>
         </div>
 
@@ -159,21 +160,21 @@ export default function DepartmentsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Department Name</th>
-                <th>Abbreviation</th>
-                <th>Code</th>
-                <th>Batches</th>
-                <th>Courses</th>
-                <th>Faculty Lecturers</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>{tx('Department Name')}</th>
+                <th>{tx('Abbreviation')}</th>
+                <th>{tx('Code')}</th>
+                <th>{tx('Batches')}</th>
+                <th>{tx('Courses')}</th>
+                <th>{tx('Faculty Lecturers')}</th>
+                <th>{tx('Status')}</th>
+                <th style={{ textAlign: 'right' }}>{tx('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading departments...
+                    {tx('Loading...')}
                   </td>
                 </tr>
               ) : filteredDepts.length === 0 ? (
@@ -181,10 +182,7 @@ export default function DepartmentsPage() {
                   <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdApartment className="empty-state-icon" />
-                      <div className="empty-state-title">No Departments Found</div>
-                      <div className="empty-state-text">
-                        Create your first academic department to begin building curricula.
-                      </div>
+                      <div className="empty-state-title">{tx('No Departments Found')}</div>
                     </div>
                   </td>
                 </tr>
@@ -212,21 +210,21 @@ export default function DepartmentsPage() {
                     <td>{dept.lecturers?.[0]?.count ?? 0}</td>
                     <td>
                       <span className={`badge ${dept.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {dept.is_active ? 'Active' : 'Inactive'}
+                        {dept.is_active ? tx('Active') : tx('Inactive')}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
                         <button
                           className="btn-icon"
-                          title="Edit department"
+                          title={tx('Edit department')}
                           onClick={() => handleOpenEdit(dept)}
                         >
                           <MdEdit />
                         </button>
                         <button
                           className="btn-icon"
-                          title={dept.is_active ? 'Deactivate' : 'Activate'}
+                          title={dept.is_active ? tx('Deactivate') : tx('Activate')}
                           onClick={() => handleToggleStatus(dept)}
                         >
                           {dept.is_active ? <MdToggleOn style={{ color: '#059669', fontSize: '1.25rem' }} /> : <MdToggleOff style={{ color: 'var(--color-text-muted)', fontSize: '1.25rem' }} />}
@@ -241,15 +239,14 @@ export default function DepartmentsPage() {
         </div>
       </div>
 
-      {/* Add / Edit Department Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingDept ? 'Edit Department' : 'Add New Department'}
+        title={editingDept ? tx('Edit') + ' ' + tx('Department') : tx('Add') + ' ' + tx('Department')}
         footer={
           <>
             <button type="button" className="btn btn-outline" onClick={handleCloseModal}>
-              Cancel
+              {tx('Cancel')}
             </button>
             <button
               type="button"
@@ -257,18 +254,18 @@ export default function DepartmentsPage() {
               onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
             >
-              {editingDept ? 'Update Department' : 'Create Department'}
+              {editingDept ? tx('Save Changes') : tx('Save')}
             </button>
           </>
         }
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Department Name *</label>
+            <label className="form-label">{tx('Department Name *')}</label>
             <input
               type="text"
               className="form-input"
-              placeholder="e.g. Computer Engineering"
+              placeholder={tx('e.g. Computer Engineering')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -276,26 +273,23 @@ export default function DepartmentsPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Abbreviation *</label>
+            <label className="form-label">{tx('Abbreviation *')}</label>
             <input
               type="text"
               className="form-input"
-              placeholder="e.g. CEN or SWE"
+              placeholder={tx('e.g. CEN or SWE')}
               value={formData.abbreviation}
               onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value.toUpperCase() })}
               required
             />
-            <div className="form-hint">
-              Used in generated codes (e.g. UNH-CEN-...)
-            </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Description (Optional)</label>
+            <label className="form-label">{tx('Description (Optional)')}</label>
             <textarea
               className="form-input"
               rows="3"
-              placeholder="Brief summary of department focus..."
+              placeholder={tx('Brief summary of department focus...')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
