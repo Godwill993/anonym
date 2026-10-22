@@ -326,3 +326,27 @@ export async function deleteClassSessionAdmin(id) {
   if (error) throw error;
   return true;
 }
+
+// ============================================================
+// TIMETABLE → CLASS SESSION GENERATION
+// ============================================================
+
+/**
+ * Generate concrete class_sessions from timetable_slots for a date range.
+ * Skips slots that already have a session on the same day (within 5 minutes).
+ * Requires migration 20261022000000 (RPC generate_sessions_from_timetable).
+ * @param {{ from: string, to: string, batchCourseId?: string|null }} opts
+ *   from/to as YYYY-MM-DD
+ * @returns {Promise<number>} number of sessions created
+ */
+export async function generateSessionsFromTimetable({ from, to, batchCourseId = null }) {
+  if (!from || !to) throw new Error('Start and end dates are required.');
+  if (to < from) throw new Error('End date must be on or after the start date.');
+  const { data, error } = await supabase.rpc('generate_sessions_from_timetable', {
+    p_from: from,
+    p_to: to,
+    p_batch_course_id: batchCourseId || null,
+  });
+  if (error) throw error;
+  return data ?? 0;
+}

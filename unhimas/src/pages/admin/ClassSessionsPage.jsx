@@ -8,6 +8,7 @@ import {
   getBatchCourses,
   getClassSessions,
   createClassSessionAdmin,
+  generateSessionsFromTimetable,
   updateClassSessionAdmin,
   deleteClassSessionAdmin,
 } from '../../services/academicService';
@@ -38,6 +39,9 @@ export default function ClassSessionsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [genFrom, setGenFrom] = useState('');
+  const [genTo, setGenTo] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['admin-class-sessions'],
@@ -137,6 +141,36 @@ export default function ClassSessionsPage() {
     saveMutation.mutate(form);
   };
 
+  const handleGenerate = async () => {
+    if (!genFrom || !genTo) {
+      toast.error('Please select both start and end dates.');
+      return;
+    }
+    if (genTo < genFrom) {
+      toast.error('End date must be on or after the start date.');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const count = await generateSessionsFromTimetable({ from: genFrom, to: genTo });
+      toast.success(
+        count === 0
+          ? 'No new sessions created (slots may already exist for these days, or no timetable slots match)'
+          : `${count} session(s) created from timetable`
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+    } catch (err) {
+      const msg = err?.message || 'Failed to generate sessions';
+      if (msg.includes('generate_sessions_from_timetable') || msg.includes('function') || msg.includes('does not exist')) {
+        toast.error('Session generation is not available yet. Apply migration 20261022000000 on Supabase first.');
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <AppLayout pageTitle="Class Sessions">
       <div className="page-header">
@@ -149,6 +183,46 @@ export default function ClassSessionsPage() {
         <button type="button" className="btn btn-primary" onClick={openCreate}>
           <MdAdd /> Create session
         </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
+        <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <MdSchedule /> Generate sessions from weekly timetable
+        </div>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+          Creates concrete class sessions for every timetable slot in the date range (max 90 days).
+          Existing sessions on the same day for the same course and lecturer are skipped.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
+          <div>
+            <label className="form-label" htmlFor="gen-from">From</label>
+            <input
+              id="gen-from"
+              type="date"
+              className="form-input"
+              value={genFrom}
+              onChange={(e) => setGenFrom(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label" htmlFor="gen-to">To</label>
+            <input
+              id="gen-to"
+              type="date"
+              className="form-input"
+              value={genTo}
+              onChange={(e) => setGenTo(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={generating || !genFrom || !genTo}
+            onClick={handleGenerate}
+          >
+            {generating ? 'Generating…' : 'Generate sessions'}
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -196,7 +270,7 @@ export default function ClassSessionsPage() {
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
                       <div className="empty-state-title">No class sessions found</div>
-                      <div className="empty-state-text">Create a session or adjust the filters.</div>
+                      <div className="empty-state-text">Create a session, generate from the timetable, or adjust the filters.</div>
                     </div>
                   </td>
                 </tr>
