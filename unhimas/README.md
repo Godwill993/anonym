@@ -42,7 +42,7 @@ Apply SQL migrations under `supabase/migrations/` (or run `supabase/schema.sql` 
 | `npm run build` | Production build |
 | `npm run preview` | Preview production build |
 | `npm run lint` | ESLint |
-| `npm test` | Transcript unit tests |
+| `npm test` | Transcript + grading unit tests |
 
 ## Browser push notifications
 
@@ -67,7 +67,7 @@ unhimas/
 │   ├── context/            # Auth, theme
 │   ├── hooks/
 │   ├── i18n/
-│   ├── lib/                # supabase client, permissions, transcript
+│   ├── lib/                # supabase client, permissions, transcript, grading
 │   ├── pages/              # admin | frontdesk | lecturer | student | auth | public
 │   ├── routes/             # ProtectedRoute
 │   ├── services/           # Supabase data access
@@ -84,6 +84,14 @@ unhimas/
 - Never commit `.env` or Supabase service-role keys.
 - Account provisioning uses an isolated Auth client so admin sessions are not replaced on signup.
 - Role and capability checks on the client are for UX only; enforce access with Supabase RLS and SECURITY DEFINER RPCs.
+
+## Recent implementation notes (2026-10-22)
+
+- **Grade calculation** is now explicit and shared:
+  - Client: `src/lib/grading.js` (+ unit tests).
+  - Persisted on every mark upsert; DB trigger `trg_marks_set_grade` keeps `marks.grade` / `grade_point` in sync with scores using `grading_scale`.
+  - Apply migration `supabase/migrations/20261022000000_grade_calculation_and_session_generation.sql`.
+- **Timetable → sessions**: Admin Class Sessions page can generate concrete sessions from weekly timetable slots for a date range (RPC `generate_sessions_from_timetable`, max 90 days, skips existing same-day sessions).
 
 ## License
 

@@ -6,3 +6,5 @@ The application lives in the [`unhimas/`](./unhimas) directory.
 
 - **Live app:** https://schoolmanagement-two-olive.vercel.app
 - **Setup & docs:** see [unhimas/README.md](./unhimas/README.md)
+
+See `unhimas/README.md` for grade calculation and session-generation notes (2026-10-22).
