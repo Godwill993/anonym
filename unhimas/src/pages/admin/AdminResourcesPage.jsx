@@ -1,13 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdDelete, MdDownload, MdFolder, MdVisibility, MdWarning } from 'react-icons/md';
+import { MdAdd, MdDelete, MdDownload, MdFolder, MdWarning } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
-import ResourcePreviewModal, {
-  LocalFilePreview,
-  ResourceKindIcon,
-} from '../../components/common/ResourcePreviewModal';
+import { LocalFilePreview, ResourceKindIcon } from '../../components/common/ResourcePreviewModal';
 import ResourceCardThumbnail from '../../components/common/ResourceCardThumbnail';
+import { downloadFileFromUrl } from '../../utils/downloadFile';
 import { toast } from '../../components/common/Toast';
 import { getBatches, getCourses } from '../../services/academicService';
 import {
@@ -28,7 +26,6 @@ export default function AdminResourcesPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', course_id: '', batch_id: '' });
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewResource, setPreviewResource] = useState(null);
 
   const { data: resources = [], isLoading, error } = useQuery({
     queryKey: ['admin-resources'],
@@ -66,23 +63,17 @@ export default function AdminResourcesPage() {
   const downloadResource = async (resource) => {
     try {
       const { url } = await getAdminResourceDownload(resource.file_path);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      if (!url) throw new Error('No download URL');
+      const name =
+        resource.file_name ||
+        resource.title ||
+        resource.file_path?.split('/').pop() ||
+        'resource';
+      await downloadFileFromUrl(url, name);
     } catch (err) {
       toast.error(err.message || 'The resource could not be downloaded.');
     }
   };
-
-  const getSignedUrl = useCallback(async () => {
-    if (!previewResource?.file_path) return null;
-    const { url } = await getAdminResourceDownload(previewResource.file_path);
-    return url;
-  }, [previewResource]);
 
   const submitUpload = (event) => {
     event.preventDefault();
@@ -243,10 +234,12 @@ export default function AdminResourcesPage() {
                     {formatDate(resource.created_at)}
                   </span>
                   <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                    <button type="button" className="btn-icon" title="Preview" onClick={() => setPreviewResource(resource)}>
-                      <MdVisibility />
-                    </button>
-                    <button type="button" className="btn-icon" title="Download" onClick={() => downloadResource(resource)}>
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Download"
+                      onClick={() => downloadResource(resource)}
+                    >
                       <MdDownload />
                     </button>
                     <button
@@ -278,10 +271,22 @@ export default function AdminResourcesPage() {
         title="Upload resource"
         footer={
           <>
-            <button className="btn btn-outline" type="button" onClick={() => { setUploadOpen(false); setSelectedFile(null); }}>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => {
+                setUploadOpen(false);
+                setSelectedFile(null);
+              }}
+            >
               Cancel
             </button>
-            <button className="btn btn-primary" type="submit" form="resource-upload-form" disabled={uploadMutation.isPending}>
+            <button
+              className="btn btn-primary"
+              type="submit"
+              form="resource-upload-form"
+              disabled={uploadMutation.isPending}
+            >
               {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
             </button>
           </>
@@ -289,7 +294,9 @@ export default function AdminResourcesPage() {
       >
         <form id="resource-upload-form" onSubmit={submitUpload}>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-file">File</label>
+            <label className="form-label" htmlFor="resource-file">
+              File
+            </label>
             <input
               id="resource-file"
               name="file"
@@ -309,43 +316,67 @@ export default function AdminResourcesPage() {
             <LocalFilePreview file={selectedFile} />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-title">Title</label>
-            <input id="resource-title" className="form-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            <label className="form-label" htmlFor="resource-title">
+              Title
+            </label>
+            <input
+              id="resource-title"
+              className="form-input"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+            />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-description">Description</label>
-            <textarea id="resource-description" className="form-input" rows="3" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <label className="form-label" htmlFor="resource-description">
+              Description
+            </label>
+            <textarea
+              id="resource-description"
+              className="form-input"
+              rows="3"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-course">Course</label>
-            <select id="resource-course" className="form-input" value={form.course_id} onChange={(e) => setForm({ ...form, course_id: e.target.value })}>
+            <label className="form-label" htmlFor="resource-course">
+              Course
+            </label>
+            <select
+              id="resource-course"
+              className="form-input"
+              value={form.course_id}
+              onChange={(e) => setForm({ ...form, course_id: e.target.value })}
+            >
               <option value="">All courses</option>
               {courses.map((course) => (
-                <option key={course.id} value={course.id}>{course.code} — {course.name}</option>
+                <option key={course.id} value={course.id}>
+                  {course.code} — {course.name}
+                </option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-batch">Batch</label>
-            <select id="resource-batch" className="form-input" value={form.batch_id} onChange={(e) => setForm({ ...form, batch_id: e.target.value })}>
+            <label className="form-label" htmlFor="resource-batch">
+              Batch
+            </label>
+            <select
+              id="resource-batch"
+              className="form-input"
+              value={form.batch_id}
+              onChange={(e) => setForm({ ...form, batch_id: e.target.value })}
+            >
               <option value="">All batches</option>
               {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>{batch.code} — {batch.name}</option>
+                <option key={batch.id} value={batch.id}>
+                  {batch.code} — {batch.name}
+                </option>
               ))}
             </select>
           </div>
         </form>
       </Modal>
-
-      <ResourcePreviewModal
-        isOpen={Boolean(previewResource)}
-        onClose={() => setPreviewResource(null)}
-        title={previewResource?.title}
-        mimeType={previewResource?.mime_type}
-        fileName={previewResource?.title}
-        getSignedUrl={getSignedUrl}
-        onDownload={previewResource ? () => downloadResource(previewResource) : undefined}
-      />
     </AppLayout>
   );
 }
