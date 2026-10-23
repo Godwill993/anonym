@@ -98,9 +98,9 @@ export default function LecturerResourcesPage() {
       )}
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
           {[1, 2, 3].map((item) => (
-            <div key={item} className="card" style={{ padding: '0.75rem', height: 104 }}>
+            <div key={item} className="card" style={{ padding: '1rem', height: 130 }}>
               <div className="skeleton skeleton-box" style={{ height: '100%' }} />
             </div>
           ))}
@@ -122,17 +122,17 @@ export default function LecturerResourcesPage() {
           <p className="empty-state-text">No materials have been uploaded for your assigned courses yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
           {filteredResources.map((resource) => (
             <article
               key={resource.id}
               className="card"
               style={{
-                padding: '0.75rem',
+                padding: '1rem',
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'stretch',
-                gap: '0.75rem',
+                gap: '1rem',
                 minHeight: 0,
               }}
             >
@@ -140,8 +140,8 @@ export default function LecturerResourcesPage() {
                 mimeType={resource.mime_type}
                 fileName={resource.file_name || resource.title}
                 title={resource.title}
-                height={88}
-                width={88}
+                height={112}
+                width={112}
                 getSignedUrl={async () => {
                   const { url } = await getLecturerResourceDownload(resource.file_path);
                   return url;
@@ -149,7 +149,7 @@ export default function LecturerResourcesPage() {
               />
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <ResourceKindIcon mime={resource.mime_type} name={resource.title} size={16} />
+                  <ResourceKindIcon mime={resource.mime_type} name={resource.title} size={18} />
                   {(resource.courses?.code || resource.course?.code) && (
                     <span className="badge badge-gray" style={{ fontSize: '0.65rem' }}>
                       {resource.courses?.code || resource.course?.code}
@@ -158,10 +158,10 @@ export default function LecturerResourcesPage() {
                 </div>
                 <h2
                   style={{
-                    fontSize: '0.9rem',
-                    margin: '0 0 0.2rem',
+                    fontSize: '0.95rem',
+                    margin: '0 0 0.25rem',
                     fontWeight: 700,
-                    lineHeight: 1.25,
+                    lineHeight: 1.3,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -172,12 +172,12 @@ export default function LecturerResourcesPage() {
                 <p
                   style={{
                     color: 'var(--color-text-muted)',
-                    fontSize: '0.75rem',
-                    lineHeight: 1.35,
+                    fontSize: '0.8rem',
+                    lineHeight: 1.4,
                     margin: 0,
                     flex: 1,
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: 3,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}
@@ -190,27 +190,17 @@ export default function LecturerResourcesPage() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '0.5rem',
-                    marginTop: '0.4rem',
+                    marginTop: '0.5rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
                     {formatDate(resource.created_at)}
                   </span>
                   <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn-icon"
-                      title="Preview"
-                      onClick={() => setPreviewResource(resource)}
-                    >
+                    <button type="button" className="btn-icon" title="Preview" onClick={() => setPreviewResource(resource)}>
                       <MdVisibility />
                     </button>
-                    <button
-                      type="button"
-                      className="btn-icon"
-                      title="Download"
-                      onClick={() => downloadResource(resource)}
-                    >
+                    <button type="button" className="btn-icon" title="Download" onClick={() => downloadResource(resource)}>
                       <MdDownload />
                     </button>
                   </div>

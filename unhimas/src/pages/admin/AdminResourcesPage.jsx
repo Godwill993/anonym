@@ -144,9 +144,9 @@ export default function AdminResourcesPage() {
       )}
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
           {[1, 2, 3].map((i) => (
-            <div key={i} className="card" style={{ padding: '0.75rem', height: 104 }}>
+            <div key={i} className="card" style={{ padding: '1rem', height: 130 }}>
               <div className="skeleton skeleton-box" style={{ height: '100%' }} />
             </div>
           ))}
@@ -168,17 +168,17 @@ export default function AdminResourcesPage() {
           <p className="empty-state-text">No course materials have been uploaded yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
           {filteredResources.map((resource) => (
             <article
               key={resource.id}
               className="card"
               style={{
-                padding: '0.75rem',
+                padding: '1rem',
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'stretch',
-                gap: '0.75rem',
+                gap: '1rem',
                 minHeight: 0,
               }}
             >
@@ -186,8 +186,8 @@ export default function AdminResourcesPage() {
                 mimeType={resource.mime_type}
                 fileName={resource.file_name || resource.title}
                 title={resource.title}
-                height={88}
-                width={88}
+                height={112}
+                width={112}
                 getSignedUrl={async () => {
                   const { url } = await getAdminResourceDownload(resource.file_path);
                   return url;
@@ -195,7 +195,7 @@ export default function AdminResourcesPage() {
               />
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <ResourceKindIcon mime={resource.mime_type} name={resource.title} size={16} />
+                  <ResourceKindIcon mime={resource.mime_type} name={resource.title} size={18} />
                   {resource.courses?.code && (
                     <span className="badge badge-gray" style={{ fontSize: '0.65rem' }}>
                       {resource.courses.code}
@@ -204,10 +204,10 @@ export default function AdminResourcesPage() {
                 </div>
                 <h2
                   style={{
-                    fontSize: '0.9rem',
-                    margin: '0 0 0.2rem',
+                    fontSize: '0.95rem',
+                    margin: '0 0 0.25rem',
                     fontWeight: 700,
-                    lineHeight: 1.25,
+                    lineHeight: 1.3,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -218,12 +218,12 @@ export default function AdminResourcesPage() {
                 <p
                   style={{
                     color: 'var(--color-text-muted)',
-                    fontSize: '0.75rem',
-                    lineHeight: 1.35,
+                    fontSize: '0.8rem',
+                    lineHeight: 1.4,
                     margin: 0,
                     flex: 1,
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: 3,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}
@@ -236,27 +236,17 @@ export default function AdminResourcesPage() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '0.5rem',
-                    marginTop: '0.4rem',
+                    marginTop: '0.5rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
                     {formatDate(resource.created_at)}
                   </span>
                   <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn-icon"
-                      title="Preview"
-                      onClick={() => setPreviewResource(resource)}
-                    >
+                    <button type="button" className="btn-icon" title="Preview" onClick={() => setPreviewResource(resource)}>
                       <MdVisibility />
                     </button>
-                    <button
-                      type="button"
-                      className="btn-icon"
-                      title="Download"
-                      onClick={() => downloadResource(resource)}
-                    >
+                    <button type="button" className="btn-icon" title="Download" onClick={() => downloadResource(resource)}>
                       <MdDownload />
                     </button>
                     <button
@@ -288,22 +278,10 @@ export default function AdminResourcesPage() {
         title="Upload resource"
         footer={
           <>
-            <button
-              className="btn btn-outline"
-              type="button"
-              onClick={() => {
-                setUploadOpen(false);
-                setSelectedFile(null);
-              }}
-            >
+            <button className="btn btn-outline" type="button" onClick={() => { setUploadOpen(false); setSelectedFile(null); }}>
               Cancel
             </button>
-            <button
-              className="btn btn-primary"
-              type="submit"
-              form="resource-upload-form"
-              disabled={uploadMutation.isPending}
-            >
+            <button className="btn btn-primary" type="submit" form="resource-upload-form" disabled={uploadMutation.isPending}>
               {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
             </button>
           </>
@@ -311,9 +289,7 @@ export default function AdminResourcesPage() {
       >
         <form id="resource-upload-form" onSubmit={submitUpload}>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-file">
-              File
-            </label>
+            <label className="form-label" htmlFor="resource-file">File</label>
             <input
               id="resource-file"
               name="file"
@@ -325,8 +301,7 @@ export default function AdminResourcesPage() {
                 const file = e.target.files?.[0] || null;
                 setSelectedFile(file);
                 if (file && !form.title.trim()) {
-                  const base = file.name.replace(/\.[^.]+$/, '');
-                  setForm((prev) => ({ ...prev, title: base }));
+                  setForm((prev) => ({ ...prev, title: file.name.replace(/\.[^.]+$/, '') }));
                 }
               }}
             />
@@ -334,62 +309,28 @@ export default function AdminResourcesPage() {
             <LocalFilePreview file={selectedFile} />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-title">
-              Title
-            </label>
-            <input
-              id="resource-title"
-              className="form-input"
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
-              required
-            />
+            <label className="form-label" htmlFor="resource-title">Title</label>
+            <input id="resource-title" className="form-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-description">
-              Description
-            </label>
-            <textarea
-              id="resource-description"
-              className="form-input"
-              rows="3"
-              value={form.description}
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
-            />
+            <label className="form-label" htmlFor="resource-description">Description</label>
+            <textarea id="resource-description" className="form-input" rows="3" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-course">
-              Course
-            </label>
-            <select
-              id="resource-course"
-              className="form-input"
-              value={form.course_id}
-              onChange={(event) => setForm({ ...form, course_id: event.target.value })}
-            >
+            <label className="form-label" htmlFor="resource-course">Course</label>
+            <select id="resource-course" className="form-input" value={form.course_id} onChange={(e) => setForm({ ...form, course_id: e.target.value })}>
               <option value="">All courses</option>
               {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.code} — {course.name}
-                </option>
+                <option key={course.id} value={course.id}>{course.code} — {course.name}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="resource-batch">
-              Batch
-            </label>
-            <select
-              id="resource-batch"
-              className="form-input"
-              value={form.batch_id}
-              onChange={(event) => setForm({ ...form, batch_id: event.target.value })}
-            >
+            <label className="form-label" htmlFor="resource-batch">Batch</label>
+            <select id="resource-batch" className="form-input" value={form.batch_id} onChange={(e) => setForm({ ...form, batch_id: e.target.value })}>
               <option value="">All batches</option>
               {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.code} — {batch.name}
-                </option>
+                <option key={batch.id} value={batch.id}>{batch.code} — {batch.name}</option>
               ))}
             </select>
           </div>
@@ -403,9 +344,7 @@ export default function AdminResourcesPage() {
         mimeType={previewResource?.mime_type}
         fileName={previewResource?.title}
         getSignedUrl={getSignedUrl}
-        onDownload={
-          previewResource ? () => downloadResource(previewResource) : undefined
-        }
+        onDownload={previewResource ? () => downloadResource(previewResource) : undefined}
       />
     </AppLayout>
   );
