@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MdDownload, MdFolder, MdVisibility, MdWarning } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import ResourcePreviewModal, { ResourceKindIcon } from '../../components/common/ResourcePreviewModal';
+import ResourceCardThumbnail from '../../components/common/ResourceCardThumbnail';
 import { useAuth } from '../../context/AuthContext';
 import { getMyStudentProfile, getStudentResources, getStudentResourceDownload } from '../../services/studentService';
 
@@ -126,8 +127,17 @@ export default function StudentResourcesPage() {
             <article
               key={resource.id}
               className="card"
-              style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: 220 }}
+              style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: 280 }}
             >
+              <ResourceCardThumbnail
+                mimeType={resource.mime_type}
+                fileName={resource.file_name || resource.title}
+                title={resource.title}
+                getSignedUrl={async () => {
+                  const { url } = await getStudentResourceDownload(resource.file_path);
+                  return url;
+                }}
+              />
               <div className="card-title" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ResourceKindIcon mime={resource.mime_type} name={resource.title} />
                 {resource.course?.code && <span>{resource.course.code}</span>}
