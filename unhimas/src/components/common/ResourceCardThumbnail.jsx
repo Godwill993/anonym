@@ -28,7 +28,7 @@ async function loadPdfJs() {
   return pdfjsLibPromise;
 }
 
-function FileTypeIcon({ mime, name, size = 48 }) {
+function FileTypeIcon({ mime, name, size = 36 }) {
   const lower = `${mime || ''} ${name || ''}`.toLowerCase();
   if (lower.includes('pdf') || /\.pdf\b/.test(lower)) {
     return <MdPictureAsPdf size={size} color="var(--color-secondary)" />;
@@ -52,26 +52,22 @@ function FileTypeIcon({ mime, name, size = 48 }) {
 }
 
 /**
- * Visual thumbnail for a resource card.
- * - Images: signed URL preview
- * - PDFs: first page rendered via pdf.js (CDN)
- * - Anything else / failures: large file-type icon
- *
- * getSignedUrl: async () => string | { url: string }
+ * Compact visual thumbnail for a resource card (default 88×88).
+ * Images → signed URL; PDFs → first page; else file-type icon.
  */
 export default function ResourceCardThumbnail({
   mimeType,
   fileName,
   title,
   getSignedUrl,
-  height = 140,
+  height = 88,
+  width = 88,
 }) {
   const [thumbUrl, setThumbUrl] = useState(null);
-  const [status, setStatus] = useState('loading'); // loading | ready | fallback
+  const [status, setStatus] = useState('loading');
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrlToRevoke = null;
 
     async function run() {
       setStatus('loading');
@@ -103,20 +99,20 @@ export default function ResourceCardThumbnail({
             const loadingTask = pdfjs.getDocument({ url: signed, withCredentials: false });
             const pdf = await loadingTask.promise;
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 1.25 });
+            const viewport = page.getViewport({ scale: 1.1 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             const ctx = canvas.getContext('2d');
             await page.render({ canvasContext: ctx, viewport }).promise;
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
             if (!cancelled) {
               setThumbUrl(dataUrl);
               setStatus('ready');
             }
             return;
           } catch {
-            // fall through to icon
+            /* fallback icon */
           }
         }
 
@@ -127,10 +123,8 @@ export default function ResourceCardThumbnail({
     }
 
     run();
-
     return () => {
       cancelled = true;
-      if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
     };
   }, [mimeType, fileName, title, getSignedUrl]);
 
@@ -138,16 +132,18 @@ export default function ResourceCardThumbnail({
     <div
       style={{
         height,
-        width: '100%',
-        borderRadius: 'var(--radius-md)',
+        width,
+        minWidth: width,
+        borderRadius: 'var(--radius-sm)',
         overflow: 'hidden',
         background: 'var(--color-bg)',
         border: '1px solid var(--color-border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: '0.85rem',
+        marginBottom: 0,
         position: 'relative',
+        flexShrink: 0,
       }}
     >
       {status === 'ready' && thumbUrl ? (
@@ -168,11 +164,10 @@ export default function ResourceCardThumbnail({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.35rem',
             opacity: status === 'loading' ? 0.45 : 0.9,
           }}
         >
-          <FileTypeIcon mime={mimeType} name={fileName || title} size={52} />
+          <FileTypeIcon mime={mimeType} name={fileName || title} size={36} />
         </div>
       )}
     </div>

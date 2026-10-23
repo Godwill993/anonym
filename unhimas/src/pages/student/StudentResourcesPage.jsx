@@ -96,12 +96,10 @@ export default function StudentResourcesPage() {
       )}
 
       {profileLoading || isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
           {[1, 2, 3].map((item) => (
-            <div key={item} className="card" style={{ padding: '1.25rem' }}>
-              <div className="skeleton skeleton-title" style={{ width: '70%', marginBottom: 8 }} />
-              <div className="skeleton skeleton-text" style={{ width: '50%', marginBottom: 16 }} />
-              <div className="skeleton skeleton-text" style={{ height: 36 }} />
+            <div key={item} className="card" style={{ padding: '0.75rem', height: 104 }}>
+              <div className="skeleton skeleton-box" style={{ height: '100%' }} />
             </div>
           ))}
         </div>
@@ -122,58 +120,98 @@ export default function StudentResourcesPage() {
           <p className="empty-state-text">No materials have been uploaded for your courses yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
           {filteredResources.map((resource) => (
             <article
               key={resource.id}
               className="card"
-              style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: 280 }}
+              style={{
+                padding: '0.75rem',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'stretch',
+                gap: '0.75rem',
+                minHeight: 0,
+              }}
             >
               <ResourceCardThumbnail
                 mimeType={resource.mime_type}
                 fileName={resource.file_name || resource.title}
                 title={resource.title}
+                height={88}
+                width={88}
                 getSignedUrl={async () => {
                   const { url } = await getStudentResourceDownload(resource.file_path);
                   return url;
                 }}
               />
-              <div className="card-title" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ResourceKindIcon mime={resource.mime_type} name={resource.title} />
-                {resource.course?.code && <span>{resource.course.code}</span>}
-              </div>
-              <h2 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}>{resource.title}</h2>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', lineHeight: 1.6, flex: 1 }}>
-                {resource.description || 'No description provided.'}
-              </p>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  marginTop: '1rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  {formatDate(resource.created_at)}
-                </span>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setPreviewResource(resource)}
-                  >
-                    <MdVisibility /> Preview
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => downloadResource(resource)}
-                  >
-                    <MdDownload /> Download
-                  </button>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <ResourceKindIcon mime={resource.mime_type} name={resource.title} size={16} />
+                  {resource.course?.code && (
+                    <span className="badge badge-gray" style={{ fontSize: '0.65rem' }}>
+                      {resource.course.code}
+                    </span>
+                  )}
+                </div>
+                <h2
+                  style={{
+                    fontSize: '0.9rem',
+                    margin: '0 0 0.2rem',
+                    fontWeight: 700,
+                    lineHeight: 1.25,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {resource.title}
+                </h2>
+                <p
+                  style={{
+                    color: 'var(--color-text-muted)',
+                    fontSize: '0.75rem',
+                    lineHeight: 1.35,
+                    margin: 0,
+                    flex: 1,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {resource.description || 'No description provided.'}
+                </p>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginTop: '0.4rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                    {formatDate(resource.created_at)}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Preview"
+                      onClick={() => setPreviewResource(resource)}
+                    >
+                      <MdVisibility />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Download"
+                      onClick={() => downloadResource(resource)}
+                    >
+                      <MdDownload />
+                    </button>
+                  </div>
                 </div>
               </div>
             </article>
