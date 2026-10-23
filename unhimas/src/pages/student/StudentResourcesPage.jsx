@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from '../../i18n';
 import { useQuery } from '@tanstack/react-query';
 import { MdDownload, MdFolder, MdWarning } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
@@ -14,8 +15,10 @@ function formatDate(value) {
 }
 
 export default function StudentResourcesPage() {
+  const { translateText: tx } = useTranslation();
   const { session } = useAuth();
   const [courseFilter, setCourseFilter] = useState('all');
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const { data: studentProfile, isLoading: profileLoading } = useQuery({
     queryKey: ['my-student-profile'],
@@ -44,6 +47,7 @@ export default function StudentResourcesPage() {
       : resources.filter((resource) => resource.course_id === courseFilter);
 
   const downloadResource = async (resource) => {
+    setDownloadingId(resource.id);
     try {
       const { url } = await getStudentResourceDownload(resource.file_path);
       if (!url) throw new Error('No download URL');
@@ -54,16 +58,18 @@ export default function StudentResourcesPage() {
         'resource';
       await downloadFileFromUrl(url, name);
     } catch {
-      window.alert('The resource could not be downloaded. Please try again later.');
+      window.alert(tx('The resource could not be downloaded. Please try again later.'));
+    } finally {
+      setDownloadingId(null);
     }
   };
 
   return (
-    <AppLayout pageTitle="Resources">
+    <AppLayout pageTitle={tx('Resources')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Course Resources</h1>
-          <p className="page-subtitle">Secure study materials made available by the university</p>
+          <h1 className="page-title">{tx('Course Resources')}</h1>
+          <p className="page-subtitle">{tx('Secure study materials made available by the university')}</p>
         </div>
       </div>
 
@@ -75,7 +81,7 @@ export default function StudentResourcesPage() {
             value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
           >
-            <option value="all">All courses</option>
+            <option value="all">{tx('All courses')}</option>
             {courses.map((course) => (
               <option key={course.id} value={course.id}>
                 {course.code} — {course.name}
@@ -98,16 +104,16 @@ export default function StudentResourcesPage() {
           <div className="empty-state-icon">
             <MdWarning />
           </div>
-          <div className="empty-state-title">Resources unavailable</div>
-          <p className="empty-state-text">Your course materials could not be loaded.</p>
+          <div className="empty-state-title">{tx('Resources unavailable')}</div>
+          <p className="empty-state-text">{tx('Your course materials could not be loaded.')}</p>
         </div>
       ) : filteredResources.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">
             <MdFolder />
           </div>
-          <div className="empty-state-title">No resources found</div>
-          <p className="empty-state-text">No materials have been uploaded for your courses yet.</p>
+          <div className="empty-state-title">{tx('No resources found')}</div>
+          <p className="empty-state-text">{tx('No materials have been uploaded for your courses yet.')}</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
@@ -170,7 +176,7 @@ export default function StudentResourcesPage() {
                     overflow: 'hidden',
                   }}
                 >
-                  {resource.description || 'No description provided.'}
+                  {resource.description || tx('No description provided.')}
                 </p>
                 <div
                   style={{
@@ -187,7 +193,8 @@ export default function StudentResourcesPage() {
                   <button
                     type="button"
                     className="btn-icon"
-                    title="Download"
+                    title={downloadingId === resource.id ? tx('Downloading…') : tx('Download')}
+                    disabled={downloadingId === resource.id}
                     onClick={() => downloadResource(resource)}
                   >
                     <MdDownload />
