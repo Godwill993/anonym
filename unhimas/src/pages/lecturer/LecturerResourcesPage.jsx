@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdDownload, MdFolder, MdVisibility, MdWarning } from 'react-icons/md';
+import { MdDownload, MdFolder, MdWarning } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
-import ResourcePreviewModal, { ResourceKindIcon } from '../../components/common/ResourcePreviewModal';
+import { ResourceKindIcon } from '../../components/common/ResourcePreviewModal';
 import ResourceCardThumbnail from '../../components/common/ResourceCardThumbnail';
+import { downloadFileFromUrl } from '../../utils/downloadFile';
 import { useAuth } from '../../context/AuthContext';
 import { getLecturerResources, getLecturerResourceDownload } from '../../services/lecturerService';
 
@@ -15,7 +16,6 @@ function formatDate(value) {
 export default function LecturerResourcesPage() {
   const { profile } = useAuth();
   const [courseFilter, setCourseFilter] = useState('all');
-  const [previewResource, setPreviewResource] = useState(null);
 
   const lecturerId = profile?.lecturer_id || profile?.id;
   const { data: resources = [], isLoading, error } = useQuery({
@@ -47,28 +47,18 @@ export default function LecturerResourcesPage() {
 
   const downloadResource = async (resource) => {
     try {
-      const { url, error: dlError } = await getLecturerResourceDownload(resource.file_path);
-      if (dlError || !url) {
-        window.alert('The resource could not be downloaded. Please try again later.');
-        return;
-      }
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const { url } = await getLecturerResourceDownload(resource.file_path);
+      if (!url) throw new Error('No download URL');
+      const name =
+        resource.file_name ||
+        resource.title ||
+        resource.file_path?.split('/').pop() ||
+        'resource';
+      await downloadFileFromUrl(url, name);
     } catch {
       window.alert('The resource could not be downloaded. Please try again later.');
     }
   };
-
-  const getSignedUrl = useCallback(async () => {
-    if (!previewResource?.file_path) return null;
-    const { url } = await getLecturerResourceDownload(previewResource.file_path);
-    return url;
-  }, [previewResource]);
 
   return (
     <AppLayout pageTitle="Resources">
@@ -196,30 +186,20 @@ export default function LecturerResourcesPage() {
                   <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
                     {formatDate(resource.created_at)}
                   </span>
-                  <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                    <button type="button" className="btn-icon" title="Preview" onClick={() => setPreviewResource(resource)}>
-                      <MdVisibility />
-                    </button>
-                    <button type="button" className="btn-icon" title="Download" onClick={() => downloadResource(resource)}>
-                      <MdDownload />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn-icon"
+                    title="Download"
+                    onClick={() => downloadResource(resource)}
+                  >
+                    <MdDownload />
+                  </button>
                 </div>
               </div>
             </article>
           ))}
         </div>
       )}
-
-      <ResourcePreviewModal
-        isOpen={Boolean(previewResource)}
-        onClose={() => setPreviewResource(null)}
-        title={previewResource?.title}
-        mimeType={previewResource?.mime_type}
-        fileName={previewResource?.title}
-        getSignedUrl={getSignedUrl}
-        onDownload={previewResource ? () => downloadResource(previewResource) : undefined}
-      />
     </AppLayout>
   );
 }
