@@ -44,11 +44,11 @@ import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 
-// Other Role Dashboards
-import FrontDeskDashboard from './pages/frontdesk/FrontDeskDashboard';
+// Campus operations (formerly front desk) — admin only
 import LecturerAttendancePage from './pages/frontdesk/LecturerAttendancePage';
 import ShiftHistoryPage from './pages/frontdesk/ShiftHistoryPage';
-import FrontDeskProfilePage from './pages/frontdesk/FrontDeskProfilePage';
+
+// Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import LecturerCoursesPage from './pages/lecturer/LecturerCoursesPage';
 import LecturerSessionsPage from './pages/lecturer/LecturerSessionsPage';
@@ -57,6 +57,8 @@ import LecturerHoursPage from './pages/lecturer/LecturerHoursPage';
 import LecturerNotificationsPage from './pages/lecturer/LecturerNotificationsPage';
 import LecturerResourcesPage from './pages/lecturer/LecturerResourcesPage';
 import LecturerProfilePage from './pages/lecturer/LecturerProfilePage';
+
+// Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import StudentAttendancePage from './pages/student/StudentAttendancePage';
@@ -75,14 +77,11 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 });
 
-/**
- * Root redirect: send authenticated users to their role-specific dashboard.
- * Unauthenticated users go to /login.
- */
 function RoleRouter() {
   const { session, profile, loading, profileError, signOut } = useAuth();
 
@@ -109,11 +108,17 @@ function RoleRouter() {
   }
 
   switch (profile?.role) {
-    case 'admin':     return <Navigate to="/admin" replace />;
-    case 'frontdesk': return <Navigate to="/frontdesk" replace />;
-    case 'lecturer':  return <Navigate to="/lecturer" replace />;
-    case 'student':   return <Navigate to="/student" replace />;
-    default:          return <Navigate to="/unauthorized" replace />;
+    case 'admin':
+      return <Navigate to="/admin" replace />;
+    case 'lecturer':
+      return <Navigate to="/lecturer" replace />;
+    case 'student':
+      return <Navigate to="/student" replace />;
+    // Front desk role retired — existing accounts are blocked until reassigned
+    case 'frontdesk':
+      return <Navigate to="/unauthorized" replace />;
+    default:
+      return <Navigate to="/unauthorized" replace />;
   }
 }
 
@@ -137,7 +142,7 @@ function App() {
               {/* Role dispatch */}
               <Route path="/" element={<RoleRouter />} />
 
-              {/* Admin routes */}
+              {/* Admin routes (includes former front-desk campus ops) */}
               <Route
                 path="/admin/*"
                 element={
@@ -169,24 +174,11 @@ function App() {
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/results" element={<ResultsReportPage />} />
+                      <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
+                      <Route path="shift-history" element={<ShiftHistoryPage />} />
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="audit-log" element={<AuditLogPage />} />
                       <Route path="profile" element={<AdminProfilePage />} />
-                    </Routes>
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Front Desk routes */}
-              <Route
-                path="/frontdesk/*"
-                element={
-                  <ProtectedRoute roles={['frontdesk', 'admin']}>
-                    <Routes>
-                      <Route index element={<FrontDeskDashboard />} />
-                      <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
-                      <Route path="history" element={<ShiftHistoryPage />} />
-                      <Route path="profile" element={<FrontDeskProfilePage />} />
                     </Routes>
                   </ProtectedRoute>
                 }
