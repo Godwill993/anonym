@@ -1,17 +1,19 @@
 /**
  * Role and permission helpers for UNHIMAS.
- * Role checks on routes still use ProtectedRoute; these helpers are for
- * UI visibility and action-level gates inside pages.
+ * Front desk role removed — administrators handle campus operations.
+ * Up to three administrator accounts are allowed (enforced in DB).
  */
 
 export const ROLES = Object.freeze({
   ADMIN: 'admin',
-  FRONTDESK: 'frontdesk',
   LECTURER: 'lecturer',
   STUDENT: 'student',
 });
 
 export const ALL_ROLES = Object.freeze(Object.values(ROLES));
+
+/** Maximum number of administrator profiles (DB-enforced). */
+export const MAX_ADMINS = 3;
 
 /** True if profile.role is one of the allowed roles. */
 export function hasRole(profile, roles) {
@@ -24,8 +26,9 @@ export function isAdmin(profile) {
   return hasRole(profile, ROLES.ADMIN);
 }
 
+/** @deprecated Front desk removed — use isAdmin */
 export function isFrontDesk(profile) {
-  return hasRole(profile, [ROLES.FRONTDESK, ROLES.ADMIN]);
+  return isAdmin(profile);
 }
 
 export function isLecturer(profile) {
@@ -55,7 +58,7 @@ const CAPABILITIES = Object.freeze({
   manage_resources: [ROLES.ADMIN],
   view_audit_log: [ROLES.ADMIN],
   manage_settings: [ROLES.ADMIN],
-  clock_lecturers: [ROLES.FRONTDESK, ROLES.ADMIN],
+  clock_lecturers: [ROLES.ADMIN],
   enter_marks: [ROLES.LECTURER],
   mark_attendance: [ROLES.LECTURER],
   view_own_results: [ROLES.STUDENT],

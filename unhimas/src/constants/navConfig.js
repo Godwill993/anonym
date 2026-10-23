@@ -24,10 +24,12 @@ import {
   MdLogin,
   MdBook,
   MdCheckCircle,
+  MdAdminPanelSettings,
 } from 'react-icons/md';
 
 /** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
- *  Profile is intentionally omitted — it lives in the header user menu to reduce sidebar noise.
+ *  Front desk role removed — campus operations live under admin.
+ *  Profile is intentionally omitted — it lives in the header user menu.
  */
 export const NAV_CONFIG = {
   admin: [
@@ -53,7 +55,14 @@ export const NAV_CONFIG = {
       items: [
         { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
         { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
-        { key: 'staff', label: 'Front Desk / Staff', path: '/admin/staff', icon: MdPeople, capability: 'manage_people' },
+        { key: 'administrators', label: 'Administrators', path: '/admin/staff', icon: MdAdminPanelSettings, capability: 'manage_people' },
+      ],
+    },
+    {
+      group: 'Campus Operations',
+      items: [
+        { key: 'lecturer-attendance', label: 'Lecturer Attendance', path: '/admin/lecturer-attendance', icon: MdLogin, capability: 'clock_lecturers' },
+        { key: 'shift-history', label: 'Shift History', path: '/admin/shift-history', icon: MdHistory, capability: 'clock_lecturers' },
       ],
     },
     {
@@ -91,22 +100,6 @@ export const NAV_CONFIG = {
       items: [
         { key: 'settings', label: 'Settings', path: '/admin/settings', icon: MdSettings, capability: 'manage_settings' },
         { key: 'audit-log', label: 'Audit Log', path: '/admin/audit-log', icon: MdHistory, capability: 'view_audit_log' },
-      ],
-    },
-  ],
-
-  frontdesk: [
-    {
-      group: 'Overview',
-      items: [
-        { key: 'dashboard', label: 'Dashboard', path: '/frontdesk', icon: MdDashboard },
-      ],
-    },
-    {
-      group: 'Attendance',
-      items: [
-        { key: 'lecturer-attendance', label: 'Lecturer Attendance', path: '/frontdesk/lecturer-attendance', icon: MdLogin, capability: 'clock_lecturers' },
-        { key: 'history', label: 'Shift History', path: '/frontdesk/history', icon: MdHistory, capability: 'clock_lecturers' },
       ],
     },
   ],
