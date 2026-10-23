@@ -1,106 +1,10 @@
 /* ============================================================
-   UNHIMAS UX polish — calm surfaces, light motion, less clutter
-   Loaded after components.css + layout.css
+   UX polish — animations, focus, micro-interactions
    ============================================================ */
 
-/* ---- Smooth page transitions (keyed by route in AppLayout) ---- */
-.page-transition {
-  animation: pageTransitionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-  will-change: opacity, transform;
-}
-
-@keyframes pageTransitionIn {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Legacy class kept for any remaining uses */
-.page-content.page-enter {
-  animation: pageTransitionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Stagger helper for dashboard grids */
-.stagger-children > * {
-  animation: pageEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-.stagger-children > *:nth-child(1) { animation-delay: 0.03s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.07s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.11s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.19s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.23s; }
-
-/* ---- Calmer cards & stats ---- */
-.stat-card {
-  border-color: transparent;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.22s ease, transform 0.22s ease;
-}
-
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.card {
-  box-shadow: var(--shadow-xs);
-  transition: box-shadow 0.2s ease;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-sm);
-}
-
-/* ---- Tables ---- */
-.data-table tbody tr {
-  transition: background 0.15s ease;
-}
-
-.data-table tbody tr:hover td {
-  background: rgba(var(--color-primary-rgb), 0.035);
-}
-
-/* ---- Buttons ---- */
-.btn {
-  transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease, opacity 0.15s ease;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.btn-icon {
-  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
-}
-
-.btn-icon:hover {
-  transform: scale(1.06);
-  border-color: rgba(var(--color-primary-rgb), 0.35);
-  color: var(--color-primary);
-}
-
-/* ---- Auth ---- */
-.auth-card {
-  animation: scaleIn 0.38s cubic-bezier(0.34, 1.15, 0.64, 1) both;
-  box-shadow: var(--shadow-lg);
-  border: none;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes scaleIn {
@@ -143,126 +47,22 @@
   }
 }
 
-/* ---- Sidebar ---- */
-.sidebar-item {
-  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+/* ---- Modal stacking fix (overrides components.css) ---- */
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem 1rem 1rem !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
 }
 
-.sidebar-item:hover {
-  transform: translateX(2px);
-}
-
-.sidebar.collapsed .sidebar-item:hover {
-  transform: none;
-}
-
-.sidebar-item.active {
-  box-shadow: 0 2px 8px rgba(183, 0, 50, 0.25);
-}
-
-/* ---- Header ---- */
-.header-search-input {
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.header-search-input:focus {
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
-}
-
-.icon-btn {
-  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
-}
-
-.icon-btn:hover {
-  transform: scale(1.05);
-}
-
-.dropdown-menu {
-  animation: dropIn 0.18s cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
-@keyframes dropIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ---- Page chrome ---- */
-.page-title {
-  font-size: 1.5rem;
-  letter-spacing: -0.025em;
-}
-
-.page-subtitle {
-  max-width: 40rem;
-  line-height: 1.45;
-}
-
-.empty-state-icon {
-  opacity: 0.4;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.empty-state:hover .empty-state-icon {
-  opacity: 0.55;
-  transform: scale(1.04);
-}
-
-.back-to-top {
-  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
-}
-
-.back-to-top:hover {
-  transform: translateY(-2px);
-}
-
-/* ---- Dark theme ---- */
-[data-theme='dark'] .stat-card {
-  border-color: var(--color-border);
-}
-
-[data-theme='dark'] .card {
-  box-shadow: none;
-}
-
-[data-theme='dark'] .auth-card {
-  border: 1px solid var(--color-border);
-}
-
-[data-theme='dark'] .toast.success,
-[data-theme='dark'] .toast.error,
-[data-theme='dark'] .toast.info,
-[data-theme='dark'] .toast.warning {
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-[data-theme='dark'] .sidebar-item.active {
-  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-transition,
-  .page-content.page-enter,
-  .stagger-children > *,
-  .auth-card,
-  .modal,
-  .toast,
-  .dropdown-menu {
-    animation: none !important;
-  }
-
-  .stat-card:hover,
-  .btn-primary:hover:not(:disabled),
-  .btn-icon:hover,
-  .sidebar-item:hover,
-  .icon-btn:hover,
-  .back-to-top:hover {
-    transform: none;
-  }
+.modal {
+  margin: auto !important;
+  max-height: min(90vh, calc(100dvh - 2rem)) !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
 }
