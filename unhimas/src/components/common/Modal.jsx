@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MdClose } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 
 export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = '540px' }) {
   const { translateText } = useTranslation();
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -22,8 +24,14 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  const node = (
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
       <div
         className="modal"
         style={{ maxWidth }}
@@ -45,4 +53,6 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

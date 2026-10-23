@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MdWarning, MdClose } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 
@@ -33,10 +34,10 @@ export default function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  return (
+  const node = (
     <div
       className="modal-backdrop"
-      onClick={onClose}
+      onClick={!isLoading ? onClose : undefined}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
@@ -122,4 +123,6 @@ export default function ConfirmDialog({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }
