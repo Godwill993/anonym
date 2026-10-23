@@ -7,6 +7,7 @@ import ResourcePreviewModal, {
   LocalFilePreview,
   ResourceKindIcon,
 } from '../../components/common/ResourcePreviewModal';
+import ResourceCardThumbnail from '../../components/common/ResourceCardThumbnail';
 import { toast } from '../../components/common/Toast';
 import { getBatches, getCourses } from '../../services/academicService';
 import {
@@ -174,8 +175,17 @@ export default function AdminResourcesPage() {
             <article
               key={resource.id}
               className="card"
-              style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: 220 }}
+              style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: 280 }}
             >
+              <ResourceCardThumbnail
+                mimeType={resource.mime_type}
+                fileName={resource.file_name || resource.title}
+                title={resource.title}
+                getSignedUrl={async () => {
+                  const { url } = await getAdminResourceDownload(resource.file_path);
+                  return url;
+                }}
+              />
               <div className="card-title" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ResourceKindIcon mime={resource.mime_type} name={resource.title} />
                 {resource.courses?.code && <span>{resource.courses.code}</span>}
