@@ -13,7 +13,6 @@ function isPathActive(pathname, path) {
     path !== '/admin' &&
     path !== '/lecturer' &&
     path !== '/student' &&
-    path !== '/frontdesk' &&
     pathname.startsWith(path)
   ) {
     return true;
