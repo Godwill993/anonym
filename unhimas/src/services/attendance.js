@@ -1,6 +1,6 @@
 /**
  * Attendance service — re-exports from the modules that own attendance logic.
- * Prefer importing directly from lecturerService / studentService / operationsService.
+ * Prefer importing directly from lecturerService / studentService / frontDeskService.
  */
 
 export {
@@ -22,4 +22,4 @@ export {
   clockOutLecturer,
   getLecturersWithShiftStatus,
   getShiftHistory,
-} from './operationsService';
+} from './frontDeskService';
