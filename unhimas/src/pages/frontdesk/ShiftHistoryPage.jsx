@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MdHistory } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
-import { getShiftHistory } from '../../services/frontDeskService';
+import { getShiftHistory } from '../../services/campusOpsService';
 import { getDepartments } from '../../services/academicService';
 import { getLecturers } from '../../services/peopleService';
 
@@ -13,7 +13,7 @@ export default function ShiftHistoryPage() {
   const [selectedStatus, setSelectedStatus] = useState('');
 
   const { data: shifts = [], isLoading } = useQuery({
-    queryKey: ['frontdesk-shift-history', selectedDate, selectedLecturer, selectedDept, selectedStatus],
+    queryKey: ['admin-shift-history', selectedDate, selectedLecturer, selectedDept, selectedStatus],
     queryFn: () =>
       getShiftHistory({
         date: selectedDate || null,
@@ -62,7 +62,6 @@ export default function ShiftHistoryPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div className="card" style={{ marginBottom: '1.25rem' }}>
         <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
           <div>
@@ -129,7 +128,6 @@ export default function ShiftHistoryPage() {
         </div>
       </div>
 
-      {/* Shifts Table */}
       <div className="card">
         <div className="card-header">
           <div className="card-title">Registered Shifts ({shifts.length})</div>
@@ -191,8 +189,8 @@ export default function ShiftHistoryPage() {
                           {shift.status.toUpperCase()}
                         </span>
                       </td>
-                      <td>{shift.clock_in_staff?.full_name || 'Front Desk'}</td>
-                      <td>{shift.clock_out_staff?.full_name || (shift.clock_out ? 'Front Desk' : '—')}</td>
+                      <td>{shift.clock_in_staff?.full_name || 'Administrator'}</td>
+                      <td>{shift.clock_out_staff?.full_name || (shift.clock_out ? 'Administrator' : '—')}</td>
                     </tr>
                   );
                 })
