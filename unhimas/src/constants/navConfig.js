@@ -1,9 +1,7 @@
 import {
   MdDashboard,
   MdSchool,
-  MdPeople,
   MdCalendarToday,
-  MdFactCheck,
   MdBarChart,
   MdSettings,
   MdApartment,
@@ -19,15 +17,14 @@ import {
   MdNotifications,
   MdFolder,
   MdAccessTime,
-  MdAnalytics,
   MdHistory,
   MdLogin,
   MdBook,
-  MdCheckCircle,
   MdAdminPanelSettings,
 } from 'react-icons/md';
 
 /** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
+ *  Optional `children` nest related pages under a parent (e.g. Batches under Departments).
  *  Front desk role removed — campus operations live under admin.
  *  Profile is intentionally omitted — it lives in the header user menu.
  */
@@ -42,12 +39,52 @@ export const NAV_CONFIG = {
     {
       group: 'Academic Structure',
       items: [
-        { key: 'departments', label: 'Departments', path: '/admin/departments', icon: MdApartment, capability: 'manage_academic_structure' },
-        { key: 'batches', label: 'Batches', path: '/admin/batches', icon: MdGroups, capability: 'manage_academic_structure' },
-        { key: 'academic-years', label: 'Academic Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
-        { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
-        { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
-        { key: 'batch-courses', label: 'Batch Courses', path: '/admin/batch-courses', icon: MdClass, capability: 'manage_academic_structure' },
+        {
+          key: 'departments',
+          label: 'Departments',
+          path: '/admin/departments',
+          icon: MdApartment,
+          capability: 'manage_academic_structure',
+          children: [
+            {
+              key: 'batches',
+              label: 'Batches',
+              path: '/admin/batches',
+              icon: MdGroups,
+              capability: 'manage_academic_structure',
+            },
+          ],
+        },
+        {
+          key: 'academic-years',
+          label: 'Academic Years',
+          path: '/admin/academic-years',
+          icon: MdDateRange,
+          capability: 'manage_academic_structure',
+          children: [
+            {
+              key: 'semesters',
+              label: 'Semesters',
+              path: '/admin/semesters',
+              icon: MdSchedule,
+              capability: 'manage_academic_structure',
+            },
+          ],
+        },
+        {
+          key: 'courses',
+          label: 'Courses',
+          path: '/admin/courses',
+          icon: MdBook,
+          capability: 'manage_academic_structure',
+        },
+        {
+          key: 'batch-courses',
+          label: 'Batch Courses',
+          path: '/admin/batch-courses',
+          icon: MdClass,
+          capability: 'manage_academic_structure',
+        },
       ],
     },
     {
@@ -70,28 +107,22 @@ export const NAV_CONFIG = {
       items: [
         { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
         { key: 'class-sessions', label: 'Class Sessions', path: '/admin/class-sessions', icon: MdSchedule, capability: 'manage_academic_structure' },
-        { key: 'student-transfers', label: 'Student Transfers', path: '/admin/student-transfers', icon: MdPeople, capability: 'manage_people' },
+        { key: 'student-transfers', label: 'Student Transfers', path: '/admin/student-transfers', icon: MdGroups, capability: 'manage_people' },
         { key: 'academic-events', label: 'Academic Events', path: '/admin/academic-events', icon: MdDateRange, capability: 'manage_academic_structure' },
-        { key: 'attendance', label: 'Attendance', path: '/admin/attendance', icon: MdHowToReg },
         { key: 'marks', label: 'Marks', path: '/admin/marks', icon: MdGrade },
-        { key: 'mark-approval', label: 'Mark Approval', path: '/admin/mark-approval', icon: MdCheckCircle, capability: 'approve_marks' },
-        { key: 'results', label: 'Results', path: '/admin/results', icon: MdAssignment, capability: 'publish_results' },
-      ],
-    },
-    {
-      group: 'Communication',
-      items: [
-        { key: 'announcements', label: 'Announcements', path: '/admin/announcements', icon: MdCampaign, capability: 'manage_announcements' },
+        { key: 'mark-approval', label: 'Mark Approval', path: '/admin/mark-approval', icon: MdAssignment, capability: 'approve_marks' },
+        { key: 'results', label: 'Results', path: '/admin/results', icon: MdBarChart },
+        { key: 'announcements', label: 'Announcements', path: '/admin/announcements', icon: MdCampaign },
+        { key: 'resources', label: 'Resources', path: '/admin/resources', icon: MdFolder },
         { key: 'notifications', label: 'Notifications', path: '/admin/notifications', icon: MdNotifications },
-        { key: 'resources', label: 'Resources', path: '/admin/resources', icon: MdFolder, capability: 'manage_resources' },
       ],
     },
     {
       group: 'Reports',
       items: [
         { key: 'lecturer-hours', label: 'Lecturer Hours', path: '/admin/reports/lecturer-hours', icon: MdAccessTime },
-        { key: 'attendance-reports', label: 'Attendance Reports', path: '/admin/reports/attendance', icon: MdFactCheck },
-        { key: 'performance', label: 'Academic Performance', path: '/admin/reports/performance', icon: MdAnalytics },
+        { key: 'attendance-reports', label: 'Attendance Reports', path: '/admin/reports/attendance', icon: MdHowToReg },
+        { key: 'course-performance', label: 'Academic Performance', path: '/admin/reports/course-performance', icon: MdBarChart },
         { key: 'results-reports', label: 'Results Reports', path: '/admin/reports/results', icon: MdBarChart },
       ],
     },
