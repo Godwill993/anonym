@@ -44,9 +44,9 @@ import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 
-// Campus ops (admin-only routes; pages still under pages/frontdesk until full purge lands)
-import LecturerAttendancePage from './pages/frontdesk/LecturerAttendancePage';
-import ShiftHistoryPage from './pages/frontdesk/ShiftHistoryPage';
+// Campus ops (admin)
+import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
+import ShiftHistoryPage from './pages/admin/ShiftHistoryPage';
 
 // Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
