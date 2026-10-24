@@ -25,7 +25,7 @@ import {
 /** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
  *  Optional `children` nest related pages under a parent (e.g. Batches under Departments).
  *  Batch programme (courses) is managed on the Batches page — not a separate nav item.
- *  Front desk role removed — campus operations live under admin.
+ *  Campus operations (clock-in) are admin-only.
  *  Profile is intentionally omitted — it lives in the header user menu.
  */
 export const NAV_CONFIG = {
@@ -175,6 +175,7 @@ export const NAV_CONFIG = {
       group: 'Info',
       items: [
         { key: 'announcements', label: 'Announcements', path: '/student/announcements', icon: MdCampaign },
+        { key: 'notifications', label: 'Notifications', path: '/student/notifications', icon: MdNotifications },
         { key: 'resources', label: 'Resources', path: '/student/resources', icon: MdFolder },
       ],
     },
