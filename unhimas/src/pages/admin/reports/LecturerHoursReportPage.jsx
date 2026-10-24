@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdAccessTime, MdPersonPin } from 'react-icons/md';
+import { MdAccessTime, MdPersonPin, MdWarning } from 'react-icons/md';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../../../components/layout/AppLayout';
 import DataTable from '../../../components/common/DataTable';
@@ -14,9 +14,16 @@ function formatMonth(value) {
 
 export default function LecturerHoursReportPage() {
   const { translateText } = useTranslation();
-  const { data: report = [], isLoading } = useQuery({
+  const {
+    data: report = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-lecturer-hours-report'],
     queryFn: getLecturerHoursReport,
+    retry: 1,
   });
 
   const chartData = useMemo(
@@ -25,7 +32,7 @@ export default function LecturerHoursReportPage() {
         name: `${item.last_name || ''} (${formatMonth(item.month)})`,
         hours: Number(Number(item.hours_taught || 0).toFixed(1)),
       })),
-    [report]
+    [report],
   );
 
   const totalHours = report.reduce((sum, item) => sum + Number(item.hours_taught || 0), 0);
@@ -40,9 +47,19 @@ export default function LecturerHoursReportPage() {
         sortValue: (r) => `${r.first_name} ${r.last_name}`,
         render: (r) => (
           <div>
-            <strong>{r.first_name} {r.last_name}</strong>
+            <strong>
+              {r.first_name} {r.last_name}
+            </strong>
             <div>
-              <code style={{ fontSize: '0.75rem', background: 'var(--color-bg)', padding: '1px 5px', borderRadius: '4px', color: 'var(--color-secondary)' }}>
+              <code
+                style={{
+                  fontSize: '0.75rem',
+                  background: 'var(--color-bg)',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  color: 'var(--color-secondary)',
+                }}
+              >
                 {r.staff_id}
               </code>
             </div>
@@ -66,7 +83,7 @@ export default function LecturerHoursReportPage() {
         ),
       },
     ],
-    []
+    [],
   );
 
   return (
@@ -75,75 +92,109 @@ export default function LecturerHoursReportPage() {
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Lecturer Hours Report')}</h1>
           <p className="page-subtitle">
-            {translateText('Faculty teaching hours and workload recorded via front desk shift logs')}
+            {translateText(
+              'Faculty teaching hours and campus workload recorded via administrator clock-in',
+            )}
           </p>
         </div>
       </div>
 
-      {/* KPI Stats */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card-icon blue"><MdAccessTime /></div>
-          <div className="stat-card-body">
-            <div className="stat-card-value">{totalHours.toFixed(1)} hrs</div>
-            <div className="stat-card-label">{translateText('Total Campus Hours')}</div>
+      {isError && (
+        <div className="empty-state" role="alert" style={{ marginBottom: '1.5rem' }}>
+          <div className="empty-state-icon">
+            <MdWarning />
           </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon red"><MdPersonPin /></div>
-          <div className="stat-card-body">
-            <div className="stat-card-value">{activeLecturers}</div>
-            <div className="stat-card-label">{translateText('Active Faculty Members')}</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-icon green"><MdAccessTime /></div>
-          <div className="stat-card-body">
-            <div className="stat-card-value">{avgHoursPerLec} hrs</div>
-            <div className="stat-card-label">{translateText('Average per Lecturer')}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Chart */}
-      {chartData.length > 0 && (
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <div className="card-header">
-            <h2 className="card-title">{translateText('Faculty Workload Overview')}</h2>
-          </div>
-          <div className="card-body" style={{ height: 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis unit="h" tick={{ fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value) => [`${value} hrs`, translateText('Hours Taught')]}
-                  contentStyle={{
-                    background: 'var(--color-surface)',
-                    borderColor: 'var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    boxShadow: 'var(--shadow-md)',
-                  }}
-                />
-                <Bar dataKey="hours" fill="#B70032" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="empty-state-title">{translateText('Could not load lecturer hours')}</div>
+          <p className="empty-state-text">
+            {error?.message ||
+              translateText(
+                'The hours report could not be loaded. Ensure shift logs exist and try again.',
+              )}
+          </p>
+          <button type="button" className="btn btn-primary" onClick={() => refetch()}>
+            {translateText('Try again')}
+          </button>
         </div>
       )}
 
-      {/* Main Table */}
-      <DataTable
-        columns={columns}
-        data={report}
-        searchPlaceholder="Search by lecturer name or staff ID..."
-        emptyTitle="No hours recorded"
-        emptySubtitle="Lecturer shift hours will appear here once clocked in/out at the front desk."
-        pageSize={12}
-        exportable={true}
-        exportFileName="unhimas_lecturer_hours_report"
-      />
+      {!isError && (
+        <>
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-card-icon blue">
+                <MdAccessTime />
+              </div>
+              <div className="stat-card-body">
+                <div className="stat-card-value">
+                  {isLoading ? '…' : `${totalHours.toFixed(1)} hrs`}
+                </div>
+                <div className="stat-card-label">{translateText('Total Campus Hours')}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-icon red">
+                <MdPersonPin />
+              </div>
+              <div className="stat-card-body">
+                <div className="stat-card-value">{isLoading ? '…' : activeLecturers}</div>
+                <div className="stat-card-label">{translateText('Active Faculty Members')}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-icon green">
+                <MdAccessTime />
+              </div>
+              <div className="stat-card-body">
+                <div className="stat-card-value">
+                  {isLoading ? '…' : `${avgHoursPerLec} hrs`}
+                </div>
+                <div className="stat-card-label">{translateText('Average per Lecturer')}</div>
+              </div>
+            </div>
+          </div>
+
+          {chartData.length > 0 && (
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <div className="card-header">
+                <h2 className="card-title">{translateText('Faculty Workload Overview')}</h2>
+              </div>
+              <div className="card-body" style={{ height: 320, minHeight: 320 }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis unit="h" tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value) => [`${value} hrs`, translateText('Hours Taught')]}
+                      contentStyle={{
+                        background: 'var(--color-surface)',
+                        borderColor: 'var(--color-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        boxShadow: 'var(--shadow-md)',
+                      }}
+                    />
+                    <Bar dataKey="hours" fill="#B70032" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          <DataTable
+            columns={columns}
+            data={report}
+            loading={isLoading}
+            searchPlaceholder="Search by lecturer name or staff ID..."
+            emptyTitle={translateText('No hours recorded')}
+            emptySubtitle={translateText(
+              'Lecturer hours will appear here once administrators record campus clock-in and clock-out.',
+            )}
+            pageSize={12}
+            exportable={true}
+            exportFileName="unhimas_lecturer_hours_report"
+          />
+        </>
+      )}
     </AppLayout>
   );
 }
