@@ -1,6 +1,6 @@
 /**
  * Role and permission helpers for UNHIMAS.
- * Front desk role removed — administrators handle campus operations.
+ * Administrators handle campus operations (clock-in).
  * Up to three administrator accounts are allowed (enforced in DB).
  */
 
@@ -24,11 +24,6 @@ export function hasRole(profile, roles) {
 
 export function isAdmin(profile) {
   return hasRole(profile, ROLES.ADMIN);
-}
-
-/** @deprecated Front desk removed — use isAdmin */
-export function isFrontDesk(profile) {
-  return isAdmin(profile);
 }
 
 export function isLecturer(profile) {
