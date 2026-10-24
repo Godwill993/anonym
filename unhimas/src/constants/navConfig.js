@@ -5,7 +5,6 @@ import {
   MdBarChart,
   MdSettings,
   MdApartment,
-  MdClass,
   MdDateRange,
   MdSchedule,
   MdGroups,
@@ -25,6 +24,7 @@ import {
 
 /** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
  *  Optional `children` nest related pages under a parent (e.g. Batches under Departments).
+ *  Batch programme (courses) is managed on the Batches page — not a separate nav item.
  *  Front desk role removed — campus operations live under admin.
  *  Profile is intentionally omitted — it lives in the header user menu.
  */
@@ -76,13 +76,6 @@ export const NAV_CONFIG = {
           label: 'Courses',
           path: '/admin/courses',
           icon: MdBook,
-          capability: 'manage_academic_structure',
-        },
-        {
-          key: 'batch-courses',
-          label: 'Batch Courses',
-          path: '/admin/batch-courses',
-          icon: MdClass,
           capability: 'manage_academic_structure',
         },
       ],
