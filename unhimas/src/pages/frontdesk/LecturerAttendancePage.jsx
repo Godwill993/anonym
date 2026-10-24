@@ -12,7 +12,7 @@ import {
   getLecturersWithShiftStatus,
   clockInLecturer,
   clockOutLecturer,
-} from '../../services/frontDeskService';
+} from '../../services/campusOpsService';
 
 export default function LecturerAttendancePage() {
   const { profile } = useAuth();
@@ -22,7 +22,7 @@ export default function LecturerAttendancePage() {
   const inputRef = useRef(null);
 
   const { data: lecturers = [], isLoading } = useQuery({
-    queryKey: ['frontdesk-lecturers-status', ''],
+    queryKey: ['admin-lecturers-status', ''],
     queryFn: () => getLecturersWithShiftStatus(),
   });
 
@@ -33,8 +33,9 @@ export default function LecturerAttendancePage() {
         staffProfileId: profile?.id || null,
       }),
     onSuccess: (_, lecturerId) => {
-      queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-campus-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lecturers-status'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-live-shifts'] });
       const lec = lecturers.find((l) => l.id === lecturerId);
       setQuickResult({
         type: 'in',
@@ -56,8 +57,9 @@ export default function LecturerAttendancePage() {
         staffProfileId: profile?.id || null,
       }).then(() => lecturer),
     onSuccess: (lec) => {
-      queryClient.invalidateQueries({ queryKey: ['frontdesk-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['frontdesk-lecturers-status'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-campus-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lecturers-status'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-live-shifts'] });
       setQuickResult({
         type: 'out',
         name: `${lec?.first_name} ${lec?.last_name}`,
@@ -76,7 +78,6 @@ export default function LecturerAttendancePage() {
     if (!inputCode.trim()) return;
     const term = inputCode.trim().toLowerCase();
 
-    // Match by Staff ID or exact name
     const match = lecturers.find(
       (l) =>
         l.staff_id?.toLowerCase() === term ||
@@ -112,11 +113,10 @@ export default function LecturerAttendancePage() {
       </div>
 
       <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-        {/* Terminal Card */}
         <div className="card" style={{ marginBottom: '1.5rem', boxShadow: '0 8px 30px rgba(17,47,66,0.08)' }}>
           <div className="card-header" style={{ background: 'var(--color-primary)', color: '#fff' }}>
             <div className="card-title" style={{ color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdQrCodeScanner style={{ fontSize: '1.4rem' }} /> Front Desk Terminal Scanner
+              <MdQrCodeScanner style={{ fontSize: '1.4rem' }} /> Campus Terminal Scanner
             </div>
           </div>
           <div className="card-body" style={{ padding: '2rem 1.5rem', textAlign: 'center' }}>
@@ -174,7 +174,6 @@ export default function LecturerAttendancePage() {
           </div>
         </div>
 
-        {/* Quick Roster List */}
         <div className="card">
           <div className="card-header">
             <div className="card-title">All Faculty Staff Quick Actions</div>
