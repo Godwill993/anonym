@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
 import { NAV_CONFIG } from '../../constants/navConfig';
+import { useAuth } from '../../context/AuthContext';
 import { can } from '../../lib/permissions';
 import { useTranslation } from '../../i18n';
 import logo from '../../assets/logo.png';
@@ -21,6 +22,7 @@ function isPathActive(pathname, path) {
 }
 
 function filterItems(items, profile) {
+  if (!Array.isArray(items)) return [];
   return items
     .map((item) => {
       const children = item.children ? filterItems(item.children, profile) : undefined;
@@ -80,8 +82,10 @@ function NavItem({ item, collapsed, onMobileClose, depth = 0 }) {
   );
 }
 
-export default function Sidebar({ role, profile, collapsed, onToggle, mobileOpen, onMobileClose }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
+  const { profile } = useAuth();
   const { translateText } = useTranslation();
+  const role = profile?.role || 'student';
 
   const navGroups = (NAV_CONFIG[role] || [])
     .map((group) => ({
