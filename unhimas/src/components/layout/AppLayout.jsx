@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import { useTranslation } from '../../i18n';
 import '../../styles/layout.css';
+import '../../styles/ux.css';
 
 export default function AppLayout({ children, pageTitle }) {
   const { translateText } = useTranslation();
@@ -24,15 +25,16 @@ export default function AppLayout({ children, pageTitle }) {
   useEffect(() => {
     const handleScroll = () => {
       const el = document.documentElement;
-      const scrolled = el.scrollTop;
+      const scrolled = window.scrollY || el.scrollTop;
       const total = el.scrollHeight - el.clientHeight;
-      setScrollProgress(total > 0 ? (scrolled / total) * 100 : 0);
-      setShowBackToTop(scrolled > 400);
+      setScrollProgress(total > 0 ? Math.min(100, (scrolled / total) * 100) : 0);
+      setShowBackToTop(scrolled > 320);
     };
 
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [location.pathname]);
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -44,7 +46,10 @@ export default function AppLayout({ children, pageTitle }) {
         className="scroll-progress"
         style={{ width: `${scrollProgress}%` }}
         role="progressbar"
-        aria-hidden="true"
+        aria-valuenow={Math.round(scrollProgress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={translateText('Page scroll progress')}
       />
 
       <Sidebar
@@ -72,6 +77,7 @@ export default function AppLayout({ children, pageTitle }) {
       </div>
 
       <button
+        type="button"
         className={`back-to-top ${showBackToTop ? 'visible' : ''}`}
         onClick={scrollToTop}
         aria-label={translateText('Back to top')}

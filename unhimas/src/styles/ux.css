@@ -1,10 +1,21 @@
 /* ============================================================
-   UX polish — animations, focus, micro-interactions
+   UX polish — animations, focus, micro-interactions, motion
    ============================================================ */
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scaleIn {
@@ -18,8 +29,118 @@
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Page enter (route change) ---- */
+.page-transition {
+  animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Stagger children (stats, cards) */
+.animate-stagger > * {
+  animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.animate-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.animate-stagger > *:nth-child(3) { animation-delay: 0.09s; }
+.animate-stagger > *:nth-child(4) { animation-delay: 0.12s; }
+.animate-stagger > *:nth-child(5) { animation-delay: 0.15s; }
+.animate-stagger > *:nth-child(6) { animation-delay: 0.18s; }
+.animate-stagger > *:nth-child(7) { animation-delay: 0.21s; }
+.animate-stagger > *:nth-child(8) { animation-delay: 0.24s; }
+.animate-stagger > *:nth-child(9) { animation-delay: 0.27s; }
+.animate-stagger > *:nth-child(10) { animation-delay: 0.3s; }
+
+/* Cards gently lift on hover */
+.page-content .card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.page-content .card:hover {
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(17, 47, 66, 0.08));
+}
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ---- Quick actions (dashboard) ---- */
+.quick-actions-bar {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.quick-actions-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.quick-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary, #112F42);
+  background: var(--color-bg, #f8fafc);
+  border: 1px solid var(--color-border, #e5e7eb);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.quick-action-chip:hover {
+  background: rgba(17, 47, 66, 0.06);
+  border-color: var(--color-primary, #112F42);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.quick-action-chip.accent {
+  background: rgba(183, 0, 50, 0.08);
+  border-color: rgba(183, 0, 50, 0.25);
+  color: var(--color-secondary, #B70032);
+}
+
+.quick-action-chip.accent:hover {
+  background: rgba(183, 0, 50, 0.14);
+}
+
+.quick-action-chip svg {
+  font-size: 1.05rem;
+}
+
+/* ---- Focus rings ---- */
 .form-input:focus {
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 17, 47, 66), 0.12);
 }
 
 /* ---- Modal / toast ---- */
@@ -36,18 +157,7 @@
   animation: slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ---- Modal stacking fix (overrides components.css) ---- */
+/* ---- Modal stacking fix ---- */
 .modal-backdrop {
   position: fixed !important;
   inset: 0 !important;
@@ -114,4 +224,27 @@
 
 .sidebar.collapsed .sidebar-children {
   display: none;
+}
+
+/* ---- Scroll progress polish ---- */
+.scroll-progress {
+  transition: width 0.08s linear;
+  background: linear-gradient(90deg, var(--color-secondary, #B70032), #ef4444);
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .animate-fade-up,
+  .animate-stagger > *,
+  .modal,
+  .toast {
+    animation: none !important;
+  }
+
+  .stat-card:hover,
+  .quick-action-chip:hover,
+  .page-content .card:hover {
+    transform: none;
+  }
 }
