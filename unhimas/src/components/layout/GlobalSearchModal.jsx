@@ -51,7 +51,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
 
       try {
         if (role === 'admin') {
-          // 1. Students
           const { data: students } = await supabase
             .from('students')
             .select('id, matricule, first_name, last_name')
@@ -65,7 +64,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             path: '/admin/students',
           }));
 
-          // 2. Lecturers
           const { data: lecturers } = await supabase
             .from('lecturers')
             .select('id, staff_id, first_name, last_name')
@@ -79,7 +77,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             path: '/admin/lecturers',
           }));
 
-          // 3. Courses
           const { data: courses } = await supabase
             .from('courses')
             .select('id, code, name')
@@ -93,7 +90,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             path: '/admin/courses',
           }));
 
-          // 4. Departments
           const { data: depts } = await supabase
             .from('departments')
             .select('id, code, name, abbreviation')
@@ -107,7 +103,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             path: '/admin/departments',
           }));
 
-          // 5. Announcements
           const { data: announcements } = await supabase
             .from('announcements')
             .select('id, title')
@@ -121,7 +116,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             path: '/admin/announcements',
           }));
         } else if (role === 'lecturer') {
-          // Lecturer search
           const { data: courses } = await supabase
             .from('courses')
             .select('id, code, name')
@@ -160,22 +154,8 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
             icon: MdFolder,
             path: '/lecturer/resources',
           }));
-        } else if (role === 'frontdesk') {
-          // Front Desk: Lecturers & Shift Roster
-          const { data: lecturers } = await supabase
-            .from('lecturers')
-            .select('id, staff_id, first_name, last_name')
-            .or(`staff_id.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
-            .limit(8);
-          if (lecturers?.length) newResults['Faculty Staff'] = lecturers.map((l) => ({
-            id: l.id,
-            title: `${l.first_name} ${l.last_name}`,
-            subtitle: `Staff ID: ${l.staff_id}`,
-            icon: MdPersonPin,
-            path: '/frontdesk/lecturer-attendance',
-          }));
         } else {
-          // Student search: Courses, Announcements, Resources
+          // Student search
           const { data: courses } = await supabase
             .from('courses')
             .select('id, code, name')
@@ -240,7 +220,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
     onClose();
   };
 
-  // Flatten results for keyboard navigation
   const flatItems = Object.entries(results).flatMap(([group, items]) =>
     items.map((it) => ({ ...it, group }))
   );
@@ -295,7 +274,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        {/* Search Input Bar */}
         <div
           style={{
             display: 'flex',
@@ -352,7 +330,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Results area */}
         <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '0.75rem' }}>
           {query.trim().length > 0 && query.trim().length < 2 && (
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
@@ -449,7 +426,6 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
           ))}
         </div>
 
-        {/* Footer shortcuts helper */}
         <div
           style={{
             padding: '0.5rem 1rem',
