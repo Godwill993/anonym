@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdNotifications, MdDoneAll, MdMarkEmailRead } from 'react-icons/md';
+import { MdNotifications, MdDoneAll, MdMarkEmailRead, MdDeleteSweep } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useToast } from '../../hooks/useToast';
 import {
   getAdminNotifications,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
+  clearAllAdminNotifications,
 } from '../../services/adminService';
+import { useAuth } from '../../context/AuthContext';
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleString('en-GB', {
@@ -28,32 +30,46 @@ const TYPE_ICONS = {
 };
 
 export default function AdminNotificationsPage() {
+  const { profile } = useAuth();
+  const profileId = profile?.id;
   const qc = useQueryClient();
   const { showToast } = useToast();
   const [filter, setFilter] = useState('all');
 
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['admin-notifications'],
-    queryFn: () => getAdminNotifications({ limit: 100 }),
+    queryKey: ['admin-notifications', profileId],
+    queryFn: () => getAdminNotifications(profileId, { limit: 100 }),
+    enabled: !!profileId,
   });
 
   const readMutation = useMutation({
     mutationFn: (id) => markAdminNotificationRead(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-notifications'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-notifications', profileId] });
+      qc.invalidateQueries({ queryKey: ['unread-notification-count', profileId] });
+    },
   });
 
   const readAllMutation = useMutation({
-    mutationFn: () => markAllAdminNotificationsRead(),
+    mutationFn: () => markAllAdminNotificationsRead(profileId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
+      qc.invalidateQueries({ queryKey: ['admin-notifications', profileId] });
+      qc.invalidateQueries({ queryKey: ['unread-notification-count', profileId] });
       showToast('All notifications marked as read', 'success');
     },
   });
 
-  const filtered = filter === 'unread'
-    ? notifications.filter((n) => !n.is_read)
-    : notifications;
+  const clearAllMutation = useMutation({
+    mutationFn: () => clearAllAdminNotifications(profileId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-notifications', profileId] });
+      qc.invalidateQueries({ queryKey: ['unread-notification-count', profileId] });
+      showToast('All notifications cleared', 'success');
+    },
+    onError: (err) => showToast(err.message || 'Could not clear notifications', 'error'),
+  });
 
+  const filtered = filter === 'unread' ? notifications.filter((n) => !n.is_read) : notifications;
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
@@ -62,25 +78,58 @@ export default function AdminNotificationsPage() {
         <div className="page-header-left">
           <h1 className="page-title">System Notifications</h1>
           <p className="page-subtitle">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'All caught up'}
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+              : 'All caught up'}
           </p>
         </div>
         <div className="page-header-actions">
           <button
+            type="button"
             className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('all')}
-          >All</button>
+          >
+            All
+          </button>
           <button
+            type="button"
             className={`btn btn-sm ${filter === 'unread' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('unread')}
-          >Unread {unreadCount > 0 && <span className="badge badge-red" style={{ marginLeft: 4 }}>{unreadCount}</span>}</button>
+          >
+            Unread{' '}
+            {unreadCount > 0 && (
+              <span className="badge badge-red" style={{ marginLeft: 4 }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
           {unreadCount > 0 && (
             <button
+              type="button"
               className="btn btn-outline btn-sm"
               onClick={() => readAllMutation.mutate()}
               disabled={readAllMutation.isPending}
             >
               <MdDoneAll /> Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              style={{ color: 'var(--color-secondary)', borderColor: 'rgba(183,0,50,0.35)' }}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Clear all notifications permanently? This cannot be undone.',
+                  )
+                ) {
+                  clearAllMutation.mutate();
+                }
+              }}
+              disabled={clearAllMutation.isPending}
+            >
+              <MdDeleteSweep /> {clearAllMutation.isPending ? 'Clearing…' : 'Clear all'}
             </button>
           )}
         </div>
@@ -98,8 +147,12 @@ export default function AdminNotificationsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon"><MdNotifications /></div>
-            <div className="empty-state-title">{filter === 'unread' ? 'No unread notifications' : 'No notifications'}</div>
+            <div className="empty-state-icon">
+              <MdNotifications />
+            </div>
+            <div className="empty-state-title">
+              {filter === 'unread' ? 'No unread notifications' : 'No notifications'}
+            </div>
             <p className="empty-state-text">You are all caught up.</p>
           </div>
         ) : (
@@ -121,10 +174,27 @@ export default function AdminNotificationsPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 2 }}>
-                    <span style={{ fontWeight: n.is_read ? 500 : 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>
+                    <span
+                      style={{
+                        fontWeight: n.is_read ? 500 : 700,
+                        fontSize: '0.9rem',
+                        color: 'var(--color-text)',
+                      }}
+                    >
                       {n.title}
                     </span>
-                    {!n.is_read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-secondary)', flexShrink: 0, display: 'inline-block' }} />}
+                    {!n.is_read && (
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: 'var(--color-secondary)',
+                          flexShrink: 0,
+                          display: 'inline-block',
+                        }}
+                      />
+                    )}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>
                     {n.message}
@@ -135,6 +205,7 @@ export default function AdminNotificationsPage() {
                 </div>
                 {!n.is_read && (
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => readMutation.mutate(n.id)}
                     aria-label="Mark as read"
