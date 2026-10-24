@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { can as canCapability, isAdmin, isFrontDesk, isLecturer, isStudent, isActiveAccount } from '../lib/permissions';
+import { can as canCapability, isAdmin, isLecturer, isStudent, isActiveAccount } from '../lib/permissions';
 
 /**
  * Hook: profile-aware permission checks for UI gates.
@@ -15,7 +15,6 @@ export function usePermissions() {
     profile,
     can,
     isAdmin: isAdmin(profile),
-    isFrontDesk: isFrontDesk(profile),
     isLecturer: isLecturer(profile),
     isStudent: isStudent(profile),
     isActive: isActiveAccount(profile),
