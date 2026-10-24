@@ -25,7 +25,6 @@ const schema = z
 
 const ROLE_HOME = {
   admin:     '/admin',
-  frontdesk: '/frontdesk',
   lecturer:  '/lecturer',
   student:   '/student',
 };
@@ -53,7 +52,6 @@ export default function SetNewPasswordPage() {
     setLoading(true);
     setServerError('');
 
-    // 1. Update the Supabase Auth password
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setServerError('Could not update your password. Please try again.');
@@ -61,15 +59,12 @@ export default function SetNewPasswordPage() {
       return;
     }
 
-    // 2. Clear the must_reset_password flag on the school record
     try {
       await clearMustResetPassword();
     } catch (err) {
-      // Non-fatal — the password was changed; we still let the user in.
       console.error('[SetNewPassword] clearMustResetPassword failed:', err);
     }
 
-    // 3. Re-fetch the profile so downstream components have fresh data
     const freshProfile = await refetchProfile();
     const destination = ROLE_HOME[freshProfile?.role] || '/unauthorized';
     navigate(destination, { replace: true });
@@ -78,7 +73,6 @@ export default function SetNewPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        {/* Header */}
         <div className="auth-card-header">
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
@@ -87,11 +81,9 @@ export default function SetNewPasswordPage() {
           </div>
         </div>
 
-        {/* Body */}
         <div className="auth-card-body">
           <h1 className="auth-title">Create your password</h1>
 
-          {/* Info banner */}
           <div
             className="auth-alert"
             role="note"
@@ -134,7 +126,6 @@ export default function SetNewPasswordPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            {/* New password */}
             <div className="form-group">
               <label htmlFor="snp-password" className="form-label">
                 New password
@@ -164,7 +155,6 @@ export default function SetNewPasswordPage() {
               )}
             </div>
 
-            {/* Confirm password */}
             <div className="form-group">
               <label htmlFor="snp-confirm" className="form-label">
                 Confirm new password
@@ -184,7 +174,6 @@ export default function SetNewPasswordPage() {
               )}
             </div>
 
-            {/* Password hints */}
             <ul
               style={{
                 fontSize: '0.78rem',
@@ -212,7 +201,7 @@ export default function SetNewPasswordPage() {
               ) : (
                 <>
                   <MdCheckCircle style={{ fontSize: '1.1rem' }} />
-                  Set password &amp; continue
+                  Set password & continue
                 </>
               )}
             </button>
