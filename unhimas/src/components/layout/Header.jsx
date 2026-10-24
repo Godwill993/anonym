@@ -19,14 +19,12 @@ import GlobalSearchModal from './GlobalSearchModal';
 
 const ROLE_LABELS = {
   admin: 'Administrator',
-  frontdesk: 'Front Desk',
   lecturer: 'Lecturer',
   student: 'Student',
 };
 
 const ROLE_PROFILE_PATHS = {
   admin: '/admin/profile',
-  frontdesk: '/frontdesk/profile',
   lecturer: '/lecturer/profile',
   student: '/student/profile',
 };
@@ -55,7 +53,6 @@ export default function Header({ onMenuClick, pageTitle }) {
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
 
-  // Keyboard shortcut Ctrl+K / Cmd+K to open search
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -67,7 +64,6 @@ export default function Header({ onMenuClick, pageTitle }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -94,10 +90,8 @@ export default function Header({ onMenuClick, pageTitle }) {
   return (
     <>
       <header className="app-header" role="banner">
-        {/* Skip to main content */}
         <a href="#main-content" className="skip-link">{translateText('Skip to main content')}</a>
 
-        {/* Mobile menu toggle */}
         <button
           className="header-mobile-menu-btn"
           onClick={onMenuClick}
@@ -106,12 +100,10 @@ export default function Header({ onMenuClick, pageTitle }) {
           <MdMenu />
         </button>
 
-        {/* Breadcrumb / page title */}
         <div className="header-breadcrumb" aria-label={translateText('Breadcrumb')}>
           <span className="breadcrumb-title">{translateText(pageTitle || 'Dashboard')}</span>
         </div>
 
-        {/* Search */}
         <div
           className="header-search"
           role="search"
@@ -130,12 +122,10 @@ export default function Header({ onMenuClick, pageTitle }) {
           />
         </div>
 
-      {/* Action buttons */}
       <div className="header-actions">
-        {/* Notifications */}
         <Link
           className={`icon-btn${unreadNotificationCount > 0 ? ' has-unread-notifications' : ''}`}
-          to={role === 'admin' ? '/admin/notifications' : role === 'frontdesk' ? '/frontdesk' : role === 'lecturer' ? '/lecturer/notifications' : '/student/notifications'}
+          to={role === 'admin' ? '/admin/notifications' : role === 'lecturer' ? '/lecturer/notifications' : '/student/notifications'}
           aria-label={`${translateText('Notifications')}${unreadNotificationCount > 0 ? ` (${unreadNotificationCount} ${translateText('unread')})` : unreadNotificationsError ? ` (${translateText('count unavailable')})` : ''}`}
           title={unreadNotificationsError ? translateText('Notification count unavailable') : translateText('Notifications')}
         >
@@ -147,7 +137,6 @@ export default function Header({ onMenuClick, pageTitle }) {
           )}
         </Link>
 
-        {/* Dark mode toggle */}
         <button
           className="icon-btn"
           onClick={toggleTheme}
@@ -157,7 +146,6 @@ export default function Header({ onMenuClick, pageTitle }) {
           {theme === 'dark' ? <MdLightMode /> : <MdDarkMode />}
         </button>
 
-        {/* Language toggle */}
         <button
           className="lang-btn"
           onClick={toggleLanguage}
@@ -167,7 +155,6 @@ export default function Header({ onMenuClick, pageTitle }) {
           {language === 'en' ? 'FR' : 'EN'}
         </button>
 
-        {/* User menu */}
         <div className="user-menu-wrapper" ref={userMenuRef}>
           <button
             className="user-menu-btn"

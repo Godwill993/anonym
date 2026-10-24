@@ -23,7 +23,6 @@ async function checkMustResetPassword(role) {
 
 const ROLE_HOME = {
   admin: '/admin',
-  frontdesk: '/frontdesk',
   lecturer: '/lecturer',
   student: '/student',
 };
