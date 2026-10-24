@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -22,9 +23,11 @@ import { MdAdd, MdEdit, MdDelete, MdHowToReg } from 'react-icons/md';
 const emptyForm = { session_date: '', start_time: '', end_time: '', room: '', topic: '', notes: '' };
 
 export default function LecturerSessionsPage() {
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialBc = searchParams.get('bc') || '';
   const { showToast } = useToast();
-  const [selectedBcId, setSelectedBcId] = useState('');
+  const [selectedBcId, setSelectedBcId] = useState(initialBc);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [sessionModal, setSessionModal] = useState(false);
   const [editingSession, setEditingSession] = useState(null);

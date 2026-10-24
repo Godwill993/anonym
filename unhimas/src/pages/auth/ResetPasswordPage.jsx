@@ -38,25 +38,79 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let authUnsubscribe = null;
 
     const verifyResetSession = async () => {
-      const accessToken = searchParams.get('access_token');
-      const refreshToken = searchParams.get('refresh_token');
-      if (!accessToken || !refreshToken) {
-        setError('This reset link is missing or incomplete. Request another password reset link.');
+      // 1. Check if Supabase client already established a valid session
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession && !cancelled) {
+        setReady(true);
         return;
       }
 
-      const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-      if (sessionError) {
-        setError('This reset link has expired or is invalid. Request another password reset link.');
+      // 2. Check for PKCE exchange code in URL search params
+      const code = searchParams.get('code');
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          if (!cancelled) setError('This reset link has expired or is invalid. Request another password reset link.');
+          return;
+        }
+        if (!cancelled) setReady(true);
         return;
       }
-      if (!cancelled) setReady(true);
+
+      // 3. Check for tokens in search params OR hash fragment
+      let accessToken = searchParams.get('access_token');
+      let refreshToken = searchParams.get('refresh_token');
+
+      if (!accessToken && typeof window !== 'undefined' && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        accessToken = hashParams.get('access_token');
+        refreshToken = hashParams.get('refresh_token');
+      }
+
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          if (!cancelled) setError('This reset link has expired or is invalid. Request another password reset link.');
+          return;
+        }
+        if (!cancelled) setReady(true);
+        return;
+      }
+
+      // 4. Listen for async auth state change (e.g. Supabase processing hash automatically)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (cancelled) return;
+        if (event === 'PASSWORD_RECOVERY' || (session && event === 'SIGNED_IN')) {
+          setReady(true);
+          setError('');
+        }
+      });
+      authUnsubscribe = () => subscription.unsubscribe();
+
+      // Grace period if no tokens were present
+      setTimeout(() => {
+        if (!cancelled) {
+          setReady((currReady) => {
+            if (!currReady) {
+              setError('This reset link is missing or incomplete. Request another password reset link.');
+            }
+            return currReady;
+          });
+        }
+      }, 1500);
     };
 
     verifyResetSession();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (authUnsubscribe) authUnsubscribe();
+    };
   }, [searchParams]);
 
   return (

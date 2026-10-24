@@ -76,12 +76,10 @@ export default function DataTable({
       if (valA === null || valA === undefined) return 1;
       if (valB === null || valB === undefined) return -1;
 
-      let comparison = 0;
-      if (typeof valA === 'number' && typeof valB === 'number') {
-        comparison = valA - valB;
-      } else {
-        comparison = String(valA).localeCompare(String(valB), undefined, { numeric: true });
-      }
+      const comparison =
+        typeof valA === 'number' && typeof valB === 'number'
+          ? valA - valB
+          : String(valA).localeCompare(String(valB), undefined, { numeric: true });
 
       return direction === 'asc' ? comparison : -comparison;
     });

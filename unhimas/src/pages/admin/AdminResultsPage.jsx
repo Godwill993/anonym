@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdSchool, MdFilterList } from 'react-icons/md';
+import { MdFilterList } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import DataTable from '../../components/common/DataTable';
 import { getPublishedResults } from '../../services/results';
@@ -34,8 +34,9 @@ export default function AdminResultsPage() {
       },
       {
         header: 'Student Name',
-        accessor: 'student_name',
-        render: (r) => <strong>{r.student_name}</strong>,
+        accessor: 'last_name',
+        sortValue: (r) => `${r.last_name || ''} ${r.first_name || ''}`,
+        render: (r) => <strong>{r.last_name} {r.first_name}</strong>,
       },
       {
         header: 'Course',
@@ -128,6 +129,7 @@ export default function AdminResultsPage() {
       <DataTable
         columns={columns}
         data={filteredResults}
+        loading={isLoading}
         searchPlaceholder="Search by matricule, student name, or course code..."
         emptyTitle="No Published Results Yet"
         emptySubtitle="Results become visible here once approved marksheets are published by administrators."
