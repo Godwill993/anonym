@@ -5,14 +5,11 @@ import {
   MdMenu,
   MdSearch,
   MdNotifications,
-  MdDarkMode,
-  MdLightMode,
   MdAccountCircle,
   MdSettings,
   MdLogout,
 } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../i18n/index';
 import { supabase } from '../../lib/supabase';
 import GlobalSearchModal from './GlobalSearchModal';
@@ -31,7 +28,6 @@ const ROLE_PROFILE_PATHS = {
 
 export default function Header({ onMenuClick, pageTitle }) {
   const { profile, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, translateText } = useTranslation();
   const { data: unreadNotificationCount = 0, isError: unreadNotificationsError } = useQuery({
     queryKey: ['unread-notification-count', profile?.id],
@@ -75,7 +71,7 @@ export default function Header({ onMenuClick, pageTitle }) {
   }, []);
 
   const initials = profile?.full_name
-    ? profile.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    ? profile.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
 
   const handleSignOut = async () => {
@@ -90,7 +86,9 @@ export default function Header({ onMenuClick, pageTitle }) {
   return (
     <>
       <header className="app-header" role="banner">
-        <a href="#main-content" className="skip-link">{translateText('Skip to main content')}</a>
+        <a href="#main-content" className="skip-link">
+          {translateText('Skip to main content')}
+        </a>
 
         <button
           className="header-mobile-menu-btn"
@@ -122,94 +120,121 @@ export default function Header({ onMenuClick, pageTitle }) {
           />
         </div>
 
-      <div className="header-actions">
-        <Link
-          className={`icon-btn${unreadNotificationCount > 0 ? ' has-unread-notifications' : ''}`}
-          to={role === 'admin' ? '/admin/notifications' : role === 'lecturer' ? '/lecturer/notifications' : '/student/notifications'}
-          aria-label={`${translateText('Notifications')}${unreadNotificationCount > 0 ? ` (${unreadNotificationCount} ${translateText('unread')})` : unreadNotificationsError ? ` (${translateText('count unavailable')})` : ''}`}
-          title={unreadNotificationsError ? translateText('Notification count unavailable') : translateText('Notifications')}
-        >
-          <MdNotifications />
-          {unreadNotificationCount > 0 && (
-            <span className="notif-badge" aria-hidden="true">
-              {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-            </span>
-          )}
-        </Link>
-
-        <button
-          className="icon-btn"
-          onClick={toggleTheme}
-          aria-label={translateText(theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')}
-          title={translateText(theme === 'dark' ? 'Light mode' : 'Dark mode')}
-        >
-          {theme === 'dark' ? <MdLightMode /> : <MdDarkMode />}
-        </button>
-
-        <button
-          className="lang-btn"
-          onClick={toggleLanguage}
-          aria-label={`Switch to ${language === 'en' ? 'French' : 'English'}`}
-          title={language === 'en' ? translateText('Passer en Français') : translateText('Switch to English')}
-        >
-          {language === 'en' ? 'FR' : 'EN'}
-        </button>
-
-        <div className="user-menu-wrapper" ref={userMenuRef}>
-          <button
-            className="user-menu-btn"
-            onClick={() => setUserMenuOpen(v => !v)}
-            aria-haspopup="menu"
-            aria-expanded={userMenuOpen}
-            aria-label={translateText('User menu')}
+        <div className="header-actions">
+          <Link
+            className={`icon-btn${unreadNotificationCount > 0 ? ' has-unread-notifications' : ''}`}
+            to={
+              role === 'admin'
+                ? '/admin/notifications'
+                : role === 'lecturer'
+                  ? '/lecturer/notifications'
+                  : '/student/notifications'
+            }
+            aria-label={`${translateText('Notifications')}${unreadNotificationCount > 0 ? ` (${unreadNotificationCount} ${translateText('unread')})` : unreadNotificationsError ? ` (${translateText('count unavailable')})` : ''}`}
+            title={
+              unreadNotificationsError
+                ? translateText('Notification count unavailable')
+                : translateText('Notifications')
+            }
           >
-            <div className="user-avatar" aria-hidden="true">{initials}</div>
-            <span className="user-name">{profile?.full_name || 'User'}</span>
+            <MdNotifications />
+            {unreadNotificationCount > 0 && (
+              <span className="notif-badge" aria-hidden="true">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
+          </Link>
+
+          {/* Theme switch intentionally hidden — default is light on all devices.
+              ThemeContext + toggleTheme remain available if needed later. */}
+
+          <button
+            className="lang-btn"
+            onClick={toggleLanguage}
+            aria-label={`Switch to ${language === 'en' ? 'French' : 'English'}`}
+            title={
+              language === 'en'
+                ? translateText('Passer en Français')
+                : translateText('Switch to English')
+            }
+          >
+            {language === 'en' ? 'FR' : 'EN'}
           </button>
 
-          {userMenuOpen && (
-            <div className="dropdown-menu" role="menu" aria-label="User options">
-              <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: '0.8375rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                  {profile?.full_name}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>
-                  {translateText(ROLE_LABELS[role])}
-                </div>
+          <div className="user-menu-wrapper" ref={userMenuRef}>
+            <button
+              className="user-menu-btn"
+              onClick={() => setUserMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              aria-label={translateText('User menu')}
+            >
+              <div className="user-avatar" aria-hidden="true">
+                {initials}
               </div>
-              <Link
-                to={profilePath}
-                className="dropdown-item"
-                role="menuitem"
-                onClick={() => setUserMenuOpen(false)}
-              >
-                <MdAccountCircle aria-hidden="true" /> {translateText('Profile')}
-              </Link>
-              {role === 'admin' && (
+              <span className="user-name">{profile?.full_name || 'User'}</span>
+            </button>
+
+            {userMenuOpen && (
+              <div className="dropdown-menu" role="menu" aria-label="User options">
+                <div
+                  style={{
+                    padding: '0.6rem 1rem',
+                    borderBottom: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.8375rem',
+                      fontWeight: 600,
+                      color: 'var(--color-text)',
+                    }}
+                  >
+                    {profile?.full_name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--color-text-muted)',
+                      marginTop: '0.1rem',
+                    }}
+                  >
+                    {translateText(ROLE_LABELS[role])}
+                  </div>
+                </div>
                 <Link
-                  to="/admin/settings"
+                  to={profilePath}
                   className="dropdown-item"
                   role="menuitem"
                   onClick={() => setUserMenuOpen(false)}
                 >
-                  <MdSettings aria-hidden="true" /> {translateText('Settings')}
+                  <MdAccountCircle aria-hidden="true" /> {translateText('Profile')}
                 </Link>
-              )}
-              <div className="dropdown-divider" />
-              <button
-                className="dropdown-item danger"
-                role="menuitem"
-                onClick={handleSignOut}
-              >
-                <MdLogout aria-hidden="true" /> {translateText('Sign out')}
-              </button>
-            </div>
-          )}
+                {role === 'admin' && (
+                  <Link
+                    to="/admin/settings"
+                    className="dropdown-item"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <MdSettings aria-hidden="true" /> {translateText('Settings')}
+                  </Link>
+                )}
+                <div className="dropdown-divider" />
+                <button
+                  className="dropdown-item danger"
+                  role="menuitem"
+                  onClick={handleSignOut}
+                >
+                  <MdLogout aria-hidden="true" /> {translateText('Sign out')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-  </>
-);
+      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
+  );
 }
