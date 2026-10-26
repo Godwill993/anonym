@@ -96,6 +96,7 @@ export async function getStudentResourceDownload(filePath) {
   return { url: data.signedUrl, error: null };
 }
 
+/** Upcoming sessions — * includes Zoom fields once migration is applied. */
 export async function getMyUpcomingSessions(batchId, { limit = 5 } = {}) {
   const { data: batchCourses, error: coursesError } = await supabase.from('batch_courses').select('id').eq('batch_id', batchId);
   if (coursesError) throw coursesError;
@@ -104,16 +105,7 @@ export async function getMyUpcomingSessions(batchId, { limit = 5 } = {}) {
   const { data, error } = await supabase
     .from('class_sessions')
     .select(`
-      id,
-      batch_course_id,
-      scheduled_start,
-      scheduled_end,
-      room,
-      topic,
-      zoom_meeting_id,
-      zoom_join_url,
-      zoom_start_url,
-      zoom_password,
+      *,
       batch_courses:batch_course_id (
         id,
         courses:course_id (code, name),
@@ -145,7 +137,6 @@ export async function markAllStudentNotificationsRead(profileId) {
   if (error) throw error;
 }
 
-/** Permanently remove all notifications for this student. */
 export async function clearAllStudentNotifications(profileId) {
   if (!profileId) throw new Error('Profile required to clear notifications');
   const { error } = await supabase.from('notifications').delete().eq('recipient_id', profileId);
@@ -162,13 +153,14 @@ export async function getStudentDashboardStats(studentId, batchId, profileId) {
     supabase.from('results').select('student_id', { count: 'exact', head: true }).eq('student_id', studentId),
     supabase.from('settings').select('attendance_threshold').limit(1).maybeSingle(),
   ]);
-  const errors = [coursesRes, unreadNotifsRes, currentYearRes, overallGpaRes, attendanceRes, resultsRes, settingsRes].map((r) => r.error).filter(Boolean);
-  if (errors.length) throw errors[0];
+  // Soft-fail optional views
+  const hard = [coursesRes].map((r) => r.error).filter(Boolean);
+  if (hard.length) throw hard[0];
+
   let currentSemester = null;
-  if (currentYearRes.data) {
+  if (currentYearRes.data && !currentYearRes.error) {
     const { data, error } = await supabase.from('semesters').select('id, name, number').eq('academic_year_id', currentYearRes.data.id).eq('is_current', true).maybeSingle();
-    if (error) throw error;
-    if (data) currentSemester = { ...data, academic_years: currentYearRes.data };
+    if (!error && data) currentSemester = { ...data, academic_years: currentYearRes.data };
   }
   const totalSessions = (attendanceRes.data || []).reduce((sum, row) => sum + Number(row.total_sessions || 0), 0);
   const attendedSessions = (attendanceRes.data || []).reduce((sum, row) => sum + Number(row.attended_sessions || 0), 0);
@@ -176,18 +168,17 @@ export async function getStudentDashboardStats(studentId, batchId, profileId) {
   let semesterGpa = null;
   if (currentSemester) {
     const { data, error } = await supabase.from('student_semester_gpa').select('semester_gpa').eq('student_id', studentId).eq('semester_id', currentSemester.id).maybeSingle();
-    if (error) throw error;
-    semesterGpa = data?.semester_gpa ?? null;
+    if (!error) semesterGpa = data?.semester_gpa ?? null;
   }
   const gpaValue = semesterGpa ?? overallGpaRes.data?.overall_gpa ?? null;
   return {
     totalCourses: coursesRes.count ?? 0,
-    publishedResults: resultsRes.count ?? 0,
+    publishedResults: resultsRes.error ? 0 : (resultsRes.count ?? 0),
     gpa: gpaValue === null ? null : Number(gpaValue).toFixed(2),
     gpaScope: semesterGpa !== null ? 'Current Semester GPA' : 'Cumulative GPA',
     currentSemester,
-    attendancePct,
+    attendancePct: attendanceRes.error ? null : attendancePct,
     attendanceThreshold: Number(settingsRes.data?.attendance_threshold ?? 75),
-    unreadNotifications: unreadNotifsRes.count ?? 0,
+    unreadNotifications: unreadNotifsRes.error ? 0 : (unreadNotifsRes.count ?? 0),
   };
 }
