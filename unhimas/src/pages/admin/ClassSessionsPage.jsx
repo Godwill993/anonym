@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdDelete, MdEdit, MdSearch, MdSchedule } from 'react-icons/md';
+import { MdAdd, MdDelete, MdEdit, MdSearch, MdSchedule, MdVideocam, MdVideocamOff } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { toast } from '../../components/common/Toast';
@@ -14,6 +14,7 @@ import {
   deleteClassSessionAdmin,
 } from '../../services/academicService';
 import { getLecturers } from '../../services/peopleService';
+import { createZoomMeeting, deleteZoomMeeting } from '../../services/zoomService';
 
 function toLocalInput(iso) {
   if (!iso) return '';
@@ -31,6 +32,7 @@ const emptyForm = {
   room: '',
   topic: '',
   notes: '',
+  is_online: false,
 };
 
 export default function ClassSessionsPage() {
@@ -44,6 +46,7 @@ export default function ClassSessionsPage() {
   const [genFrom, setGenFrom] = useState('');
   const [genTo, setGenTo] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [zoomLoading, setZoomLoading] = useState(null);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['admin-class-sessions'],
@@ -62,8 +65,31 @@ export default function ClassSessionsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (payload) => {
-      if (editing) return updateClassSessionAdmin(editing.id, payload);
-      return createClassSessionAdmin(payload);
+      const { is_online, ...sessionPayload } = payload;
+      let saved;
+      if (editing) {
+        saved = await updateClassSessionAdmin(editing.id, sessionPayload);
+      } else {
+        saved = await createClassSessionAdmin(sessionPayload);
+        if (is_online && saved?.id) {
+          const start = new Date(sessionPayload.scheduled_start);
+          const end = new Date(sessionPayload.scheduled_end);
+          const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
+          try {
+            await createZoomMeeting({
+              sessionId: saved.id,
+              topic: sessionPayload.topic || 'Online Class',
+              scheduledStart: new Date(sessionPayload.scheduled_start).toISOString(),
+              durationMinutes,
+            });
+          } catch (zoomErr) {
+            toast.error(
+              `Session created but Zoom failed: ${zoomErr.message}. Check Zoom API secrets.`,
+            );
+          }
+        }
+      }
+      return saved;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
@@ -74,7 +100,19 @@ export default function ClassSessionsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteClassSessionAdmin,
+    mutationFn: async (session) => {
+      if (session.zoom_meeting_id) {
+        try {
+          await deleteZoomMeeting({
+            zoomMeetingId: session.zoom_meeting_id,
+            sessionId: session.id,
+          });
+        } catch (_) {
+          // still delete the session
+        }
+      }
+      return deleteClassSessionAdmin(session.id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
       toast.success(tx('Class session removed'));
@@ -111,6 +149,7 @@ export default function ClassSessionsPage() {
       room: session.room || '',
       topic: session.topic || '',
       notes: session.notes || '',
+      is_online: false,
     });
     setOpen(true);
   };
@@ -141,6 +180,46 @@ export default function ClassSessionsPage() {
       return;
     }
     saveMutation.mutate(form);
+  };
+
+  const handleAddZoom = async (session) => {
+    if (!session?.id) return;
+    setZoomLoading(session.id);
+    try {
+      const start = new Date(session.scheduled_start);
+      const end = new Date(session.scheduled_end);
+      const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
+      await createZoomMeeting({
+        sessionId: session.id,
+        topic: session.topic || session.batch_courses?.courses?.name || 'Online Class',
+        scheduledStart: session.scheduled_start,
+        durationMinutes,
+      });
+      toast.success(tx('Zoom meeting created'));
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+    } catch (err) {
+      toast.error(err.message || tx('Could not create Zoom meeting'));
+    } finally {
+      setZoomLoading(null);
+    }
+  };
+
+  const handleRemoveZoom = async (session) => {
+    if (!session?.zoom_meeting_id) return;
+    if (!window.confirm(tx('Remove the Zoom meeting from this session?'))) return;
+    setZoomLoading(session.id);
+    try {
+      await deleteZoomMeeting({
+        zoomMeetingId: session.zoom_meeting_id,
+        sessionId: session.id,
+      });
+      toast.success(tx('Zoom meeting removed'));
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+    } catch (err) {
+      toast.error(err.message || tx('Could not remove Zoom meeting'));
+    } finally {
+      setZoomLoading(null);
+    }
   };
 
   const handleGenerate = async () => {
@@ -255,19 +334,20 @@ export default function ClassSessionsPage() {
                 <th>{tx('Schedule')}</th>
                 <th>{tx('Room')}</th>
                 <th>{tx('Topic')}</th>
+                <th>{tx('Online')}</th>
                 <th style={{ textAlign: 'right' }}>{tx('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
                     {tx('Loading sessions…')}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
                       <div className="empty-state-title">{tx('No class sessions found')}</div>
@@ -304,6 +384,45 @@ export default function ClassSessionsPage() {
                       </td>
                       <td>{session.room || '—'}</td>
                       <td>{session.topic || '—'}</td>
+                      <td>
+                        {session.zoom_join_url ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content' }}>
+                              ONLINE
+                            </span>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                              <a
+                                href={session.zoom_start_url || session.zoom_join_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-primary btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
+                              >
+                                <MdVideocam size={12} /> Start
+                              </a>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
+                                disabled={zoomLoading === session.id}
+                                onClick={() => handleRemoveZoom(session)}
+                              >
+                                <MdVideocamOff size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ fontSize: '0.7rem' }}
+                            disabled={zoomLoading === session.id}
+                            onClick={() => handleAddZoom(session)}
+                          >
+                            <MdVideocam size={12} /> {zoomLoading === session.id ? '…' : 'Add Zoom'}
+                          </button>
+                        )}
+                      </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
                           <button type="button" className="btn btn-outline btn-sm" onClick={() => openEdit(session)}>
@@ -315,7 +434,7 @@ export default function ClassSessionsPage() {
                             title={tx('Delete')}
                             onClick={() => {
                               if (window.confirm(tx('Delete this class session? Attendance records for it will also be removed.'))) {
-                                deleteMutation.mutate(session.id);
+                                deleteMutation.mutate(session);
                               }
                             }}
                           >
@@ -435,6 +554,21 @@ export default function ClassSessionsPage() {
               placeholder={tx('Optional notes for staff')}
             />
           </div>
+          {!editing && (
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <input
+                id="admin-session-online"
+                type="checkbox"
+                style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#2d8cff' }}
+                checked={form.is_online}
+                onChange={(e) => setForm({ ...form, is_online: e.target.checked })}
+              />
+              <label htmlFor="admin-session-online" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                <MdVideocam size={16} style={{ color: '#2d8cff' }} />
+                <span style={{ fontWeight: 500 }}>{tx('Create Zoom meeting for this session')}</span>
+              </label>
+            </div>
+          )}
         </form>
       </Modal>
     </AppLayout>
