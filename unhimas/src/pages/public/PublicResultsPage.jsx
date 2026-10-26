@@ -47,7 +47,7 @@ export default function PublicResultsPage() {
       question: language === 'fr' ? 'Qui publie ces résultats ?' : 'Who publishes these academic results?',
       answer: language === 'fr'
         ? 'Les résultats affichés ici sont officiellement approuvés par le conseil académique de l\'UNHIMAS. Seules les notes publiées sont consultables.'
-        : 'The results displayed here are officially vetted and released by the UNHIMAS Academic Administration and Dean. Only final published marks are accessible through this portal.',
+        : 'The results displayed here are officially verified and released by the UNHIMAS Academic Administration and Dean. Only final published results are accessible through this portal.',
     },
     {
       question: language === 'fr' ? 'Que faire si mon relevé est incomplet ?' : 'What if a course grade is missing from my record?',

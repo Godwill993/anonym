@@ -17,10 +17,11 @@ import {
   upsertAttendance,
   markAllPresent,
 } from '../../services/lecturerService';
+import { createZoomMeeting, deleteZoomMeeting } from '../../services/zoomService';
 import { splitLocalDateTime, combineLocalDateTime } from '../../utils/sessionDateTime';
-import { MdAdd, MdEdit, MdDelete, MdHowToReg } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdHowToReg, MdVideocam, MdVideocamOff, MdOpenInNew } from 'react-icons/md';
 
-const emptyForm = { session_date: '', start_time: '', end_time: '', room: '', topic: '', notes: '' };
+const emptyForm = { session_date: '', start_time: '', end_time: '', room: '', topic: '', notes: '', is_online: false };
 
 export default function LecturerSessionsPage() {
   const { session } = useAuth();
@@ -32,6 +33,7 @@ export default function LecturerSessionsPage() {
   const [sessionModal, setSessionModal] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [sessionForm, setSessionForm] = useState(emptyForm);
+  const [zoomLoading, setZoomLoading] = useState(null); // session id being processed
 
   const { data: lecturerProfile } = useQuery({
     queryKey: ['my-lecturer-profile'],
@@ -93,8 +95,31 @@ export default function LecturerSessionsPage() {
         topic: sessionForm.topic,
         notes: sessionForm.notes,
       };
-      if (editingSession) return updateClassSession(editingSession.id, payload);
-      return createClassSession(payload);
+      const savedSession = editingSession
+        ? await updateClassSession(editingSession.id, payload)
+        : await createClassSession(payload);
+
+      // If the lecturer toggled "Online Class", auto-create a Zoom meeting
+      if (!editingSession && sessionForm.is_online && savedSession?.id) {
+        const durationMs = end.getTime() - start.getTime();
+        const durationMinutes = Math.round(durationMs / 60000);
+        try {
+          await createZoomMeeting({
+            sessionId: savedSession.id,
+            topic: sessionForm.topic || selectedCourse?.courses?.name || 'Online Class',
+            scheduledStart: start.toISOString(),
+            durationMinutes,
+          });
+        } catch (zoomErr) {
+          // Session was created — just warn about Zoom
+          showToast(
+            `Session created but Zoom meeting failed: ${zoomErr.message}. Check your Zoom API keys.`,
+            'error',
+          );
+          return savedSession;
+        }
+      }
+      return savedSession;
     },
     onSuccess: (data) => {
       showToast(editingSession ? 'Session updated' : 'Session created', 'success');
@@ -124,8 +149,46 @@ export default function LecturerSessionsPage() {
       room: s.room || '',
       topic: s.topic || '',
       notes: s.notes || '',
+      is_online: false, // editing: Zoom is managed separately
     });
     setSessionModal(true);
+  };
+
+  const handleAddZoom = async (s) => {
+    if (!s?.id) return;
+    setZoomLoading(s.id);
+    try {
+      const start = new Date(s.scheduled_start);
+      const end = new Date(s.scheduled_end);
+      const durationMinutes = Math.round((end - start) / 60000);
+      await createZoomMeeting({
+        sessionId: s.id,
+        topic: s.topic || selectedCourse?.courses?.name || 'Online Class',
+        scheduledStart: s.scheduled_start,
+        durationMinutes,
+      });
+      showToast('Zoom meeting created!', 'success');
+      refetchSessions();
+    } catch (err) {
+      showToast(err.message || 'Could not create Zoom meeting', 'error');
+    } finally {
+      setZoomLoading(null);
+    }
+  };
+
+  const handleRemoveZoom = async (s) => {
+    if (!s?.zoom_meeting_id) return;
+    if (!window.confirm('Remove the Zoom meeting from this session?')) return;
+    setZoomLoading(s.id);
+    try {
+      await deleteZoomMeeting({ zoomMeetingId: s.zoom_meeting_id, sessionId: s.id });
+      showToast('Zoom meeting removed.', 'success');
+      refetchSessions();
+    } catch (err) {
+      showToast(err.message || 'Could not remove Zoom meeting', 'error');
+    } finally {
+      setZoomLoading(null);
+    }
   };
 
   const markStatus = async (studentId, status) => {
@@ -207,59 +270,104 @@ export default function LecturerSessionsPage() {
                     key={s.id}
                     style={{
                       display: 'flex',
+                      flexDirection: 'column',
                       borderBottom: '1px solid var(--color-border)',
                       background: s.id === selectedSessionId ? 'rgba(17,47,66,0.06)' : 'transparent',
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSessionId(s.id)}
-                      style={{
-                        flex: 1,
-                        textAlign: 'left',
-                        padding: '0.75rem',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-                        {new Date(s.scheduled_start).toLocaleDateString('en-GB', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                        })}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {new Date(s.scheduled_start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                        {' – '}
-                        {new Date(s.scheduled_end).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                        {s.room ? ` · ${s.room}` : ''}
-                      </div>
-                      {s.topic && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{s.topic}</div>
-                      )}
-                    </button>
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, paddingRight: 6 }}>
-                      <button type="button" className="btn btn-outline btn-sm" style={{ padding: '0.2rem 0.4rem' }} onClick={() => openEdit(s)}>
-                        <MdEdit size={14} />
-                      </button>
+                    <div style={{ display: 'flex' }}>
                       <button
                         type="button"
-                        className="btn btn-outline btn-sm"
-                        style={{ padding: '0.2rem 0.4rem' }}
-                        onClick={() => {
-                          if (window.confirm('Delete this class session?')) {
-                            deleteClassSession(s.id)
-                              .then(() => {
-                                showToast('Session deleted', 'success');
-                                if (selectedSessionId === s.id) setSelectedSessionId(null);
-                                refetchSessions();
-                              })
-                              .catch((err) => showToast(err.message || 'Could not delete session', 'error'));
-                          }
+                        onClick={() => setSelectedSessionId(s.id)}
+                        style={{
+                          flex: 1,
+                          textAlign: 'left',
+                          padding: '0.75rem',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
                         }}
                       >
-                        <MdDelete size={14} />
+                        <div style={{ fontWeight: 600, fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {new Date(s.scheduled_start).toLocaleDateString('en-GB', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                          })}
+                          {s.zoom_join_url && (
+                            <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
+                              ONLINE
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          {new Date(s.scheduled_start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          {' – '}
+                          {new Date(s.scheduled_end).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          {s.room ? ` · ${s.room}` : ''}
+                        </div>
+                        {s.topic && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{s.topic}</div>
+                        )}
                       </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, paddingRight: 6 }}>
+                        <button type="button" className="btn btn-outline btn-sm" style={{ padding: '0.2rem 0.4rem' }} onClick={() => openEdit(s)}>
+                          <MdEdit size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '0.2rem 0.4rem' }}
+                          onClick={() => {
+                            if (window.confirm('Delete this class session?')) {
+                              deleteClassSession(s.id)
+                                .then(() => {
+                                  showToast('Session deleted', 'success');
+                                  if (selectedSessionId === s.id) setSelectedSessionId(null);
+                                  refetchSessions();
+                                })
+                                .catch((err) => showToast(err.message || 'Could not delete session', 'error'));
+                            }
+                          }}
+                        >
+                          <MdDelete size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Zoom action row */}
+                    <div style={{ padding: '0 0.75rem 0.6rem', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {s.zoom_join_url ? (
+                        <>
+                          <a
+                            href={s.zoom_start_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-primary btn-sm"
+                            style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <MdVideocam size={13} /> Start Meeting
+                          </a>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ fontSize: '0.72rem' }}
+                            disabled={zoomLoading === s.id}
+                            onClick={() => handleRemoveZoom(s)}
+                          >
+                            <MdVideocamOff size={13} /> Remove Zoom
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          disabled={zoomLoading === s.id}
+                          onClick={() => handleAddZoom(s)}
+                        >
+                          <MdVideocam size={13} />
+                          {zoomLoading === s.id ? 'Creating…' : 'Add Zoom'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -438,6 +546,22 @@ export default function LecturerSessionsPage() {
               placeholder="Optional notes for this session"
             />
           </div>
+          {/* Online class toggle — only for new sessions */}
+          {!editingSession && (
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+              <input
+                id="session-is-online"
+                type="checkbox"
+                style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#2d8cff' }}
+                checked={sessionForm.is_online}
+                onChange={(e) => setSessionForm((f) => ({ ...f, is_online: e.target.checked }))}
+              />
+              <label htmlFor="session-is-online" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                <MdVideocam size={16} style={{ color: '#2d8cff' }} />
+                <span style={{ fontWeight: 500 }}>Create Zoom meeting for this session</span>
+              </label>
+            </div>
+          )}
         </div>
       </Modal>
     </AppLayout>

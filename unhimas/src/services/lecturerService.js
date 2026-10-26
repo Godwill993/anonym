@@ -31,7 +31,7 @@ export async function getMyCourses(lecturerId) {
 export async function getTodaySessions(lecturerId) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-  const { data, error } = await supabase.from('class_sessions').select(`*, batch_courses:batch_course_id (id, courses:course_id (id, code, name), batches:batch_id (id, name, code))`).eq('lecturer_id', lecturerId).gte('scheduled_start', today.toISOString()).lt('scheduled_start', tomorrow.toISOString()).order('scheduled_start');
+  const { data, error } = await supabase.from('class_sessions').select(`*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password, batch_courses:batch_course_id (id, courses:course_id (id, code, name), batches:batch_id (id, name, code))`).eq('lecturer_id', lecturerId).gte('scheduled_start', today.toISOString()).lt('scheduled_start', tomorrow.toISOString()).order('scheduled_start');
   if (error) throw error;
   return data || [];
 }
@@ -100,7 +100,12 @@ export async function resubmitMarkSubmission(submissionId) {
 }
 
 export async function getSessionsForBatchCourse(batchCourseId, lecturerId) {
-  const { data, error } = await supabase.from('class_sessions').select('*').eq('batch_course_id', batchCourseId).eq('lecturer_id', lecturerId).order('scheduled_start', { ascending: false });
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .select('*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password')
+    .eq('batch_course_id', batchCourseId)
+    .eq('lecturer_id', lecturerId)
+    .order('scheduled_start', { ascending: false });
   if (error) throw error;
   return data || [];
 }
