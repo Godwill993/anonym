@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -12,10 +13,12 @@ import {
   MdArrowForward,
   MdRefresh,
   MdClass,
+  MdVideocam,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
+import { useToast } from '../../hooks/useToast';
 import {
   getMyLecturerProfile,
   getLecturerDashboardStats,
@@ -24,6 +27,7 @@ import {
   getMyMarkSubmissions,
   getMyNotifications,
 } from '../../services/lecturerService';
+import { createZoomMeeting } from '../../services/zoomService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -66,8 +70,6 @@ function StatCard({ icon, value, label, color = 'blue', link, alert }) {
   return inner;
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
 function StatSkeleton() {
   return (
     <div className="stat-card">
@@ -86,8 +88,9 @@ export default function LecturerDashboard() {
   const { language, translateText } = useTranslation();
   const { session, profile } = useAuth();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [zoomLoading, setZoomLoading] = useState(null);
 
-  // Step 1: get my lecturer record
   const {
     data: lecturerProfile,
     isLoading: lecLoading,
@@ -102,39 +105,39 @@ export default function LecturerDashboard() {
   const lecturerId = lecturerProfile?.id;
   const profileId = profile?.id;
 
-  // Step 2: Dashboard stats
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['lecturer-dashboard-stats', lecturerId, profileId],
     queryFn: () => getLecturerDashboardStats(lecturerId, profileId),
     enabled: !!lecturerId && !!profileId,
+    retry: 1,
   });
 
-  // Step 3: Today's sessions
-  const { data: todaySessions = [], isLoading: sessionsLoading, error: sessionsError } = useQuery({
+  const { data: todaySessions = [], isLoading: sessionsLoading, error: sessionsError, refetch: refetchToday } = useQuery({
     queryKey: ['lecturer-today-sessions', lecturerId],
     queryFn: () => getTodaySessions(lecturerId),
     enabled: !!lecturerId,
+    retry: 1,
   });
 
-  // Step 4: Upcoming sessions
-  const { data: upcomingSessions = [], isLoading: upcomingLoading, error: upcomingError } = useQuery({
+  const { data: upcomingSessions = [], isLoading: upcomingLoading } = useQuery({
     queryKey: ['lecturer-upcoming-sessions', lecturerId],
     queryFn: () => getUpcomingSessions(lecturerId),
     enabled: !!lecturerId,
+    retry: 1,
   });
 
-  // Step 5: My mark submissions
   const { data: markSubmissions = [], isLoading: marksLoading, error: marksError } = useQuery({
     queryKey: ['my-mark-submissions', lecturerId],
     queryFn: () => getMyMarkSubmissions(lecturerId),
     enabled: !!lecturerId,
+    retry: 1,
   });
 
-  // Step 6: Notifications
-  const { data: notifications = [], isLoading: notifsLoading, error: notificationsError } = useQuery({
+  const { data: notifications = [], isLoading: notifsLoading } = useQuery({
     queryKey: ['my-notifications', profileId],
     queryFn: () => getMyNotifications(profileId, { limit: 5 }),
     enabled: !!profileId,
+    retry: 1,
   });
 
   const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
@@ -150,6 +153,31 @@ export default function LecturerDashboard() {
       queryClient.invalidateQueries({ queryKey: ['my-mark-submissions', lecturerId] }),
       queryClient.invalidateQueries({ queryKey: ['my-notifications', profileId] }),
     ]);
+  };
+
+  const handleAddZoom = async (s) => {
+    if (!s?.id) return;
+    setZoomLoading(s.id);
+    try {
+      const start = new Date(s.scheduled_start);
+      const end = new Date(s.scheduled_end);
+      const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
+      await createZoomMeeting({
+        sessionId: s.id,
+        topic: s.topic || s.batch_courses?.courses?.name || 'Online Class',
+        scheduledStart: s.scheduled_start,
+        durationMinutes,
+      });
+      showToast('Zoom meeting created!', 'success');
+      refetchToday();
+    } catch (err) {
+      showToast(
+        err.message || 'Could not create Zoom meeting. Set ZOOM_* secrets and deploy the zoom-meeting function.',
+        'error',
+      );
+    } finally {
+      setZoomLoading(null);
+    }
   };
 
   if (lecLoading) {
@@ -191,15 +219,12 @@ export default function LecturerDashboard() {
 
   const firstName = lecturerProfile?.first_name || translateText('Lecturer');
   const dept = lecturerProfile?.departments?.name || '';
-
   const returnedSubmissions = markSubmissions.filter((m) => m.status === 'returned');
 
   return (
     <AppLayout pageTitle="Lecturer Dashboard">
-      {/* Skip link */}
       <a href="#main-content" className="skip-link">{translateText('Skip to main content')}</a>
 
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Welcome back,')} {firstName}</h1>
@@ -216,17 +241,6 @@ export default function LecturerDashboard() {
         </div>
       </div>
 
-      {(statsError || sessionsError || upcomingError || marksError || notificationsError) && (
-        <div className="auth-alert error" role="alert" style={{ marginBottom: '1.25rem' }}>
-          <MdWarning aria-hidden="true" />
-          {translateText('Some dashboard information could not be loaded. Refresh to try again; access remains subject to your account permissions.')}
-          <button className="btn btn-outline btn-sm" onClick={refreshDashboard} style={{ marginLeft: 'auto' }}>
-            <MdRefresh /> {translateText('Refresh')}
-          </button>
-        </div>
-      )}
-
-      {/* Current shift banner */}
       {stats?.currentShift && (
         <div
           style={{
@@ -248,7 +262,6 @@ export default function LecturerDashboard() {
         </div>
       )}
 
-      {/* Returned marks alert */}
       {returnedSubmissions.length > 0 && (
         <div
           style={{
@@ -273,7 +286,6 @@ export default function LecturerDashboard() {
         </div>
       )}
 
-      {/* Stat Cards */}
       <div className="stats-grid">
         {statsLoading ? (
           [1, 2, 3, 4, 5, 6].map((i) => <StatSkeleton key={i} />)
@@ -282,6 +294,9 @@ export default function LecturerDashboard() {
             <div className="empty-state-icon"><MdWarning /></div>
             <div className="empty-state-title">{translateText('Dashboard metrics unavailable')}</div>
             <p className="empty-state-text">{translateText('The metrics could not be retrieved. No placeholder totals are shown.')}</p>
+            <button className="btn btn-outline btn-sm" onClick={() => refetchStats()}>
+              <MdRefresh /> {translateText('Try again')}
+            </button>
           </div>
         ) : (
           <>
@@ -295,9 +310,8 @@ export default function LecturerDashboard() {
         )}
       </div>
 
-      {/* Main grid */}
       <div className="lecturer-dashboard-grid">
-        {/* Today's Sessions */}
+        {/* Today's Sessions + Zoom */}
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -319,13 +333,19 @@ export default function LecturerDashboard() {
               <div className="empty-state" role="alert" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdWarning /></div>
                 <div className="empty-state-title">Sessions unavailable</div>
-                <p className="empty-state-text">Today's sessions could not be loaded.</p>
+                <p className="empty-state-text">Today&apos;s sessions could not be loaded.</p>
+                <button className="btn btn-outline btn-sm" onClick={() => refetchToday()}>
+                  <MdRefresh /> Retry
+                </button>
               </div>
             ) : todaySessions.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdSchedule /></div>
                 <div className="empty-state-title">No sessions today</div>
                 <p className="empty-state-text">You have no scheduled classes today.</p>
+                <Link to="/lecturer/sessions" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
+                  Create a session
+                </Link>
               </div>
             ) : (
               <div>
@@ -338,6 +358,7 @@ export default function LecturerDashboard() {
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: '0.875rem',
+                      flexWrap: 'wrap',
                     }}
                   >
                     <div
@@ -354,18 +375,50 @@ export default function LecturerDashboard() {
                     >
                       <MdClass color="var(--color-primary)" />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text)' }}>
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         {s.batch_courses?.courses?.code} — {s.batch_courses?.courses?.name}
+                        {s.zoom_join_url && (
+                          <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
+                            ONLINE
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                         {s.batch_courses?.batches?.name} · {fmtTime(s.scheduled_start)} – {fmtTime(s.scheduled_end)}
                       </div>
                       {s.room && <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Room: {s.room}</div>}
                     </div>
-                    <Link to={`/lecturer/sessions?bc=${s.batch_courses?.id}&session=${s.id}`} className="btn btn-ghost btn-sm">
-                      <MdHowToReg /> Attend
-                    </Link>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {s.zoom_join_url || s.zoom_start_url ? (
+                        <a
+                          href={s.zoom_start_url || s.zoom_join_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-primary btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <MdVideocam size={14} /> Start Meeting
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          disabled={zoomLoading === s.id}
+                          onClick={() => handleAddZoom(s)}
+                        >
+                          <MdVideocam size={14} />
+                          {zoomLoading === s.id ? 'Creating…' : 'Add Zoom'}
+                        </button>
+                      )}
+                      <Link
+                        to={`/lecturer/sessions?bc=${s.batch_courses?.id}`}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        <MdHowToReg /> Attend
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -426,14 +479,12 @@ export default function LecturerDashboard() {
                         {m.batch_courses?.batches?.name} · Sem {m.batch_courses?.semesters?.number}
                       </div>
                       {m.status === 'returned' && m.admin_comment && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', marginTop: 4, fontStyle: 'italic' }}>
-                          "{m.admin_comment}"
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', marginTop: 2 }}>
+                          {m.admin_comment}
                         </div>
                       )}
                     </div>
-                    <Link to={`/lecturer/marks?bc=${m.batch_courses?.id}`} aria-label={`Open marks for ${m.batch_courses?.courses?.code || 'course'}`}>
-                      {statusBadge(m.status)}
-                    </Link>
+                    {statusBadge(m.status)}
                   </div>
                 ))}
               </div>
@@ -441,67 +492,62 @@ export default function LecturerDashboard() {
           </div>
         </div>
 
-        {/* Upcoming Classes */}
+        {/* Upcoming */}
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSchedule color="var(--color-primary)" /> Upcoming Classes
+              <MdSchedule color="var(--color-primary)" /> Upcoming
             </span>
+            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">View All</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {upcomingLoading ? (
               <div style={{ padding: '1rem' }}>
-                {[1, 2].map((i) => <div key={i} className="skeleton skeleton-text" style={{ marginBottom: 12, height: 32 }} />)}
-              </div>
-            ) : upcomingError ? (
-              <div className="empty-state" role="alert" style={{ padding: '1.5rem' }}>
-                <div className="empty-state-title">Upcoming classes unavailable</div>
-                <p className="empty-state-text">The schedule could not be loaded.</p>
+                <div className="skeleton skeleton-text" style={{ width: '70%', marginBottom: 8 }} />
+                <div className="skeleton skeleton-text" style={{ width: '50%' }} />
               </div>
             ) : upcomingSessions.length === 0 ? (
               <div className="empty-state" style={{ padding: '1.5rem' }}>
-                <div className="empty-state-title">No upcoming classes in next 7 days</div>
+                <div className="empty-state-title">No upcoming sessions</div>
               </div>
             ) : (
-              <div>
-                {upcomingSessions.map((s) => (
-                  <div
-                    key={s.id}
-                    style={{
-                      padding: '0.75rem 1.25rem',
-                      borderBottom: '1px solid var(--color-border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <div
-                      style={{
-                        minWidth: 48,
-                        textAlign: 'center',
-                        background: 'rgba(17,47,66,0.06)',
-                        borderRadius: 6,
-                        padding: '4px 6px',
-                      }}
-                    >
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                        {new Date(s.scheduled_start).toLocaleDateString('en-GB', { weekday: 'short' })}
-                      </div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)' }}>
-                        {new Date(s.scheduled_start).getDate()}
-                      </div>
+              upcomingSessions.map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    borderBottom: '1px solid var(--color-border)',
+                    display: 'flex',
+                    gap: '0.75rem',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                      {s.batch_courses?.courses?.name}
+                      {s.zoom_join_url && (
+                        <span style={{ marginLeft: 6, fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
+                          ONLINE
+                        </span>
+                      )}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                        {s.batch_courses?.courses?.name}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                        {s.batch_courses?.batches?.name} · {fmtTime(s.scheduled_start)}
-                      </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                      {s.batch_courses?.batches?.name} · {fmtDate(s.scheduled_start)} {fmtTime(s.scheduled_start)}
                     </div>
                   </div>
-                ))}
-              </div>
+                  {(s.zoom_start_url || s.zoom_join_url) && (
+                    <a
+                      href={s.zoom_start_url || s.zoom_join_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{ fontSize: '0.72rem' }}
+                    >
+                      <MdVideocam size={13} /> Start
+                    </a>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -524,17 +570,11 @@ export default function LecturerDashboard() {
                   </div>
                 ))}
               </div>
-            ) : notificationsError ? (
-              <div className="empty-state" role="alert" style={{ padding: '2rem' }}>
-                <div className="empty-state-icon"><MdWarning /></div>
-                <div className="empty-state-title">Notifications unavailable</div>
-                <p className="empty-state-text">Your notifications could not be loaded.</p>
-              </div>
             ) : notifications.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdNotifications /></div>
                 <div className="empty-state-title">No notifications</div>
-                <p className="empty-state-text">You're all caught up!</p>
+                <p className="empty-state-text">You&apos;re all caught up!</p>
               </div>
             ) : (
               <div>
