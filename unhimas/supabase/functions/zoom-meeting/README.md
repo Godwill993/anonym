@@ -3,6 +3,12 @@
 This Edge Function acts as a secure backend proxy to the Zoom API.
 It creates and deletes Zoom meetings on behalf of your app.
 
+The frontend is fully wired:
+
+- **Lecturer → Class Sessions**: checkbox “Create Zoom meeting”, Add/Remove Zoom, Start Meeting
+- **Admin → Class Sessions**: same controls + ONLINE badge in the table
+- **Student dashboard**: Join Meeting button (with password when present) on upcoming online sessions
+
 ---
 
 ## 🔑 Step 1 — Create a Zoom Server-to-Server OAuth App
@@ -25,12 +31,12 @@ It creates and deletes Zoom meetings on behalf of your app.
 Go to your **Supabase Dashboard → Edge Functions → zoom-meeting → Secrets**
 and add the following secrets:
 
-| Secret Name         | Value                                          |
-|---------------------|------------------------------------------------|
-| `ZOOM_ACCOUNT_ID`   | Your Account ID from Step 1                   |
-| `ZOOM_CLIENT_ID`    | Your Client ID from Step 1                    |
-| `ZOOM_CLIENT_SECRET`| Your Client Secret from Step 1                |
-| `ZOOM_USER_EMAIL`   | The email of the Zoom account hosting meetings |
+| Secret Name          | Value                                           |
+|----------------------|-------------------------------------------------|
+| `ZOOM_ACCOUNT_ID`    | Your Account ID from Step 1                     |
+| `ZOOM_CLIENT_ID`     | Your Client ID from Step 1                      |
+| `ZOOM_CLIENT_SECRET` | Your Client Secret from Step 1                  |
+| `ZOOM_USER_EMAIL`    | The email of the Zoom account hosting meetings  |
 
 **OR** use the Supabase CLI:
 
@@ -53,8 +59,7 @@ npx supabase functions deploy zoom-meeting
 
 ## 🗄️ Step 4 — Run the SQL Migration
 
-Run this SQL in your **Supabase Dashboard → SQL Editor** to add Zoom columns
-to the `class_sessions` table:
+Run this SQL in your **Supabase Dashboard → SQL Editor** (or apply migration `20261026_add_zoom_to_class_sessions.sql`):
 
 ```sql
 ALTER TABLE class_sessions
@@ -62,10 +67,12 @@ ALTER TABLE class_sessions
   ADD COLUMN IF NOT EXISTS zoom_join_url   TEXT,
   ADD COLUMN IF NOT EXISTS zoom_start_url  TEXT,
   ADD COLUMN IF NOT EXISTS zoom_password   TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_class_sessions_zoom_meeting_id
+  ON class_sessions (zoom_meeting_id)
+  WHERE zoom_meeting_id IS NOT NULL;
 ```
 
 ---
 
-After completing these steps, lecturers can toggle "Online Class" when creating
-a session and a Zoom meeting will be created automatically. Students will see
-a "Join Meeting" button on their sessions/timetable view.
+After completing these steps, lecturers and admins can create online sessions and Zoom meetings will be created automatically. Students will see a **Join Meeting** button on their dashboard for online classes.
