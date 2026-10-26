@@ -39,7 +39,14 @@ export async function getTodaySessions(lecturerId) {
 export async function getUpcomingSessions(lecturerId) {
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 0, 0, 0);
   const weekLater = new Date(tomorrow); weekLater.setDate(weekLater.getDate() + 7);
-  const { data, error } = await supabase.from('class_sessions').select(`*, batch_courses:batch_course_id (id, courses:course_id (code, name), batches:batch_id (name, code))`).eq('lecturer_id', lecturerId).gte('scheduled_start', tomorrow.toISOString()).lt('scheduled_start', weekLater.toISOString()).order('scheduled_start').limit(5);
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .select(`*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password, batch_courses:batch_course_id (id, courses:course_id (code, name), batches:batch_id (name, code))`)
+    .eq('lecturer_id', lecturerId)
+    .gte('scheduled_start', tomorrow.toISOString())
+    .lt('scheduled_start', weekLater.toISOString())
+    .order('scheduled_start')
+    .limit(5);
   if (error) throw error;
   return data || [];
 }

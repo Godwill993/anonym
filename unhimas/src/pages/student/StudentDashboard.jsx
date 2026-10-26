@@ -9,6 +9,7 @@ import {
   MdRefresh,
   MdTrendingUp,
   MdSchedule,
+  MdVideocam,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -340,8 +341,13 @@ export default function StudentDashboard() {
               </div>
             ) : upcomingSessions.map((classSession) => (
               <div key={classSession.id} style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {classSession.batch_courses?.courses?.code} — {classSession.batch_courses?.courses?.name}
+                  {classSession.zoom_join_url && (
+                    <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
+                      ONLINE
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 3 }}>
                   {new Date(classSession.scheduled_start).toLocaleString('en-GB', {
@@ -352,6 +358,20 @@ export default function StudentDashboard() {
                 {classSession.batch_courses?.lecturers && (
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                     {classSession.batch_courses.lecturers.first_name} {classSession.batch_courses.lecturers.last_name}
+                  </div>
+                )}
+                {classSession.zoom_join_url && (
+                  <div style={{ marginTop: 8 }}>
+                    <a
+                      href={classSession.zoom_join_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <MdVideocam size={14} /> Join Meeting
+                      {classSession.zoom_password ? ` · pass: ${classSession.zoom_password}` : ''}
+                    </a>
                   </div>
                 )}
               </div>
