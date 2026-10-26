@@ -19,12 +19,12 @@ import {
 } from '../../services/lecturerService';
 import { createZoomMeeting, deleteZoomMeeting } from '../../services/zoomService';
 import { splitLocalDateTime, combineLocalDateTime } from '../../utils/sessionDateTime';
-import { MdAdd, MdEdit, MdDelete, MdHowToReg, MdVideocam, MdVideocamOff, MdOpenInNew } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdHowToReg, MdVideocam, MdVideocamOff } from 'react-icons/md';
 
 const emptyForm = { session_date: '', start_time: '', end_time: '', room: '', topic: '', notes: '', is_online: false };
 
 export default function LecturerSessionsPage() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [searchParams] = useSearchParams();
   const initialBc = searchParams.get('bc') || '';
   const { showToast } = useToast();
@@ -191,6 +191,25 @@ export default function LecturerSessionsPage() {
     }
   };
 
+  const handleDeleteSession = async (s) => {
+    if (!window.confirm('Delete this class session?')) return;
+    try {
+      if (s.zoom_meeting_id) {
+        try {
+          await deleteZoomMeeting({ zoomMeetingId: s.zoom_meeting_id, sessionId: s.id });
+        } catch (_) {
+          // Continue with session delete even if Zoom cleanup fails
+        }
+      }
+      await deleteClassSession(s.id);
+      showToast('Session deleted', 'success');
+      if (selectedSessionId === s.id) setSelectedSessionId(null);
+      refetchSessions();
+    } catch (err) {
+      showToast(err.message || 'Could not delete session', 'error');
+    }
+  };
+
   const markStatus = async (studentId, status) => {
     if (!selectedSessionId) return;
     try {
@@ -316,17 +335,7 @@ export default function LecturerSessionsPage() {
                           type="button"
                           className="btn btn-outline btn-sm"
                           style={{ padding: '0.2rem 0.4rem' }}
-                          onClick={() => {
-                            if (window.confirm('Delete this class session?')) {
-                              deleteClassSession(s.id)
-                                .then(() => {
-                                  showToast('Session deleted', 'success');
-                                  if (selectedSessionId === s.id) setSelectedSessionId(null);
-                                  refetchSessions();
-                                })
-                                .catch((err) => showToast(err.message || 'Could not delete session', 'error'));
-                            }
-                          }}
+                          onClick={() => handleDeleteSession(s)}
                         >
                           <MdDelete size={14} />
                         </button>
@@ -338,7 +347,7 @@ export default function LecturerSessionsPage() {
                       {s.zoom_join_url ? (
                         <>
                           <a
-                            href={s.zoom_start_url}
+                            href={s.zoom_start_url || s.zoom_join_url}
                             target="_blank"
                             rel="noreferrer"
                             className="btn btn-primary btn-sm"
