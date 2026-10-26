@@ -28,10 +28,17 @@ export async function getMyCourses(lecturerId) {
   return data || [];
 }
 
+/** Today's sessions. Uses * so Zoom columns are optional until migration is applied. */
 export async function getTodaySessions(lecturerId) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-  const { data, error } = await supabase.from('class_sessions').select(`*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password, batch_courses:batch_course_id (id, courses:course_id (id, code, name), batches:batch_id (id, name, code))`).eq('lecturer_id', lecturerId).gte('scheduled_start', today.toISOString()).lt('scheduled_start', tomorrow.toISOString()).order('scheduled_start');
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .select(`*, batch_courses:batch_course_id (id, courses:course_id (id, code, name), batches:batch_id (id, name, code))`)
+    .eq('lecturer_id', lecturerId)
+    .gte('scheduled_start', today.toISOString())
+    .lt('scheduled_start', tomorrow.toISOString())
+    .order('scheduled_start');
   if (error) throw error;
   return data || [];
 }
@@ -41,7 +48,7 @@ export async function getUpcomingSessions(lecturerId) {
   const weekLater = new Date(tomorrow); weekLater.setDate(weekLater.getDate() + 7);
   const { data, error } = await supabase
     .from('class_sessions')
-    .select(`*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password, batch_courses:batch_course_id (id, courses:course_id (code, name), batches:batch_id (name, code))`)
+    .select(`*, batch_courses:batch_course_id (id, courses:course_id (code, name), batches:batch_id (name, code))`)
     .eq('lecturer_id', lecturerId)
     .gte('scheduled_start', tomorrow.toISOString())
     .lt('scheduled_start', weekLater.toISOString())
@@ -109,7 +116,7 @@ export async function resubmitMarkSubmission(submissionId) {
 export async function getSessionsForBatchCourse(batchCourseId, lecturerId) {
   const { data, error } = await supabase
     .from('class_sessions')
-    .select('*, zoom_meeting_id, zoom_join_url, zoom_start_url, zoom_password')
+    .select('*')
     .eq('batch_course_id', batchCourseId)
     .eq('lecturer_id', lecturerId)
     .order('scheduled_start', { ascending: false });
@@ -215,25 +222,55 @@ export async function clearAllNotifications(profileId) {
   if (error) throw error;
 }
 
+/**
+ * Dashboard stats — resilient: missing views (e.g. lecturer_hours_monthly)
+ * do not take down the whole dashboard.
+ */
 export async function getLecturerDashboardStats(lecturerId, profileId) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
   const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString();
-  const [coursesRes, todaySessionsRes, pendingMarksRes, returnedMarksRes, unreadNotifsRes, monthlyHoursRes] = await Promise.all([
+
+  const [
+    coursesRes,
+    todaySessionsRes,
+    pendingMarksRes,
+    returnedMarksRes,
+    unreadNotifsRes,
+    monthlyHoursRes,
+    openShiftRes,
+  ] = await Promise.all([
     supabase.from('batch_courses').select('*', { count: 'exact', head: true }).eq('lecturer_id', lecturerId),
     supabase.from('class_sessions').select('*', { count: 'exact', head: true }).eq('lecturer_id', lecturerId).gte('scheduled_start', today.toISOString()).lt('scheduled_start', tomorrow.toISOString()),
     supabase.from('mark_submissions').select('*', { count: 'exact', head: true }).eq('lecturer_id', lecturerId).eq('status', 'draft'),
     supabase.from('mark_submissions').select('*', { count: 'exact', head: true }).eq('lecturer_id', lecturerId).eq('status', 'returned'),
-    supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('recipient_id', profileId).eq('is_read', false),
+    profileId
+      ? supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('recipient_id', profileId).eq('is_read', false)
+      : Promise.resolve({ count: 0, error: null }),
     supabase.from('lecturer_hours_monthly').select('month, hours_taught').eq('lecturer_id', lecturerId).gte('month', monthStart).lt('month', nextMonthStart),
+    supabase.from('lecturer_shifts').select('id, clock_in, status').eq('lecturer_id', lecturerId).eq('status', 'open').maybeSingle(),
   ]);
-  const queryErrors = [coursesRes, todaySessionsRes, pendingMarksRes, returnedMarksRes, unreadNotifsRes, monthlyHoursRes].map((r) => r.error).filter(Boolean);
-  if (queryErrors.length) throw queryErrors[0];
-  const { data: openShiftData, error: openShiftError } = await supabase.from('lecturer_shifts').select('id, clock_in, status').eq('lecturer_id', lecturerId).eq('status', 'open').maybeSingle();
-  if (openShiftError) throw openShiftError;
-  const monthlyHours = (monthlyHoursRes.data || []).reduce((sum, row) => sum + Number(row.hours_taught || 0), 0);
-  return { totalCourses: coursesRes.count ?? 0, todaySessions: todaySessionsRes.count ?? 0, pendingMarksDraft: pendingMarksRes.count ?? 0, returnedMarks: returnedMarksRes.count ?? 0, unreadNotifications: unreadNotifsRes.count ?? 0, monthlyHours: Number(monthlyHours.toFixed(1)), currentShift: openShiftData || null };
+
+  // Only hard-fail on core tables; optional views degrade gracefully
+  const hardErrors = [coursesRes, todaySessionsRes, pendingMarksRes, returnedMarksRes]
+    .map((r) => r.error)
+    .filter(Boolean);
+  if (hardErrors.length) throw hardErrors[0];
+
+  const monthlyHours = monthlyHoursRes.error
+    ? 0
+    : (monthlyHoursRes.data || []).reduce((sum, row) => sum + Number(row.hours_taught || 0), 0);
+
+  return {
+    totalCourses: coursesRes.count ?? 0,
+    todaySessions: todaySessionsRes.count ?? 0,
+    pendingMarksDraft: pendingMarksRes.count ?? 0,
+    returnedMarks: returnedMarksRes.count ?? 0,
+    unreadNotifications: unreadNotifsRes.error ? 0 : (unreadNotifsRes.count ?? 0),
+    monthlyHours: Number(monthlyHours.toFixed(1)),
+    currentShift: openShiftRes.error ? null : (openShiftRes.data || null),
+  };
 }
 
 export async function getAttendanceSummaryForBatchCourse(batchCourseId) {
