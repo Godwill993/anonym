@@ -101,7 +101,29 @@ export async function getMyUpcomingSessions(batchId, { limit = 5 } = {}) {
   if (coursesError) throw coursesError;
   const batchCourseIds = (batchCourses || []).map((course) => course.id);
   if (batchCourseIds.length === 0) return [];
-  const { data, error } = await supabase.from('class_sessions').select(`id, batch_course_id, scheduled_start, scheduled_end, room, topic, batch_courses:batch_course_id (id, courses:course_id (code, name), lecturers:lecturer_id (first_name, last_name))`).in('batch_course_id', batchCourseIds).gte('scheduled_start', new Date().toISOString()).order('scheduled_start', { ascending: true }).limit(limit);
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .select(`
+      id,
+      batch_course_id,
+      scheduled_start,
+      scheduled_end,
+      room,
+      topic,
+      zoom_meeting_id,
+      zoom_join_url,
+      zoom_start_url,
+      zoom_password,
+      batch_courses:batch_course_id (
+        id,
+        courses:course_id (code, name),
+        lecturers:lecturer_id (first_name, last_name)
+      )
+    `)
+    .in('batch_course_id', batchCourseIds)
+    .gte('scheduled_start', new Date().toISOString())
+    .order('scheduled_start', { ascending: true })
+    .limit(limit);
   if (error) throw error;
   return data || [];
 }

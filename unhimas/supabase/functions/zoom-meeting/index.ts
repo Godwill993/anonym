@@ -19,7 +19,7 @@ const ZOOM_CLIENT_ID     = Deno.env.get('ZOOM_CLIENT_ID')     ?? '';
 const ZOOM_CLIENT_SECRET = Deno.env.get('ZOOM_CLIENT_SECRET') ?? '';
 const ZOOM_USER_EMAIL    = Deno.env.get('ZOOM_USER_EMAIL')    ?? 'me';
 
-const SUPABASE_URL             = Deno.env.get('SUPABASE_URL')             ?? '';
+const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')              ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -116,10 +116,15 @@ Deno.serve(async (req) => {
         throw new Error(`Zoom delete failed (${zoomRes.status}): ${zoomErr}`);
       }
 
-      // Clear the meeting link from the DB
+      // Clear all Zoom fields from the DB
       const { error: dbErr } = await supabase
         .from('class_sessions')
-        .update({ zoom_meeting_id: null, zoom_join_url: null, zoom_password: null })
+        .update({
+          zoom_meeting_id: null,
+          zoom_join_url: null,
+          zoom_start_url: null,
+          zoom_password: null,
+        })
         .eq('id', session_id);
 
       if (dbErr) throw dbErr;
@@ -157,7 +162,7 @@ Deno.serve(async (req) => {
       type: 2, // Scheduled meeting
       start_time: scheduled_start,
       duration: duration_minutes || 60,
-      timezone: 'UTC',
+      timezone: 'Africa/Douala',
       settings: {
         host_video: true,
         participant_video: true,
