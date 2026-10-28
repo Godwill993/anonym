@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { MdArrowBack, MdErrorOutline, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { supabase } from '../../lib/supabase';
 import logo from '../../assets/unhimas_logo.jpg';
+import '../../styles/components-auth.css';
 
 const schema = z.object({
   password: z.string().min(8, 'Password must contain at least 8 characters'),
@@ -41,14 +42,12 @@ export default function ResetPasswordPage() {
     let authUnsubscribe = null;
 
     const verifyResetSession = async () => {
-      // 1. Check if Supabase client already established a valid session
       const { data: { session: existingSession } } = await supabase.auth.getSession();
       if (existingSession && !cancelled) {
         setReady(true);
         return;
       }
 
-      // 2. Check for PKCE exchange code in URL search params
       const code = searchParams.get('code');
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -60,14 +59,13 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // 3. Check for tokens in search params OR hash fragment
       let accessToken = searchParams.get('access_token');
       let refreshToken = searchParams.get('refresh_token');
 
-      if (!accessToken && typeof window !== 'undefined' && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        accessToken = hashParams.get('access_token');
-        refreshToken = hashParams.get('refresh_token');
+      if ((!accessToken || !refreshToken) && typeof window !== 'undefined' && window.location.hash) {
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        accessToken = accessToken || hash.get('access_token');
+        refreshToken = refreshToken || hash.get('refresh_token');
       }
 
       if (accessToken && refreshToken) {
@@ -83,27 +81,20 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // 4. Listen for async auth state change (e.g. Supabase processing hash automatically)
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (cancelled) return;
-        if (event === 'PASSWORD_RECOVERY' || (session && event === 'SIGNED_IN')) {
+        if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
           setReady(true);
-          setError('');
         }
       });
       authUnsubscribe = () => subscription.unsubscribe();
 
-      // Grace period if no tokens were present
-      setTimeout(() => {
-        if (!cancelled) {
-          setReady((currReady) => {
-            if (!currReady) {
-              setError('This reset link is missing or incomplete. Request another password reset link.');
-            }
-            return currReady;
-          });
-        }
-      }, 1500);
+      setTimeout(async () => {
+        if (cancelled) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) setReady(true);
+        else setError('This reset link has expired or is invalid. Request another password reset link.');
+      }, 2500);
     };
 
     verifyResetSession();
