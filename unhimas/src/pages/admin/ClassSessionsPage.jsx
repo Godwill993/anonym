@@ -142,9 +142,22 @@ export default function ClassSessionsPage() {
   };
 
   const handleAddZoom = async (session) => {
+    if (!session?.id) return;
     try {
       setZoomLoading(session.id);
-      await createZoomMeeting({ sessionId: session.id });
+      const start = new Date(session.scheduled_start);
+      const end = new Date(session.scheduled_end);
+      const durationMinutes = Math.max(
+        15,
+        Math.round((end.getTime() - start.getTime()) / 60000) || 60,
+      );
+      const courseName = session.batch_courses?.courses?.name;
+      await createZoomMeeting({
+        sessionId: session.id,
+        topic: session.topic || courseName || 'Online Class',
+        scheduledStart: session.scheduled_start,
+        durationMinutes,
+      });
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
       toast.success(tx('Zoom meeting created'));
     } catch (err) {
@@ -155,9 +168,16 @@ export default function ClassSessionsPage() {
   };
 
   const handleRemoveZoom = async (session) => {
+    if (!session?.zoom_meeting_id) {
+      toast.error(tx('No Zoom meeting linked to this session'));
+      return;
+    }
     try {
       setZoomLoading(session.id);
-      await deleteZoomMeeting({ sessionId: session.id });
+      await deleteZoomMeeting({
+        zoomMeetingId: session.zoom_meeting_id,
+        sessionId: session.id,
+      });
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
       toast.success(tx('Zoom meeting removed'));
     } catch (err) {
@@ -258,9 +278,7 @@ export default function ClassSessionsPage() {
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{batch?.name}</div>
                       </td>
-                      <td>
-                        {lec ? `${lec.first_name} ${lec.last_name}` : '—'}
-                      </td>
+                      <td>{lec ? `${lec.first_name} ${lec.last_name}` : '—'}</td>
                       <td>
                         <div>{session.scheduled_start ? new Date(session.scheduled_start).toLocaleString() : '—'}</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
@@ -272,9 +290,7 @@ export default function ClassSessionsPage() {
                       <td>{session.topic || '—'}</td>
                       <td>
                         {session.zoom_join_url ? (
-                          <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content', display: 'inline-block' }}>
-                            ONLINE
-                          </span>
+                          <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content', display: 'inline-block' }}>ONLINE</span>
                         ) : (
                           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
                         )}
@@ -338,20 +354,14 @@ export default function ClassSessionsPage() {
         </div>
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editing ? tx('Edit class session') : tx('Add class session')}
-      >
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editing ? tx('Edit class session') : tx('Add class session')}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">{tx('Batch course')} *</label>
             <select className="form-input" value={formData.batch_course_id} onChange={(e) => setFormData({ ...formData, batch_course_id: e.target.value })} required>
               <option value="">{tx('Choose...')}</option>
               {batchCourses.map((bc) => (
-                <option key={bc.id} value={bc.id}>
-                  {bc.courses?.code} — {bc.batches?.name} ({bc.semesters?.name})
-                </option>
+                <option key={bc.id} value={bc.id}>{bc.courses?.code} — {bc.batches?.name} ({bc.semesters?.name})</option>
               ))}
             </select>
           </div>
@@ -395,11 +405,7 @@ export default function ClassSessionsPage() {
         </form>
       </Modal>
 
-      <Modal
-        isOpen={genOpen}
-        onClose={() => setGenOpen(false)}
-        title={tx('Generate from timetable')}
-      >
+      <Modal isOpen={genOpen} onClose={() => setGenOpen(false)} title={tx('Generate from timetable')}>
         <form onSubmit={(e) => { e.preventDefault(); genMutation.mutate({ from: genForm.from, to: genForm.to, batchCourseId: genForm.batchCourseId || null }); }}>
           <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">
