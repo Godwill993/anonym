@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 import { toast } from '../../components/common/Toast';
 import { useTranslation } from '../../i18n';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -187,22 +188,14 @@ export default function LecturersPage() {
 
   const openAssignModal = (lec) => {
     setAssignLecturer(lec);
-    setAssignForm({
-      batch_id: '', course_id: '', semester_id: '', is_compulsory: true, existing_id: '', mode: 'new',
-    });
+    setAssignForm({ batch_id: '', course_id: '', semester_id: '', is_compulsory: true, existing_id: '', mode: 'new' });
   };
 
   const handleAssignSubmit = (e) => {
     e?.preventDefault?.();
-    if (!assignLecturer?.id) {
-      toast.error(translateText('No lecturer selected'));
-      return;
-    }
+    if (!assignLecturer?.id) { toast.error(translateText('No lecturer selected')); return; }
     if (assignForm.mode === 'existing') {
-      if (!assignForm.existing_id) {
-        toast.error(translateText('Select an existing course allocation'));
-        return;
-      }
+      if (!assignForm.existing_id) { toast.error(translateText('Select an existing course allocation')); return; }
       claimExistingMutation.mutate({ id: assignForm.existing_id, lecturer_id: assignLecturer.id });
       return;
     }
@@ -340,22 +333,15 @@ export default function LecturersPage() {
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                        <button className="btn-icon" title={translateText('View courses taught')} aria-label={`View courses for ${lec.staff_id}`} onClick={() => setCoursesLecturer(lec)}>
-                          <MdMenuBook style={{ color: 'var(--color-primary)', fontSize: '1.2rem' }} />
-                        </button>
-                        {canManagePeople && (
-                          <>
-                            <button className="btn-icon" title={translateText('Assign course')} aria-label={`Assign course to ${lec.staff_id}`} onClick={() => openAssignModal(lec)}>
-                              <MdPlaylistAdd style={{ color: '#0d9488', fontSize: '1.25rem' }} />
-                            </button>
-                            <button className="btn-icon" title={translateText('Edit lecturer')} aria-label={`Edit lecturer ${lec.staff_id}`} onClick={() => handleOpenEdit(lec)}><MdEdit /></button>
-                            <button className="btn-icon" title={translateText('Delete lecturer and login account')} aria-label={`Delete lecturer ${lec.staff_id}`} onClick={() => setLecturerToDelete(lec)} disabled={deleteMutation.isPending}>
-                              <MdDelete style={{ color: 'var(--color-secondary)' }} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      <RowActionsMenu
+                        ariaLabel={translateText('Lecturer actions')}
+                        items={[
+                          { id: 'view-courses', label: translateText('View courses'), icon: <MdMenuBook />, onClick: () => setCoursesLecturer(lec) },
+                          { id: 'assign-course', label: translateText('Assign course'), icon: <MdPlaylistAdd />, onClick: () => openAssignModal(lec), hidden: !canManagePeople },
+                          { id: 'edit', label: translateText('Edit'), icon: <MdEdit />, onClick: () => handleOpenEdit(lec), hidden: !canManagePeople },
+                          { id: 'delete', label: translateText('Delete'), icon: <MdDelete />, onClick: () => setLecturerToDelete(lec), disabled: deleteMutation.isPending, danger: true, hidden: !canManagePeople },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))
@@ -419,185 +405,38 @@ export default function LecturersPage() {
         </form>
       </Modal>
 
-      <Modal
-        isOpen={Boolean(coursesLecturer)}
-        onClose={() => setCoursesLecturer(null)}
-        title={translateText('Courses taught')}
-        maxWidth="720px"
-        footer={
-          <>
-            <button type="button" className="btn btn-outline" onClick={() => setCoursesLecturer(null)}>{translateText('Close')}</button>
-            {canManagePeople && coursesLecturer && (
-              <button type="button" className="btn btn-primary" onClick={() => { const lec = coursesLecturer; setCoursesLecturer(null); openAssignModal(lec); }}>
-                <MdPlaylistAdd /> {translateText('Assign course')}
-              </button>
-            )}
-          </>
-        }
-      >
-        {coursesLecturer && (
-          <p style={{ marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-            <strong>{coursesLecturer.first_name} {coursesLecturer.last_name}</strong>
-            {coursesLecturer.staff_id ? ` · ${coursesLecturer.staff_id}` : ''}
-          </p>
-        )}
-        {coursesLoading ? (
-          <p style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>{translateText('Loading courses...')}</p>
-        ) : coursesError ? (
-          <div className="empty-state" style={{ padding: '1.5rem' }}>
-            <div className="empty-state-title">{translateText('Could not load courses')}</div>
-            <div className="empty-state-text" style={{ marginBottom: '0.75rem' }}>{coursesErrorObj?.message || translateText('Something went wrong. Try again.')}</div>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchCourses()}>{translateText('Retry')}</button>
-          </div>
-        ) : lecturerCourses.length === 0 ? (
-          <div className="empty-state" style={{ padding: '1.5rem' }}>
-            <MdMenuBook className="empty-state-icon" />
-            <div className="empty-state-title">{translateText('No courses assigned')}</div>
-            <div className="empty-state-text">{translateText('This lecturer has no course allocations yet. Assign a batch course to get started.')}</div>
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{translateText('Course')}</th>
-                  <th>{translateText('Batch')}</th>
-                  <th>{translateText('Semester')}</th>
-                  <th>{translateText('Type')}</th>
-                  {canManagePeople && <th style={{ textAlign: 'right' }}>{translateText('Action')}</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {lecturerCourses.map((bc) => (
-                  <tr key={bc.id}>
-                    <td>
-                      <code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>{bc.courses?.code}</code>{' '}
-                      <strong>{bc.courses?.name}</strong>
-                      {bc.courses?.credit_units != null && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{bc.courses.credit_units} {translateText('credits')}</div>
-                      )}
-                    </td>
-                    <td>
-                      <div>{bc.batches?.name}</div>
-                      <code style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{bc.batches?.code}</code>
-                    </td>
-                    <td>
-                      <div>{bc.semesters?.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{bc.semesters?.academic_years?.name}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${bc.is_compulsory ? 'badge-blue' : 'badge-gray'}`}>
-                        {bc.is_compulsory ? translateText('Compulsory') : translateText('Elective')}
-                      </span>
-                    </td>
-                    {canManagePeople && (
-                      <td style={{ textAlign: 'right' }}>
-                        <button type="button" className="btn-icon" title={translateText('Remove allocation')} onClick={() => { if (window.confirm(translateText('Remove this course allocation?'))) unassignMutation.mutate(bc.id); }} disabled={unassignMutation.isPending}>
-                          <MdDelete style={{ color: 'var(--color-secondary)' }} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <Modal isOpen={Boolean(coursesLecturer)} onClose={() => setCoursesLecturer(null)} title={translateText('Courses taught')} maxWidth="720px" footer={<><button type="button" className="btn btn-outline" onClick={() => setCoursesLecturer(null)}>{translateText('Close')}</button>{canManagePeople && coursesLecturer && (<button type="button" className="btn btn-primary" onClick={() => { const lec = coursesLecturer; setCoursesLecturer(null); openAssignModal(lec); }}><MdPlaylistAdd /> {translateText('Assign course')}</button>)}</>}>
+        {coursesLecturer && (<p style={{ marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}><strong>{coursesLecturer.first_name} {coursesLecturer.last_name}</strong>{coursesLecturer.staff_id ? ` · ${coursesLecturer.staff_id}` : ''}</p>)}
+        {coursesLoading ? (<p style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-muted)' }}>{translateText('Loading courses...')}</p>) : coursesError ? (<div className="empty-state" style={{ padding: '1.5rem' }}><div className="empty-state-title">{translateText('Could not load courses')}</div><div className="empty-state-text" style={{ marginBottom: '0.75rem' }}>{coursesErrorObj?.message || translateText('Something went wrong. Try again.')}</div><button type="button" className="btn btn-outline btn-sm" onClick={() => refetchCourses()}>{translateText('Retry')}</button></div>) : lecturerCourses.length === 0 ? (<div className="empty-state" style={{ padding: '1.5rem' }}><MdMenuBook className="empty-state-icon" /><div className="empty-state-title">{translateText('No courses assigned')}</div><div className="empty-state-text">{translateText('This lecturer has no course allocations yet. Assign a batch course to get started.')}</div></div>) : (<div className="table-wrapper"><table className="data-table"><thead><tr><th>{translateText('Course')}</th><th>{translateText('Batch')}</th><th>{translateText('Semester')}</th><th>{translateText('Type')}</th>{canManagePeople && <th style={{ textAlign: 'right' }}>{translateText('Action')}</th>}</tr></thead><tbody>{lecturerCourses.map((bc) => (<tr key={bc.id}><td><code style={{ fontSize: '0.85rem', background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: 'var(--color-primary)' }}>{bc.courses?.code}</code>{' '}<strong>{bc.courses?.name}</strong></td><td><div>{bc.batches?.name}</div></td><td><div>{bc.semesters?.name}</div></td><td><span className={`badge ${bc.is_compulsory ? 'badge-blue' : 'badge-gray'}`}>{bc.is_compulsory ? translateText('Compulsory') : translateText('Elective')}</span></td>{canManagePeople && (<td style={{ textAlign: 'right' }}><button type="button" className="btn-icon" title={translateText('Remove allocation')} onClick={() => { if (window.confirm(translateText('Remove this course allocation?'))) unassignMutation.mutate(bc.id); }} disabled={unassignMutation.isPending}><MdDelete style={{ color: 'var(--color-secondary)' }} /></button></td>)}</tr>))}</tbody></table></div>)}
       </Modal>
 
-      <Modal
-        isOpen={Boolean(assignLecturer)}
-        onClose={() => setAssignLecturer(null)}
-        title={translateText('Assign course')}
-        maxWidth="560px"
-        footer={
-          <>
-            <button type="button" className="btn btn-outline" onClick={() => setAssignLecturer(null)}>{translateText('Cancel')}</button>
-            <button type="button" className="btn btn-primary" onClick={handleAssignSubmit} disabled={assignCourseMutation.isPending || claimExistingMutation.isPending}>
-              {translateText('Assign Course')}
-            </button>
-          </>
-        }
-      >
-        {assignLecturer && (
-          <p style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-            {translateText('Lecturer')}: <strong>{assignLecturer.first_name} {assignLecturer.last_name}</strong>
-            {assignLecturer.staff_id ? ` (${assignLecturer.staff_id})` : ''}
-          </p>
-        )}
+      <Modal isOpen={Boolean(assignLecturer)} onClose={() => setAssignLecturer(null)} title={translateText('Assign course')} maxWidth="560px" footer={<><button type="button" className="btn btn-outline" onClick={() => setAssignLecturer(null)}>{translateText('Cancel')}</button><button type="button" className="btn btn-primary" onClick={handleAssignSubmit} disabled={assignCourseMutation.isPending || claimExistingMutation.isPending}>{translateText('Assign Course')}</button></>}>
+        {assignLecturer && (<p style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>{translateText('Lecturer')}: <strong>{assignLecturer.first_name} {assignLecturer.last_name}</strong></p>)}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <button type="button" className={`btn btn-sm ${assignForm.mode === 'new' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setAssignForm((f) => ({ ...f, mode: 'new' }))}>
-            {translateText('New allocation')}
-          </button>
-          <button type="button" className={`btn btn-sm ${assignForm.mode === 'existing' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setAssignForm((f) => ({ ...f, mode: 'existing' }))}>
-            {translateText('Use existing')}
-          </button>
+          <button type="button" className={`btn btn-sm ${assignForm.mode === 'new' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setAssignForm((f) => ({ ...f, mode: 'new' }))}>{translateText('New allocation')}</button>
+          <button type="button" className={`btn btn-sm ${assignForm.mode === 'existing' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setAssignForm((f) => ({ ...f, mode: 'existing' }))}>{translateText('Use existing')}</button>
         </div>
         <form onSubmit={handleAssignSubmit}>
           {assignForm.mode === 'existing' ? (
-            <div className="form-group">
-              <label className="form-label">{translateText('Unassigned allocation')} *</label>
-              {allBcLoading ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{translateText('Loading...')}</p>
-              ) : unassignedAllocations.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{translateText('No unassigned allocations. Create a new one instead.')}</p>
-              ) : (
+            <div className="form-group"><label className="form-label">{translateText('Unassigned allocation')} *</label>
+              {allBcLoading ? <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{translateText('Loading...')}</p> : unassignedAllocations.length === 0 ? <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{translateText('No unassigned allocations. Create a new one instead.')}</p> : (
                 <select className="form-input" value={assignForm.existing_id} onChange={(e) => setAssignForm({ ...assignForm, existing_id: e.target.value })} required>
                   <option value="">{translateText('Choose allocation...')}</option>
-                  {unassignedAllocations.map((bc) => (
-                    <option key={bc.id} value={bc.id}>
-                      {bc.courses?.code} — {bc.courses?.name} · {bc.batches?.name} · {bc.semesters?.name}
-                    </option>
-                  ))}
+                  {unassignedAllocations.map((bc) => (<option key={bc.id} value={bc.id}>{bc.courses?.code} — {bc.courses?.name} · {bc.batches?.name}</option>))}
                 </select>
               )}
             </div>
           ) : (
             <>
-              <div className="form-group">
-                <label className="form-label">{translateText('Batch')} *</label>
-                <select className="form-input" value={assignForm.batch_id} onChange={(e) => setAssignForm({ ...assignForm, batch_id: e.target.value })} required>
-                  <option value="">{translateText('Choose batch...')}</option>
-                  {batches.map((b) => (<option key={b.id} value={b.id}>{b.name} ({b.code})</option>))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{translateText('Course')} *</label>
-                <select className="form-input" value={assignForm.course_id} onChange={(e) => setAssignForm({ ...assignForm, course_id: e.target.value })} required>
-                  <option value="">{translateText('Choose course...')}</option>
-                  {courses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name} ({c.credit_units} cr)</option>))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{translateText('Semester')} *</label>
-                <select className="form-input" value={assignForm.semester_id} onChange={(e) => setAssignForm({ ...assignForm, semester_id: e.target.value })} required>
-                  <option value="">{translateText('Choose semester...')}</option>
-                  {semesters.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.academic_years?.name}) {s.is_current ? '• Active' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <input type="checkbox" id="assign_is_compulsory" checked={assignForm.is_compulsory} onChange={(e) => setAssignForm({ ...assignForm, is_compulsory: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                <label htmlFor="assign_is_compulsory" style={{ fontSize: '0.875rem', cursor: 'pointer' }}>{translateText('Compulsory course for this cohort')}</label>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.75rem' }}>
-                {translateText('If this batch/course/semester already exists, the lecturer will be updated on that allocation.')}
-              </p>
+              <div className="form-group"><label className="form-label">{translateText('Batch')} *</label><select className="form-input" value={assignForm.batch_id} onChange={(e) => setAssignForm({ ...assignForm, batch_id: e.target.value })} required><option value="">{translateText('Choose batch...')}</option>{batches.map((b) => (<option key={b.id} value={b.id}>{b.name} ({b.code})</option>))}</select></div>
+              <div className="form-group"><label className="form-label">{translateText('Course')} *</label><select className="form-input" value={assignForm.course_id} onChange={(e) => setAssignForm({ ...assignForm, course_id: e.target.value })} required><option value="">{translateText('Choose course...')}</option>{courses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name}</option>))}</select></div>
+              <div className="form-group"><label className="form-label">{translateText('Semester')} *</label><select className="form-input" value={assignForm.semester_id} onChange={(e) => setAssignForm({ ...assignForm, semester_id: e.target.value })} required><option value="">{translateText('Choose semester...')}</option>{semesters.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}</select></div>
             </>
           )}
         </form>
       </Modal>
 
-      <ConfirmDialog
-        isOpen={Boolean(lecturerToDelete)}
-        onClose={() => setLecturerToDelete(null)}
-        onConfirm={() => lecturerToDelete && deleteMutation.mutate(lecturerToDelete)}
-        title={translateText('Delete Lecturer')}
-        message={lecturerToDelete ? translateText(`Permanently delete ${lecturerToDelete.first_name} ${lecturerToDelete.last_name} and any linked login account? This cannot be undone.`) : ''}
-        isDestructive
-        isLoading={deleteMutation.isPending}
-      />
+      <ConfirmDialog isOpen={Boolean(lecturerToDelete)} onClose={() => setLecturerToDelete(null)} onConfirm={() => lecturerToDelete && deleteMutation.mutate(lecturerToDelete)} title={translateText('Delete Lecturer')} message={lecturerToDelete ? translateText(`Permanently delete ${lecturerToDelete.first_name} ${lecturerToDelete.last_name} and any linked login account? This cannot be undone.`) : ''} isDestructive isLoading={deleteMutation.isPending} />
     </AppLayout>
   );
 }
