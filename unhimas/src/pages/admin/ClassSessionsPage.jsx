@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MdAdd, MdDelete, MdEdit, MdSearch, MdSchedule, MdVideocam, MdVideocamOff } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 import { toast } from '../../components/common/Toast';
 import { useTranslation } from '../../i18n';
 import {
@@ -24,29 +25,24 @@ function toLocalInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const emptyForm = {
-  batch_course_id: '',
-  lecturer_id: '',
-  scheduled_start: '',
-  scheduled_end: '',
-  room: '',
-  topic: '',
-  notes: '',
-  is_online: false,
-};
-
 export default function ClassSessionsPage() {
   const { translateText: tx } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('upcoming');
-  const [open, setOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-  const [genFrom, setGenFrom] = useState('');
-  const [genTo, setGenTo] = useState('');
-  const [generating, setGenerating] = useState(false);
   const [zoomLoading, setZoomLoading] = useState(null);
+  const [genOpen, setGenOpen] = useState(false);
+  const [genForm, setGenForm] = useState({ from: '', to: '', batchCourseId: '' });
+  const [formData, setFormData] = useState({
+    batch_course_id: '',
+    lecturer_id: '',
+    scheduled_start: '',
+    scheduled_end: '',
+    room: '',
+    topic: '',
+    notes: '',
+  });
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['admin-class-sessions'],
@@ -55,283 +51,179 @@ export default function ClassSessionsPage() {
 
   const { data: batchCourses = [] } = useQuery({
     queryKey: ['admin-batch-courses'],
-    queryFn: getBatchCourses,
+    queryFn: () => getBatchCourses(),
   });
 
   const { data: lecturers = [] } = useQuery({
     queryKey: ['admin-lecturers'],
-    queryFn: getLecturers,
+    queryFn: () => getLecturers(),
   });
 
-  const saveMutation = useMutation({
-    mutationFn: async (payload) => {
-      const { is_online, ...sessionPayload } = payload;
-      let saved;
-      if (editing) {
-        saved = await updateClassSessionAdmin(editing.id, sessionPayload);
-      } else {
-        saved = await createClassSessionAdmin(sessionPayload);
-        if (is_online && saved?.id) {
-          const start = new Date(sessionPayload.scheduled_start);
-          const end = new Date(sessionPayload.scheduled_end);
-          const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
-          try {
-            await createZoomMeeting({
-              sessionId: saved.id,
-              topic: sessionPayload.topic || 'Online Class',
-              scheduledStart: new Date(sessionPayload.scheduled_start).toISOString(),
-              durationMinutes,
-            });
-          } catch (zoomErr) {
-            toast.error(
-              `Session created but Zoom failed: ${zoomErr.message}. Check Zoom API secrets.`,
-            );
-          }
-        }
-      }
-      return saved;
-    },
+  const createMutation = useMutation({
+    mutationFn: createClassSessionAdmin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
-      toast.success(tx(editing ? 'Class session updated' : 'Class session created'));
-      closeModal();
+      toast.success(tx('Class session created'));
+      setIsModalOpen(false);
+      setEditing(null);
     },
-    onError: (err) => toast.error(err.message || tx('Could not save session')),
+    onError: (err) => toast.error(err.message || tx('Failed to create session')),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }) => updateClassSessionAdmin(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+      toast.success(tx('Class session updated'));
+      setIsModalOpen(false);
+      setEditing(null);
+    },
+    onError: (err) => toast.error(err.message || tx('Failed to update session')),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (session) => {
-      if (session.zoom_meeting_id) {
-        try {
-          await deleteZoomMeeting({
-            zoomMeetingId: session.zoom_meeting_id,
-            sessionId: session.id,
-          });
-        } catch (_) {
-          // still delete the session
-        }
-      }
-      return deleteClassSessionAdmin(session.id);
-    },
+    mutationFn: (session) => deleteClassSessionAdmin(session.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
-      toast.success(tx('Class session removed'));
+      toast.success(tx('Class session deleted'));
     },
-    onError: (err) => toast.error(err.message || tx('Could not delete session')),
+    onError: (err) => toast.error(err.message || tx('Failed to delete session')),
   });
 
-  const now = Date.now();
-
-  const filtered = useMemo(() => {
-    const term = search.toLowerCase();
-    return sessions.filter((session) => {
-      const start = new Date(session.scheduled_start).getTime();
-      if (filter === 'upcoming' && start < now) return false;
-      if (filter === 'past' && start >= now) return false;
-      const hay = `${session.batch_courses?.courses?.code || ''} ${session.batch_courses?.courses?.name || ''} ${session.batch_courses?.batches?.name || ''} ${session.lecturers?.first_name || ''} ${session.lecturers?.last_name || ''} ${session.room || ''} ${session.topic || ''}`.toLowerCase();
-      return hay.includes(term);
-    });
-  }, [sessions, search, filter, now]);
+  const genMutation = useMutation({
+    mutationFn: generateSessionsFromTimetable,
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+      toast.success(tx(`Generated ${count} session(s) from timetable`));
+      setGenOpen(false);
+    },
+    onError: (err) => toast.error(err.message || tx('Failed to generate sessions')),
+  });
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
-    setOpen(true);
+    setFormData({
+      batch_course_id: batchCourses[0]?.id || '',
+      lecturer_id: '',
+      scheduled_start: '',
+      scheduled_end: '',
+      room: '',
+      topic: '',
+      notes: '',
+    });
+    setIsModalOpen(true);
   };
 
   const openEdit = (session) => {
     setEditing(session);
-    setForm({
-      batch_course_id: session.batch_course_id || '',
+    setFormData({
+      batch_course_id: session.batch_course_id || session.batch_courses?.id || '',
       lecturer_id: session.lecturer_id || '',
       scheduled_start: toLocalInput(session.scheduled_start),
       scheduled_end: toLocalInput(session.scheduled_end),
       room: session.room || '',
       topic: session.topic || '',
       notes: session.notes || '',
-      is_online: false,
     });
-    setOpen(true);
+    setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setOpen(false);
-    setEditing(null);
-    setForm(emptyForm);
-  };
-
-  const onBatchCourseChange = (batchCourseId) => {
-    const bc = batchCourses.find((item) => item.id === batchCourseId);
-    setForm((prev) => ({
-      ...prev,
-      batch_course_id: batchCourseId,
-      lecturer_id: bc?.lecturer_id || bc?.lecturers?.id || prev.lecturer_id,
-    }));
-  };
-
-  const submit = (event) => {
-    event.preventDefault();
-    if (!form.batch_course_id || !form.lecturer_id || !form.scheduled_start || !form.scheduled_end) {
-      toast.error(tx('Course, lecturer, start and end times are required.'));
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.batch_course_id || !formData.scheduled_start || !formData.scheduled_end) {
+      toast.error(tx('Batch course, start, and end are required'));
       return;
     }
-    if (!(new Date(form.scheduled_end) > new Date(form.scheduled_start))) {
-      toast.error(tx('End time must be after start time.'));
-      return;
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, payload: formData });
+    } else {
+      createMutation.mutate(formData);
     }
-    saveMutation.mutate(form);
   };
 
   const handleAddZoom = async (session) => {
-    if (!session?.id) return;
-    setZoomLoading(session.id);
     try {
-      const start = new Date(session.scheduled_start);
-      const end = new Date(session.scheduled_end);
-      const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
-      await createZoomMeeting({
-        sessionId: session.id,
-        topic: session.topic || session.batch_courses?.courses?.name || 'Online Class',
-        scheduledStart: session.scheduled_start,
-        durationMinutes,
-      });
-      toast.success(tx('Zoom meeting created'));
+      setZoomLoading(session.id);
+      await createZoomMeeting({ sessionId: session.id });
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+      toast.success(tx('Zoom meeting created'));
     } catch (err) {
-      toast.error(err.message || tx('Could not create Zoom meeting'));
+      toast.error(err.message || tx('Failed to create Zoom meeting'));
     } finally {
       setZoomLoading(null);
     }
   };
 
   const handleRemoveZoom = async (session) => {
-    if (!session?.zoom_meeting_id) return;
-    if (!window.confirm(tx('Remove the Zoom meeting from this session?'))) return;
-    setZoomLoading(session.id);
     try {
-      await deleteZoomMeeting({
-        zoomMeetingId: session.zoom_meeting_id,
-        sessionId: session.id,
-      });
-      toast.success(tx('Zoom meeting removed'));
+      setZoomLoading(session.id);
+      await deleteZoomMeeting({ sessionId: session.id });
       queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+      toast.success(tx('Zoom meeting removed'));
     } catch (err) {
-      toast.error(err.message || tx('Could not remove Zoom meeting'));
+      toast.error(err.message || tx('Failed to remove Zoom meeting'));
     } finally {
       setZoomLoading(null);
     }
   };
 
-  const handleGenerate = async () => {
-    if (!genFrom || !genTo) {
-      toast.error(tx('Please select both start and end dates.'));
-      return;
-    }
-    if (genTo < genFrom) {
-      toast.error(tx('End date must be on or after the start date.'));
-      return;
-    }
-    setGenerating(true);
-    try {
-      const count = await generateSessionsFromTimetable({ from: genFrom, to: genTo });
-      toast.success(
-        count === 0
-          ? tx('No new sessions created (slots may already exist for these days, or no timetable slots match)')
-          : `${count} session(s) created from timetable`
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase();
+    if (!s) return sessions;
+    return sessions.filter((session) => {
+      const course = session.batch_courses?.courses;
+      const batch = session.batch_courses?.batches;
+      const lec = session.lecturers || session.batch_courses?.lecturers;
+      return (
+        course?.code?.toLowerCase().includes(s) ||
+        course?.name?.toLowerCase().includes(s) ||
+        batch?.name?.toLowerCase().includes(s) ||
+        session.room?.toLowerCase().includes(s) ||
+        session.topic?.toLowerCase().includes(s) ||
+        (lec && `${lec.first_name} ${lec.last_name}`.toLowerCase().includes(s))
       );
-      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
-    } catch (err) {
-      const msg = err?.message || 'Failed to generate sessions';
-      if (msg.includes('generate_sessions_from_timetable') || msg.includes('function') || msg.includes('does not exist')) {
-        toast.error(tx('Session generation is not available yet. Apply migration 20261022000000 on Supabase first.'));
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setGenerating(false);
-    }
-  };
+    });
+  }, [sessions, search]);
 
   return (
     <AppLayout pageTitle={tx('Class Sessions')}>
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">{tx('Class Sessions')}</h1>
-          <p className="page-subtitle">
-            {tx('Schedule, edit and remove lecture sessions. Lecturers mark student attendance against these sessions.')}
-          </p>
+          <p className="page-subtitle">{tx('Scheduled teaching sessions, rooms, and online meetings')}</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <MdAdd /> {tx('Create session')}
-        </button>
-      </div>
-
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
-        <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <MdSchedule /> {tx('Generate sessions from weekly timetable')}
-        </div>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-          {tx('Creates concrete class sessions for every timetable slot in the date range (max 90 days). Existing sessions on the same day for the same course and lecturer are skipped.')}
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
-          <div>
-            <label className="form-label" htmlFor="gen-from">{tx('From')}</label>
-            <input
-              id="gen-from"
-              type="date"
-              className="form-input"
-              value={genFrom}
-              onChange={(e) => setGenFrom(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="gen-to">{tx('To')}</label>
-            <input
-              id="gen-to"
-              type="date"
-              className="form-input"
-              value={genTo}
-              onChange={(e) => setGenTo(e.target.value)}
-            />
-          </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={generating || !genFrom || !genTo}
-            onClick={handleGenerate}
-          >
-            {generating ? tx('Generating…') : tx('Generate sessions')}
+        <div className="page-header-actions">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setGenOpen(true)}>
+            <MdSchedule /> {tx('From timetable')}
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+            <MdAdd /> {tx('Add session')}
           </button>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200 }}>
-            <MdSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+        <div className="card-header">
+          <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
+            <MdSearch style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
             <input
+              type="text"
               className="form-input"
-              style={{ paddingLeft: 40 }}
+              style={{ paddingLeft: '2.25rem' }}
+              placeholder={tx('Search by course, batch, room, topic...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={tx('Search course, batch, lecturer, room, topic…')}
             />
           </div>
-          <select className="form-input" style={{ maxWidth: 180 }} value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="upcoming">{tx('Upcoming')}</option>
-            <option value="past">{tx('Past')}</option>
-            <option value="all">{tx('All sessions')}</option>
-          </select>
         </div>
 
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
-                <th>{tx('Course')}</th>
-                <th>{tx('Batch')}</th>
+                <th>{tx('Course / Batch')}</th>
                 <th>{tx('Lecturer')}</th>
-                <th>{tx('Schedule')}</th>
+                <th>{tx('When')}</th>
                 <th>{tx('Room')}</th>
                 <th>{tx('Topic')}</th>
                 <th>{tx('Online')}</th>
@@ -340,107 +232,102 @@ export default function ClassSessionsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
-                    {tx('Loading sessions…')}
-                  </td>
-                </tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>{tx('Loading sessions...')}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
-                      <div className="empty-state-title">{tx('No class sessions found')}</div>
-                      <div className="empty-state-text">{tx('Create a session, generate from the timetable, or adjust the filters.')}</div>
+                      <div className="empty-state-title">{tx('No class sessions')}</div>
+                      <div className="empty-state-text">{tx('Create a session or generate from the timetable.')}</div>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filtered.map((session) => {
-                  const isPast = new Date(session.scheduled_start).getTime() < now;
+                  const course = session.batch_courses?.courses;
+                  const batch = session.batch_courses?.batches;
+                  const lec = session.lecturers || session.batch_courses?.lecturers;
+                  const isPast = session.scheduled_end && new Date(session.scheduled_end) < new Date();
                   return (
-                    <tr key={session.id} style={{ opacity: isPast ? 0.85 : 1 }}>
+                    <tr key={session.id}>
                       <td>
-                        <strong style={{ color: 'var(--color-primary)' }}>
-                          {session.batch_courses?.courses?.code}
-                        </strong>{' '}
-                        {session.batch_courses?.courses?.name}
-                      </td>
-                      <td>
-                        {session.batch_courses?.batches?.name}
-                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                          {session.batch_courses?.batches?.code}
+                        <div>
+                          <code style={{ fontWeight: 700 }}>{course?.code}</code>{' '}
+                          <strong>{course?.name}</strong>
                         </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{batch?.name}</div>
                       </td>
                       <td>
-                        {session.lecturers?.first_name} {session.lecturers?.last_name}
+                        {lec ? `${lec.first_name} ${lec.last_name}` : '—'}
                       </td>
                       <td>
-                        <div>{new Date(session.scheduled_start).toLocaleString()}</div>
+                        <div>{session.scheduled_start ? new Date(session.scheduled_start).toLocaleString() : '—'}</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                          → {new Date(session.scheduled_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {isPast ? ' · past' : ' · upcoming'}
+                          → {session.scheduled_end ? new Date(session.scheduled_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {isPast ? ` · ${tx('past')}` : ` · ${tx('upcoming')}`}
                         </div>
                       </td>
                       <td>{session.room || '—'}</td>
                       <td>{session.topic || '—'}</td>
                       <td>
                         {session.zoom_join_url ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content' }}>
-                              ONLINE
-                            </span>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                              <a
-                                href={session.zoom_start_url || session.zoom_join_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-primary btn-sm"
-                                style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
-                              >
-                                <MdVideocam size={12} /> Start
-                              </a>
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
-                                disabled={zoomLoading === session.id}
-                                onClick={() => handleRemoveZoom(session)}
-                              >
-                                <MdVideocamOff size={12} />
-                              </button>
-                            </div>
-                          </div>
+                          <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content', display: 'inline-block' }}>
+                            ONLINE
+                          </span>
                         ) : (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: '0.7rem' }}
-                            disabled={zoomLoading === session.id}
-                            onClick={() => handleAddZoom(session)}
-                          >
-                            <MdVideocam size={12} /> {zoomLoading === session.id ? '…' : 'Add Zoom'}
-                          </button>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => openEdit(session)}>
-                            <MdEdit /> {tx('Edit')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            title={tx('Delete')}
-                            onClick={() => {
-                              if (window.confirm(tx('Delete this class session? Attendance records for it will also be removed.'))) {
-                                deleteMutation.mutate(session);
-                              }
-                            }}
-                          >
-                            <MdDelete />
-                          </button>
-                        </div>
+                        <RowActionsMenu
+                          ariaLabel={tx('Session actions')}
+                          items={[
+                            {
+                              id: 'start-zoom',
+                              label: tx('Start Zoom'),
+                              icon: <MdVideocam />,
+                              hidden: !session.zoom_join_url,
+                              onClick: () => {
+                                const url = session.zoom_start_url || session.zoom_join_url;
+                                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                              },
+                            },
+                            {
+                              id: 'add-zoom',
+                              label: zoomLoading === session.id ? '…' : tx('Add Zoom'),
+                              icon: <MdVideocam />,
+                              hidden: Boolean(session.zoom_join_url),
+                              disabled: zoomLoading === session.id,
+                              onClick: () => handleAddZoom(session),
+                            },
+                            {
+                              id: 'remove-zoom',
+                              label: tx('Remove Zoom'),
+                              icon: <MdVideocamOff />,
+                              hidden: !session.zoom_join_url,
+                              disabled: zoomLoading === session.id,
+                              onClick: () => handleRemoveZoom(session),
+                            },
+                            {
+                              id: 'edit',
+                              label: tx('Edit'),
+                              icon: <MdEdit />,
+                              onClick: () => openEdit(session),
+                            },
+                            {
+                              id: 'delete',
+                              label: tx('Delete'),
+                              icon: <MdDelete />,
+                              danger: true,
+                              onClick: () => {
+                                if (window.confirm(tx('Delete this class session? Attendance records for it will also be removed.'))) {
+                                  deleteMutation.mutate(session);
+                                }
+                              },
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -452,123 +339,91 @@ export default function ClassSessionsPage() {
       </div>
 
       <Modal
-        isOpen={open}
-        onClose={closeModal}
-        title={tx(editing ? 'Edit class session' : 'Create class session')}
-        footer={
-          <>
-            <button type="button" className="btn btn-outline" onClick={closeModal}>
-              {tx('Cancel')}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={submit} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? tx('Loading...') : editing ? tx('Save changes') : tx('Create session')}
-            </button>
-          </>
-        }
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editing ? tx('Edit class session') : tx('Add class session')}
       >
-        <form onSubmit={submit}>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">{tx('Batch course *')}</label>
-            <select
-              className="form-input"
-              value={form.batch_course_id}
-              onChange={(e) => onBatchCourseChange(e.target.value)}
-              required
-            >
-              <option value="">{tx('Select course and batch')}</option>
-              {batchCourses.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.courses?.code} — {item.courses?.name} ({item.batches?.name}
-                  {item.semesters?.name ? `, ${item.semesters.name}` : ''})
+            <label className="form-label">{tx('Batch course')} *</label>
+            <select className="form-input" value={formData.batch_course_id} onChange={(e) => setFormData({ ...formData, batch_course_id: e.target.value })} required>
+              <option value="">{tx('Choose...')}</option>
+              {batchCourses.map((bc) => (
+                <option key={bc.id} value={bc.id}>
+                  {bc.courses?.code} — {bc.batches?.name} ({bc.semesters?.name})
                 </option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">{tx('Lecturer *')}</label>
-            <select
-              className="form-input"
-              value={form.lecturer_id}
-              onChange={(e) => setForm({ ...form, lecturer_id: e.target.value })}
-              required
-            >
-              <option value="">{tx('Select lecturer')}</option>
-              {lecturers.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.first_name} {item.last_name}
-                  {item.staff_id ? ` (${item.staff_id})` : ''}
-                </option>
+            <label className="form-label">{tx('Lecturer')}</label>
+            <select className="form-input" value={formData.lecturer_id} onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}>
+              <option value="">{tx('Optional')}</option>
+              {lecturers.map((l) => (
+                <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>
               ))}
             </select>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-              {tx('Selecting a batch course auto-fills the assigned lecturer when available.')}
-            </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">
               <label className="form-label">{tx('Start')} *</label>
-              <input
-                className="form-input"
-                type="datetime-local"
-                value={form.scheduled_start}
-                onChange={(e) => setForm({ ...form, scheduled_start: e.target.value })}
-                required
-              />
+              <input type="datetime-local" className="form-input" value={formData.scheduled_start} onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })} required />
             </div>
             <div className="form-group">
               <label className="form-label">{tx('End')} *</label>
-              <input
-                className="form-input"
-                type="datetime-local"
-                value={form.scheduled_end}
-                onChange={(e) => setForm({ ...form, scheduled_end: e.target.value })}
-                required
-              />
+              <input type="datetime-local" className="form-input" value={formData.scheduled_end} onChange={(e) => setFormData({ ...formData, scheduled_end: e.target.value })} required />
             </div>
           </div>
           <div className="form-group">
             <label className="form-label">{tx('Room')}</label>
-            <input
-              className="form-input"
-              value={form.room}
-              onChange={(e) => setForm({ ...form, room: e.target.value })}
-              placeholder={tx('e.g. Hall A, Lab 2')}
-            />
+            <input className="form-input" value={formData.room} onChange={(e) => setFormData({ ...formData, room: e.target.value })} />
           </div>
           <div className="form-group">
             <label className="form-label">{tx('Topic')}</label>
-            <input
-              className="form-input"
-              value={form.topic}
-              onChange={(e) => setForm({ ...form, topic: e.target.value })}
-              placeholder={tx('Lecture topic')}
-            />
+            <input className="form-input" value={formData.topic} onChange={(e) => setFormData({ ...formData, topic: e.target.value })} />
           </div>
           <div className="form-group">
             <label className="form-label">{tx('Notes')}</label>
-            <textarea
-              className="form-input"
-              rows={2}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder={tx('Optional notes for staff')}
-            />
+            <textarea className="form-input" rows={2} value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
           </div>
-          {!editing && (
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <input
-                id="admin-session-online"
-                type="checkbox"
-                style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#2d8cff' }}
-                checked={form.is_online}
-                onChange={(e) => setForm({ ...form, is_online: e.target.checked })}
-              />
-              <label htmlFor="admin-session-online" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                <MdVideocam size={16} style={{ color: '#2d8cff' }} />
-                <span style={{ fontWeight: 500 }}>{tx('Create Zoom meeting for this session')}</span>
-              </label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>{tx('Cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
+              {editing ? tx('Save Changes') : tx('Add session')}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={genOpen}
+        onClose={() => setGenOpen(false)}
+        title={tx('Generate from timetable')}
+      >
+        <form onSubmit={(e) => { e.preventDefault(); genMutation.mutate({ from: genForm.from, to: genForm.to, batchCourseId: genForm.batchCourseId || null }); }}>
+          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label className="form-label">{tx('From')} *</label>
+              <input type="date" className="form-input" value={genForm.from} onChange={(e) => setGenForm({ ...genForm, from: e.target.value })} required />
             </div>
-          )}
+            <div className="form-group">
+              <label className="form-label">{tx('To')} *</label>
+              <input type="date" className="form-input" value={genForm.to} onChange={(e) => setGenForm({ ...genForm, to: e.target.value })} required />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">{tx('Batch course (optional)')}</label>
+            <select className="form-input" value={genForm.batchCourseId} onChange={(e) => setGenForm({ ...genForm, batchCourseId: e.target.value })}>
+              <option value="">{tx('All')}</option>
+              {batchCourses.map((bc) => (
+                <option key={bc.id} value={bc.id}>{bc.courses?.code} — {bc.batches?.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setGenOpen(false)}>{tx('Cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={genMutation.isPending}>{tx('Generate')}</button>
+          </div>
         </form>
       </Modal>
     </AppLayout>
