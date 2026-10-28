@@ -238,12 +238,51 @@ export async function getBatchCourses({ batchId = null, semesterId = null, lectu
 }
 
 export async function assignBatchCourse({ batch_id, course_id, semester_id, lecturer_id, is_compulsory = true }) {
+  const payload = {
+    batch_id,
+    course_id,
+    semester_id,
+    lecturer_id: lecturer_id || null,
+    is_compulsory: Boolean(is_compulsory),
+  };
+
   const { data, error } = await supabase
     .from('batch_courses')
-    .insert([{ batch_id, course_id, semester_id, lecturer_id: lecturer_id || null, is_compulsory }])
-    .select()
+    .insert([payload])
+    .select(`
+      *,
+      batches:batch_id(id, name, code),
+      courses:course_id(id, code, name, credit_units),
+      semesters:semester_id(id, name, number, academic_years(name)),
+      lecturers:lecturer_id(id, staff_id, first_name, last_name)
+    `)
     .single();
-  if (error) throw error;
+
+  // Unique (batch_id, course_id, semester_id): claim / reassign lecturer on existing row
+  if (error) {
+    if (error.code === '23505') {
+      const { data: updated, error: updateError } = await supabase
+        .from('batch_courses')
+        .update({
+          lecturer_id: payload.lecturer_id,
+          is_compulsory: payload.is_compulsory,
+        })
+        .eq('batch_id', batch_id)
+        .eq('course_id', course_id)
+        .eq('semester_id', semester_id)
+        .select(`
+          *,
+          batches:batch_id(id, name, code),
+          courses:course_id(id, code, name, credit_units),
+          semesters:semester_id(id, name, number, academic_years(name)),
+          lecturers:lecturer_id(id, staff_id, first_name, last_name)
+        `)
+        .single();
+      if (updateError) throw updateError;
+      return updated;
+    }
+    throw error;
+  }
   return data;
 }
 
