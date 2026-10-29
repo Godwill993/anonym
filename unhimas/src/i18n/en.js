@@ -119,6 +119,12 @@ export const en = {
     excused: 'Excused',
     mark_all_present: 'Mark All Present',
     percentage: 'Attendance %',
+    submit_to_admin: 'Submit to Admin',
+    resubmit_to_admin: 'Resubmit to Admin',
+    submitted_awaiting: 'Submitted — awaiting admin',
+    returned_by_admin: 'Returned by admin',
+    locked: 'Attendance is locked. Wait for admin return or use a draft session.',
+    submitted_ok: 'Attendance submitted to admin for approval',
   },
   dashboard: {
     student_enrollment: 'Student Enrollment by Department',
