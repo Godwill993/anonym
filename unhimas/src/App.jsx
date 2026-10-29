@@ -5,7 +5,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import ToastContainer from './components/common/Toast';
 
-// Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
@@ -13,7 +12,6 @@ import SetNewPasswordPage from './pages/auth/SetNewPasswordPage';
 import UnauthorizedPage from './pages/auth/UnauthorizedPage';
 import PublicResultsPage from './pages/public/PublicResultsPage';
 
-// Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import DepartmentsPage from './pages/admin/DepartmentsPage';
 import BatchesPage from './pages/admin/BatchesPage';
@@ -26,7 +24,6 @@ import LecturersPage from './pages/admin/LecturersPage';
 import StaffPage from './pages/admin/StaffPage';
 import CreateAccountPage from './pages/admin/CreateAccountPage';
 import MarkApprovalPage from './pages/admin/MarkApprovalPage';
-import AdminMarksPage from './pages/admin/AdminMarksPage';
 import AdminAttendancePage from './pages/admin/AdminAttendancePage';
 import AdminResultsPage from './pages/admin/AdminResultsPage';
 import AdminTimetablePage from './pages/admin/AdminTimetablePage';
@@ -36,6 +33,7 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
 import StudentTransfersPage from './pages/admin/StudentTransfersPage';
 import AcademicEventsPage from './pages/admin/AcademicEventsPage';
+import AdminReportsHub from './pages/admin/AdminReportsHub';
 import LecturerHoursReportPage from './pages/admin/reports/LecturerHoursReportPage';
 import AttendanceReportPage from './pages/admin/reports/AttendanceReportPage';
 import CoursePerformanceReportPage from './pages/admin/reports/CoursePerformanceReportPage';
@@ -43,12 +41,9 @@ import ResultsReportPage from './pages/admin/reports/ResultsReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
-
-// Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
 import ShiftHistoryPage from './pages/admin/ShiftHistoryPage';
 
-// Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import LecturerCoursesPage from './pages/lecturer/LecturerCoursesPage';
 import LecturerSessionsPage from './pages/lecturer/LecturerSessionsPage';
@@ -58,7 +53,6 @@ import LecturerNotificationsPage from './pages/lecturer/LecturerNotificationsPag
 import LecturerResourcesPage from './pages/lecturer/LecturerResourcesPage';
 import LecturerProfilePage from './pages/lecturer/LecturerProfilePage';
 
-// Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import StudentAttendancePage from './pages/student/StudentAttendancePage';
@@ -111,10 +105,8 @@ function App() {
               <Route path="/results" element={<PublicResultsPage />} />
               <Route path="/results/verify" element={<PublicResultsPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
-
               <Route path="/" element={<RoleRouter />} />
 
-              {/* Admin routes */}
               <Route
                 path="/admin/*"
                 element={
@@ -131,10 +123,17 @@ function App() {
                       <Route path="lecturers" element={<LecturersPage />} />
                       <Route path="staff" element={<StaffPage />} />
                       <Route path="create-account" element={<CreateAccountPage />} />
+
+                      {/* Marks: one workflow page; old /marks redirects here */}
                       <Route path="mark-approval" element={<MarkApprovalPage />} />
-                      <Route path="marks" element={<AdminMarksPage />} />
-                      <Route path="attendance" element={<AdminAttendancePage />} />
+                      <Route path="marks" element={<Navigate to="/admin/mark-approval" replace />} />
                       <Route path="results" element={<AdminResultsPage />} />
+
+                      {/* Attendance: class + campus (legacy clock-in URLs redirect) */}
+                      <Route path="attendance" element={<AdminAttendancePage />} />
+                      <Route path="lecturer-attendance" element={<Navigate to="/admin/attendance" replace />} />
+                      <Route path="shift-history" element={<Navigate to="/admin/attendance" replace />} />
+
                       <Route path="timetable" element={<AdminTimetablePage />} />
                       <Route path="class-sessions" element={<AdminClassSessionsPage />} />
                       <Route path="student-transfers" element={<StudentTransfersPage />} />
@@ -142,13 +141,19 @@ function App() {
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
+
+                      {/* Reports: hub + detail routes */}
+                      <Route path="reports" element={<AdminReportsHub />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/results" element={<ResultsReportPage />} />
-                      <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
-                      <Route path="shift-history" element={<ShiftHistoryPage />} />
+
+                      {/* Keep pages reachable if linked from old bookmarks */}
+                      <Route path="lecturer-attendance-legacy" element={<LecturerAttendancePage />} />
+                      <Route path="shift-history-legacy" element={<ShiftHistoryPage />} />
+
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="audit-log" element={<AuditLogPage />} />
                       <Route path="profile" element={<AdminProfilePage />} />
@@ -157,7 +162,6 @@ function App() {
                 }
               />
 
-              {/* Lecturer routes */}
               <Route
                 path="/lecturer/*"
                 element={
@@ -177,7 +181,6 @@ function App() {
                 }
               />
 
-              {/* Student routes */}
               <Route
                 path="/student/*"
                 element={

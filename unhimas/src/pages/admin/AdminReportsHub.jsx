@@ -1,44 +1,44 @@
-import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   MdAccessTime,
   MdHowToReg,
   MdBarChart,
   MdAssignment,
+  MdArrowForward,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useTranslation } from '../../i18n';
 
-const TABS = [
+const REPORTS = [
   {
     to: '/admin/reports/lecturer-hours',
-    label: 'Lecturer hours',
+    title: 'Lecturer hours',
+    desc: 'Teaching and campus hours by lecturer',
     icon: MdAccessTime,
   },
   {
     to: '/admin/reports/attendance',
-    label: 'Attendance',
+    title: 'Attendance',
+    desc: 'Class and session attendance summaries',
     icon: MdHowToReg,
   },
   {
     to: '/admin/reports/course-performance',
-    label: 'Performance',
+    title: 'Academic performance',
+    desc: 'Course and cohort performance indicators',
     icon: MdBarChart,
   },
   {
     to: '/admin/reports/results',
-    label: 'Results',
+    title: 'Results reports',
+    desc: 'Published results analytics and exports',
     icon: MdAssignment,
   },
 ];
 
-/** Single sidebar entry → tabbed access to all report pages (no duplicate nav items). */
+/** One sidebar item opens this hub; individual reports stay on their own routes. */
 export default function AdminReportsHub() {
   const { translateText } = useTranslation();
-  const { pathname } = useLocation();
-
-  if (pathname === '/admin/reports' || pathname === '/admin/reports/') {
-    return <Navigate to="/admin/reports/lecturer-hours" replace />;
-  }
 
   return (
     <AppLayout pageTitle={translateText('Reports')}>
@@ -52,35 +52,59 @@ export default function AdminReportsHub() {
       </div>
 
       <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-          marginBottom: '1.25rem',
-          padding: 4,
-          background: 'var(--color-bg)',
-          borderRadius: 'var(--radius-md, 12px)',
-          border: '1px solid var(--color-border)',
-        }}
-        role="tablist"
-        aria-label={translateText('Report type')}
+        className="stats-grid"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}
       >
-        {TABS.map(({ to, label, icon: Icon }) => (
-          <NavLink
+        {REPORTS.map(({ to, title, desc, icon: Icon }) => (
+          <Link
             key={to}
             to={to}
-            role="tab"
-            className={({ isActive }) =>
-              `btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`
-            }
-            style={{ textDecoration: 'none' }}
+            className="card"
+            style={{
+              textDecoration: 'none',
+              color: 'inherit',
+              padding: '1.15rem 1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+              minHeight: 120,
+            }}
           >
-            <Icon size={16} /> {translateText(label)}
-          </NavLink>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span
+                className="stat-card-icon blue"
+                style={{ width: 40, height: 40, displayRadius: 10 }}
+              >
+                <Icon size={20} />
+              </span>
+              <strong style={{ fontSize: '0.95rem' }}>{translateText(title)}</strong>
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.8125rem',
+                color: 'var(--color-text-muted)',
+                lineHeight: 1.4,
+                flex: 1,
+              }}
+            >
+              {translateText(desc)}
+            </p>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--color-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {translateText('Open')} <MdArrowForward size={14} />
+            </span>
+          </Link>
         ))}
       </div>
-
-      <Outlet />
     </AppLayout>
   );
 }
