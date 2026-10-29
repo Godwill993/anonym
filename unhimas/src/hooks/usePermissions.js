@@ -21,6 +21,7 @@ export function usePermissions() {
     canManagePeople: can('manage_people'),
     canCreateAccounts: can('create_accounts'),
     canApproveMarks: can('approve_marks'),
+    canApproveAttendance: can('approve_attendance'),
     canPublishResults: can('publish_results'),
     canManageAcademic: can('manage_academic_structure'),
     canManageAnnouncements: can('manage_announcements'),
@@ -28,5 +29,7 @@ export function usePermissions() {
     canViewAuditLog: can('view_audit_log'),
     canManageSettings: can('manage_settings'),
     canClockLecturers: can('clock_lecturers'),
+    canEnterMarks: can('enter_marks'),
+    canMarkAttendance: can('mark_attendance'),
   };
 }
