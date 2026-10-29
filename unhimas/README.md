@@ -43,13 +43,20 @@ Optional: Web Push VAPID keys if notifications are enabled.
 ### Database migrations (required)
 
 Apply **all** files under `supabase/migrations/` in order on your Supabase project.
-Do **not** rely on `supabase/schema.sql` alone — it is a historical bootstrap snapshot.
-Later migrations remove `frontdesk`, add Zoom columns, marks/results RPCs, and attendance approval fields.
+Do **not** rely on `supabase/schema.sql` alone — it is not the full live schema.
 
-**Must apply for class attendance submit/approve:**
+**Class attendance submit / approve (required for production):**
 
-1. `20261029000000_attendance_submission_workflow.sql` — columns on `class_sessions`
-2. `20261029000001_attendance_edit_lock.sql` — DB lock when status is submitted/approved
+Easiest: open Supabase → **SQL Editor** → paste and run the entire file:
+
+`supabase/APPLY_ATTENDANCE_WORKFLOW.sql`
+
+That installs status columns + edit-lock trigger in one go (safe to re-run).
+
+Equivalent separate migrations:
+
+1. `20261029000000_attendance_submission_workflow.sql`
+2. `20261029000001_attendance_edit_lock.sql`
 
 Admin UI: **Class Attendance** at `/admin/attendance` (sidebar → Academic Operations).
 
