@@ -8,25 +8,22 @@ import {
   MdPersonPin,
   MdAssignment,
   MdHowToReg,
-  MdCampaign,
-  MdFolder,
   MdBook,
 } from 'react-icons/md';
 
 /**
- * Ultra-compact navigation — one level, no nested sidebar children.
- * Secondary screens (batches, semesters, sessions, transfers, audit, results,
- * published registry, staff) remain on routes and are linked from related pages.
+ * Minimal sidebar. Secondary screens (batches, years, news, files, staff, audit,
+ * published results, transfers, sessions, events) live under Settings → More tools.
  */
 export const NAV_CONFIG = {
   admin: [
     {
       group: 'Menu',
       items: [
-        { key: 'dashboard', label: 'Dashboard', path: '/admin', icon: MdDashboard },
+        { key: 'dashboard', label: 'Home', path: '/admin', icon: MdDashboard },
         {
           key: 'departments',
-          label: 'Departments',
+          label: 'Structure',
           path: '/admin/departments',
           icon: MdApartment,
           capability: 'manage_academic_structure',
@@ -74,18 +71,6 @@ export const NAV_CONFIG = {
           capability: 'manage_academic_structure',
         },
         {
-          key: 'announcements',
-          label: 'News',
-          path: '/admin/announcements',
-          icon: MdCampaign,
-        },
-        {
-          key: 'resources',
-          label: 'Files',
-          path: '/admin/resources',
-          icon: MdFolder,
-        },
-        {
           key: 'reports',
           label: 'Reports',
           path: '/admin/reports',
@@ -122,7 +107,6 @@ export const NAV_CONFIG = {
           icon: MdAssignment,
           capability: 'enter_marks',
         },
-        { key: 'resources', label: 'Files', path: '/lecturer/resources', icon: MdFolder },
       ],
     },
   ],
@@ -142,8 +126,6 @@ export const NAV_CONFIG = {
           capability: 'view_own_results',
         },
         { key: 'timetable', label: 'Timetable', path: '/student/timetable', icon: MdCalendarToday },
-        { key: 'announcements', label: 'News', path: '/student/announcements', icon: MdCampaign },
-        { key: 'resources', label: 'Files', path: '/student/resources', icon: MdFolder },
       ],
     },
   ],

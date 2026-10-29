@@ -25,11 +25,11 @@ import StaffPage from './pages/admin/StaffPage';
 import CreateAccountPage from './pages/admin/CreateAccountPage';
 import MarkApprovalPage from './pages/admin/MarkApprovalPage';
 import AdminAttendancePage from './pages/admin/AdminAttendancePage';
+import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
 import AdminResultsPage from './pages/admin/AdminResultsPage';
 import AdminTimetablePage from './pages/admin/AdminTimetablePage';
 import AdminClassSessionsPage from './pages/admin/ClassSessionsPage';
 import AdminAnnouncementsPage from './pages/admin/AdminAnnouncementsPage';
-import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
 import StudentTransfersPage from './pages/admin/StudentTransfersPage';
 import AcademicEventsPage from './pages/admin/AcademicEventsPage';
@@ -41,8 +41,6 @@ import ResultsReportPage from './pages/admin/reports/ResultsReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
-import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
-import ShiftHistoryPage from './pages/admin/ShiftHistoryPage';
 
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import LecturerCoursesPage from './pages/lecturer/LecturerCoursesPage';
@@ -124,14 +122,13 @@ function App() {
                       <Route path="staff" element={<StaffPage />} />
                       <Route path="create-account" element={<CreateAccountPage />} />
 
-                      {/* Marks: one workflow page; old /marks redirects here */}
                       <Route path="mark-approval" element={<MarkApprovalPage />} />
                       <Route path="marks" element={<Navigate to="/admin/mark-approval" replace />} />
                       <Route path="results" element={<AdminResultsPage />} />
 
-                      {/* Attendance: class + campus (legacy clock-in URLs redirect) */}
                       <Route path="attendance" element={<AdminAttendancePage />} />
-                      <Route path="lecturer-attendance" element={<Navigate to="/admin/attendance" replace />} />
+                      <Route path="attendance/clock" element={<LecturerAttendancePage />} />
+                      <Route path="lecturer-attendance" element={<Navigate to="/admin/attendance/clock" replace />} />
                       <Route path="shift-history" element={<Navigate to="/admin/attendance" replace />} />
 
                       <Route path="timetable" element={<AdminTimetablePage />} />
@@ -139,20 +136,15 @@ function App() {
                       <Route path="student-transfers" element={<StudentTransfersPage />} />
                       <Route path="academic-events" element={<AcademicEventsPage />} />
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
-                      <Route path="notifications" element={<AdminNotificationsPage />} />
+                      <Route path="notifications" element={<Navigate to="/admin" replace />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
 
-                      {/* Reports: hub + detail routes */}
                       <Route path="reports" element={<AdminReportsHub />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/results" element={<ResultsReportPage />} />
-
-                      {/* Keep pages reachable if linked from old bookmarks */}
-                      <Route path="lecturer-attendance-legacy" element={<LecturerAttendancePage />} />
-                      <Route path="shift-history-legacy" element={<ShiftHistoryPage />} />
 
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="audit-log" element={<AuditLogPage />} />
