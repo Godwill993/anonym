@@ -14,6 +14,29 @@ function parseSessionDateTime(value) {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+/** Throws if class session attendance is locked (submitted/approved). Missing column = allow (migration not applied yet). */
+async function assertSessionAttendanceEditable(sessionId) {
+  if (!sessionId) throw new Error('Session required');
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .select('attendance_status')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) {
+    // Column missing or other — let DB decide; only hard-block known locked statuses
+    if (error.code === '42703' || /attendance_status/i.test(error.message || '')) return;
+    throw error;
+  }
+  const st = data?.attendance_status || 'draft';
+  if (st !== 'draft' && st !== 'returned') {
+    throw new Error(
+      st === 'submitted'
+        ? 'This attendance is submitted for admin review. Wait for approval or a return before editing.'
+        : 'This attendance is approved and locked. Contact an administrator if a correction is needed.',
+    );
+  }
+}
+
 export async function getMyLecturerProfile() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -160,12 +183,14 @@ export async function getAttendanceForSession(sessionId) {
 }
 
 export async function upsertAttendance({ session_id, student_id, status, marked_by, note }) {
+  await assertSessionAttendanceEditable(session_id);
   const { data, error } = await supabase.from('attendance').upsert([{ session_id, student_id, status, marked_at: new Date().toISOString(), marked_by: marked_by || null, note: note || null, updated_at: new Date().toISOString() }], { onConflict: 'session_id,student_id' }).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function markAllPresent(sessionId, studentIds, markedBy) {
+  await assertSessionAttendanceEditable(sessionId);
   const rows = studentIds.map((sid) => ({ session_id: sessionId, student_id: sid, status: 'present', marked_at: new Date().toISOString(), marked_by: markedBy || null, updated_at: new Date().toISOString() }));
   const { data, error } = await supabase.from('attendance').upsert(rows, { onConflict: 'session_id,student_id' }).select();
   if (error) throw error;
@@ -252,7 +277,6 @@ export async function getLecturerDashboardStats(lecturerId, profileId) {
     supabase.from('lecturer_shifts').select('id, clock_in, status').eq('lecturer_id', lecturerId).eq('status', 'open').maybeSingle(),
   ]);
 
-  // Only hard-fail on core tables; optional views degrade gracefully
   const hardErrors = [coursesRes, todaySessionsRes, pendingMarksRes, returnedMarksRes]
     .map((r) => r.error)
     .filter(Boolean);
