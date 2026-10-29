@@ -167,13 +167,15 @@ export async function listBatchSemesterReadiness() {
 }
 
 /**
- * Publish all approved mark submissions for a batch + semester.
- * Fails unless every course in that pair is approved (or already published).
+ * Publish approved mark submissions for a batch + semester.
+ * - force=false (default): every course must be approved or already published.
+ * - force=true: publish only courses that are approved; skip incomplete ones (admin override).
  */
-export async function publishBatchResults(batchId, semesterId) {
+export async function publishBatchResults(batchId, semesterId, { force = false } = {}) {
   const { data, error } = await supabase.rpc('publish_batch_results', {
     p_batch_id: batchId,
     p_semester_id: semesterId,
+    p_force: Boolean(force),
   });
   if (error) throw error;
   return data; // integer count of newly published submissions
