@@ -34,8 +34,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings) {
-      // Synchronize the editable form only after the server-backed settings load.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         school_name: settings.school_name || 'UNHIMAS',
         school_abbreviation: settings.school_abbreviation || 'UNH',
@@ -73,25 +71,29 @@ export default function SettingsPage() {
     updateMutation.mutate(formData);
   };
 
-  const defaultScale = gradingScale.length > 0 ? gradingScale : [
-    { min_score: 80, max_score: 100, grade: 'A', grade_point: 4.0, remark: 'Excellent' },
-    { min_score: 70, max_score: 79.99, grade: 'B', grade_point: 3.0, remark: 'Very Good' },
-    { min_score: 60, max_score: 69.99, grade: 'C', grade_point: 2.0, remark: 'Good' },
-    { min_score: 50, max_score: 59.99, grade: 'D', grade_point: 1.0, remark: 'Pass' },
-    { min_score: 0, max_score: 49.99, grade: 'F', grade_point: 0.0, remark: 'Fail' },
-  ];
+  const defaultScale =
+    gradingScale.length > 0
+      ? gradingScale
+      : [
+          { min_score: 80, max_score: 100, grade: 'A', grade_point: 4.0, remark: 'Excellent' },
+          { min_score: 70, max_score: 79.99, grade: 'B', grade_point: 3.0, remark: 'Very Good' },
+          { min_score: 60, max_score: 69.99, grade: 'C', grade_point: 2.0, remark: 'Good' },
+          { min_score: 50, max_score: 59.99, grade: 'D', grade_point: 1.0, remark: 'Pass' },
+          { min_score: 0, max_score: 49.99, grade: 'F', grade_point: 0.0, remark: 'Fail' },
+        ];
 
   return (
     <AppLayout pageTitle="Settings">
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">System Settings & Academic Policy</h1>
-          <p className="page-subtitle">Configure mark weighting, exam eligibility thresholds, and grading scale</p>
+          <p className="page-subtitle">
+            Configure mark weighting, exam eligibility thresholds, and grading scale
+          </p>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '1.5rem' }}>
-        {/* Settings Form */}
         <div className="card">
           <div className="card-header">
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -114,14 +116,15 @@ export default function SettingsPage() {
                       required
                     />
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Abbreviation</label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.school_abbreviation}
-                      onChange={(e) => setFormData({ ...formData, school_abbreviation: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, school_abbreviation: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -136,10 +139,20 @@ export default function SettingsPage() {
                     onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
                     required
                   />
-                  <div className="form-hint">Used for lecturer clock-in shift timestamps and class attendance</div>
+                  <div className="form-hint">
+                    Used for lecturer clock-in shift timestamps and class attendance
+                  </div>
                 </div>
 
-                <div style={{ margin: '1.5rem 0 1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: '0.9rem' }}>
+                <div
+                  style={{
+                    margin: '1.5rem 0 1rem',
+                    paddingBottom: '0.5rem',
+                    borderBottom: '1px solid var(--color-border)',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                  }}
+                >
                   Bilingual Cameroon Assessment Breakdown (Max 100%)
                 </div>
 
@@ -153,12 +166,13 @@ export default function SettingsPage() {
                       max="20"
                       className="form-input"
                       value={formData.attendance_max}
-                      onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, attendance_max: Number(e.target.value) })
+                      }
                       required
                     />
                     <div className="form-hint">Default: 5%</div>
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Coursework CA (%)</label>
                     <input
@@ -168,12 +182,13 @@ export default function SettingsPage() {
                       max="50"
                       className="form-input"
                       value={formData.coursework_max}
-                      onChange={(e) => setFormData({ ...formData, coursework_max: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, coursework_max: Number(e.target.value) })
+                      }
                       required
                     />
                     <div className="form-hint">Default: 25%</div>
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Final Exam (%)</label>
                     <input
@@ -183,7 +198,9 @@ export default function SettingsPage() {
                       max="100"
                       className="form-input"
                       value={formData.exam_max}
-                      onChange={(e) => setFormData({ ...formData, exam_max: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, exam_max: Number(e.target.value) })
+                      }
                       required
                     />
                     <div className="form-hint">Default: 70%</div>
@@ -199,11 +216,17 @@ export default function SettingsPage() {
                     max="100"
                     className="form-input"
                     value={formData.attendance_threshold}
-                    onChange={(e) => setFormData({ ...formData, attendance_threshold: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        attendance_threshold: Number(e.target.value),
+                      })
+                    }
                     required
                   />
                   <div className="form-hint">
-                    Students with overall attendance below this threshold ({formData.attendance_threshold}%) receive alerts before exams.
+                    Students with overall attendance below this threshold (
+                    {formData.attendance_threshold}%) receive alerts before exams.
                   </div>
                 </div>
 
@@ -221,7 +244,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Grading Scale Card */}
         <div className="card">
           <div className="card-header">
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -243,7 +265,9 @@ export default function SettingsPage() {
                   {defaultScale.map((scale, idx) => (
                     <tr key={idx}>
                       <td>
-                        <strong>{scale.min_score}% – {scale.max_score}%</strong>
+                        <strong>
+                          {scale.min_score}% – {scale.max_score}%
+                        </strong>
                       </td>
                       <td>
                         <span
@@ -251,8 +275,8 @@ export default function SettingsPage() {
                             scale.grade === 'A' || scale.grade === 'B'
                               ? 'badge-green'
                               : scale.grade === 'C' || scale.grade === 'D'
-                              ? 'badge-blue'
-                              : 'badge-red'
+                                ? 'badge-blue'
+                                : 'badge-red'
                           }`}
                           style={{ fontSize: '0.85rem' }}
                         >
@@ -268,9 +292,19 @@ export default function SettingsPage() {
                 </tbody>
               </table>
             </div>
-            <div style={{ padding: '1rem', fontSize: '0.78rem', color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)' }}>
-              <MdCheckCircle style={{ color: '#10B981', verticalAlign: 'middle', marginRight: '4px' }} />
-              Grade points and letter grades are applied automatically by database stored procedures upon mark entry.
+            <div
+              style={{
+                padding: '1rem',
+                fontSize: '0.78rem',
+                color: 'var(--color-text-muted)',
+                borderTop: '1px solid var(--color-border)',
+              }}
+            >
+              <MdCheckCircle
+                style={{ color: '#10B981', verticalAlign: 'middle', marginRight: '4px' }}
+              />
+              Grade points and letter grades are applied automatically by database stored
+              procedures upon mark entry.
             </div>
           </div>
         </div>
