@@ -1,2 +1,18 @@
--- RESTORED PLACEHOLDER - DO NOT USE
--- Full schema restore in progress
+-- UNHIMAS SCHOOL MANAGEMENT SYSTEM
+-- ============================================================
+-- IMPORTANT: Do not treat this file as the live production schema.
+--
+-- Source of truth: apply EVERY file in supabase/migrations/ in order.
+-- See supabase/MIGRATIONS.md for setup, Zoom/VAPID secrets, and roles.
+--
+-- A full historical bootstrap SQL snapshot previously lived in this file
+-- (approx. 66 KB). It is still recoverable from git history, for example:
+--
+--   git show 26289249ca5bde0eb143db7910a526a72527d2d4:unhimas/supabase/schema.sql
+--
+-- That snapshot is incomplete relative to later migrations (frontdesk removal,
+-- Zoom columns, attendance submit workflow, marks publish RPCs, etc.).
+-- Prefer migrations-only setup for all new environments.
+--
+-- Never put the Supabase service-role key in the frontend.
+-- ============================================================
