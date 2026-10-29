@@ -113,7 +113,22 @@ export async function getSubmissionDetail(id) {
   };
 }
 
+/**
+ * Approve or return a marksheet only.
+ * Publishing is batch-level — use publishBatchResults(), not this function.
+ */
 export async function reviewSubmission(id, { status, admin_comment = '' }) {
+  if (status === 'published') {
+    throw new Error(
+      'Results are published by batch, not by single course. Use “Publish batch results” (or Force publish) on Mark Approval.',
+    );
+  }
+
+  const allowed = ['approved', 'returned', 'submitted'];
+  if (!allowed.includes(status)) {
+    throw new Error(`Invalid review status: ${status}`);
+  }
+
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error('Your session has expired. Please sign in again.');
 
@@ -130,10 +145,6 @@ export async function reviewSubmission(id, { status, admin_comment = '' }) {
     reviewed_at: new Date().toISOString(),
     reviewed_by: profile.id,
   };
-
-  if (status === 'published') {
-    updates.published_at = new Date().toISOString();
-  }
 
   const { data, error } = await supabase
     .from('mark_submissions')
@@ -169,7 +180,7 @@ export async function listBatchSemesterReadiness() {
 /**
  * Publish approved mark submissions for a batch + semester.
  * - force=false (default): every course must be approved or already published.
- * - force=true: publish only courses that are approved; skip incomplete ones (admin override).
+ * - force=true: publish only courses that are approved; incomplete ones stay out of student results.
  */
 export async function publishBatchResults(batchId, semesterId, { force = false } = {}) {
   const { data, error } = await supabase.rpc('publish_batch_results', {
@@ -178,7 +189,7 @@ export async function publishBatchResults(batchId, semesterId, { force = false }
     p_force: Boolean(force),
   });
   if (error) throw error;
-  return data; // integer count of newly published submissions
+  return data;
 }
 
 // ============================================================
@@ -214,20 +225,15 @@ export async function updateSystemSettings(settingsId, updates) {
       .single();
     if (error) throw error;
     return data;
-  } else {
-    const { data, error } = await supabase
-      .from('settings')
-      .insert([updates])
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
   }
+  const { data, error } = await supabase
+    .from('settings')
+    .insert([updates])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
-
-// ============================================================
-// GRADING SCALE
-// ============================================================
 
 export async function getGradingScale() {
   const { data, error } = await supabase
@@ -238,10 +244,6 @@ export async function getGradingScale() {
   if (error) throw error;
   return data || [];
 }
-
-// ============================================================
-// AUDIT LOG
-// ============================================================
 
 export async function getAuditLogs({ limit = 50, action = null, tableName = null } = {}) {
   let query = supabase
