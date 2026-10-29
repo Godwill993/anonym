@@ -36,7 +36,6 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
 import StudentTransfersPage from './pages/admin/StudentTransfersPage';
 import AcademicEventsPage from './pages/admin/AcademicEventsPage';
-import AdminReportsHub from './pages/admin/AdminReportsHub';
 import LecturerHoursReportPage from './pages/admin/reports/LecturerHoursReportPage';
 import AttendanceReportPage from './pages/admin/reports/AttendanceReportPage';
 import CoursePerformanceReportPage from './pages/admin/reports/CoursePerformanceReportPage';
@@ -44,6 +43,8 @@ import ResultsReportPage from './pages/admin/reports/ResultsReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
+
+// Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
 import ShiftHistoryPage from './pages/admin/ShiftHistoryPage';
 
@@ -110,8 +111,10 @@ function App() {
               <Route path="/results" element={<PublicResultsPage />} />
               <Route path="/results/verify" element={<PublicResultsPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
               <Route path="/" element={<RoleRouter />} />
 
+              {/* Admin routes */}
               <Route
                 path="/admin/*"
                 element={
@@ -139,7 +142,6 @@ function App() {
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
-                      <Route path="reports" element={<AdminReportsHub />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
@@ -155,6 +157,7 @@ function App() {
                 }
               />
 
+              {/* Lecturer routes */}
               <Route
                 path="/lecturer/*"
                 element={
@@ -174,6 +177,7 @@ function App() {
                 }
               />
 
+              {/* Student routes */}
               <Route
                 path="/student/*"
                 element={
