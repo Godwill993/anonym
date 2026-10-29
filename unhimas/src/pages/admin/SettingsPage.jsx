@@ -14,10 +14,11 @@ import {
   MdAdminPanelSettings,
   MdHistory,
   MdBarChart,
-  MdHowToReg,
   MdLogin,
   MdCampaign,
   MdFolder,
+  MdPersonAdd,
+  MdBook,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
@@ -27,16 +28,19 @@ import {
   getGradingScale,
 } from '../../services/operationsService';
 
+/** Secondary screens — not in the sidebar; keep this list tight and non-duplicative. */
 const MORE_LINKS = [
   { to: '/admin/batches', label: 'Batches', icon: MdGroups },
+  { to: '/admin/batch-courses', label: 'Batch courses', icon: MdBook },
   { to: '/admin/academic-years', label: 'Years', icon: MdDateRange },
   { to: '/admin/semesters', label: 'Semesters', icon: MdSchedule },
   { to: '/admin/class-sessions', label: 'Sessions', icon: MdSchedule },
   { to: '/admin/academic-events', label: 'Events', icon: MdEvent },
   { to: '/admin/student-transfers', label: 'Transfers', icon: MdSwapHoriz },
+  { to: '/admin/create-account', label: 'Create account', icon: MdPersonAdd },
   { to: '/admin/staff', label: 'Admins', icon: MdAdminPanelSettings },
   { to: '/admin/results', label: 'Published results', icon: MdBarChart },
-  { to: '/admin/attendance/clock', label: 'Clock-in terminal', icon: MdLogin },
+  { to: '/admin/attendance', label: 'Attendance desk', icon: MdLogin },
   { to: '/admin/announcements', label: 'News', icon: MdCampaign },
   { to: '/admin/resources', label: 'Files', icon: MdFolder },
   { to: '/admin/audit-log', label: 'Audit log', icon: MdHistory },
