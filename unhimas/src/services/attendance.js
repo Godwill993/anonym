@@ -1,6 +1,6 @@
 /**
- * Attendance service — re-exports from the modules that own attendance logic.
- * Prefer importing directly from lecturerService / studentService / campusOpsService.
+ * Attendance barrel — re-exports from modules that own attendance logic.
+ * Prefer importing from lecturerService / studentService / campusOpsService / attendanceSubmit.
  */
 
 export {
@@ -11,6 +11,12 @@ export {
   getSessionsForBatchCourse,
   createClassSession,
 } from './lecturerService';
+
+export {
+  submitSessionAttendance,
+  resubmitSessionAttendance,
+  canEditSessionAttendance,
+} from './attendanceSubmit';
 
 export {
   getMyAttendance,

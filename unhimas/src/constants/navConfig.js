@@ -27,6 +27,9 @@ import {
  *  Batch programme (courses) is managed on the Batches page — not a separate nav item.
  *  Campus operations (clock-in) are admin-only.
  *  Profile is intentionally omitted — it lives in the header user menu.
+ *
+ *  Class attendance approval: /admin/attendance (student class sessions submitted by lecturers).
+ *  Lecturer clock-in: /admin/lecturer-attendance (campus presence).
  */
 export const NAV_CONFIG = {
   admin: [
@@ -91,7 +94,7 @@ export const NAV_CONFIG = {
     {
       group: 'Campus Operations',
       items: [
-        { key: 'lecturer-attendance', label: 'Lecturer Attendance', path: '/admin/lecturer-attendance', icon: MdLogin, capability: 'clock_lecturers' },
+        { key: 'lecturer-attendance', label: 'Lecturer Clock-in', path: '/admin/lecturer-attendance', icon: MdLogin, capability: 'clock_lecturers' },
         { key: 'shift-history', label: 'Shift History', path: '/admin/shift-history', icon: MdHistory, capability: 'clock_lecturers' },
       ],
     },
@@ -104,6 +107,13 @@ export const NAV_CONFIG = {
         { key: 'academic-events', label: 'Academic Events', path: '/admin/academic-events', icon: MdDateRange, capability: 'manage_academic_structure' },
         { key: 'marks', label: 'Marks', path: '/admin/marks', icon: MdGrade },
         { key: 'mark-approval', label: 'Mark Approval', path: '/admin/mark-approval', icon: MdAssignment, capability: 'approve_marks' },
+        {
+          key: 'class-attendance',
+          label: 'Class Attendance',
+          path: '/admin/attendance',
+          icon: MdHowToReg,
+          capability: 'approve_attendance',
+        },
         { key: 'results', label: 'Results', path: '/admin/results', icon: MdBarChart },
         { key: 'announcements', label: 'Announcements', path: '/admin/announcements', icon: MdCampaign },
         { key: 'resources', label: 'Resources', path: '/admin/resources', icon: MdFolder },
@@ -139,8 +149,13 @@ export const NAV_CONFIG = {
       group: 'Teaching',
       items: [
         { key: 'my-courses', label: 'My Courses', path: '/lecturer/courses', icon: MdBook },
-        { key: 'class-sessions', label: 'Class Sessions', path: '/lecturer/sessions', icon: MdSchedule },
-        { key: 'attendance', label: 'Attendance', path: '/lecturer/attendance', icon: MdHowToReg, capability: 'mark_attendance' },
+        {
+          key: 'sessions-attendance',
+          label: 'Sessions & Attendance',
+          path: '/lecturer/sessions',
+          icon: MdHowToReg,
+          capability: 'mark_attendance',
+        },
         { key: 'marks', label: 'Marks', path: '/lecturer/marks', icon: MdGrade, capability: 'enter_marks' },
       ],
     },

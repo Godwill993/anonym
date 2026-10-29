@@ -1,7 +1,8 @@
 /**
  * Role and permission helpers for UNHIMAS.
- * Administrators handle campus operations (clock-in).
+ * Administrators handle campus operations (clock-in) and academic approvals.
  * Up to three administrator accounts are allowed (enforced in DB).
+ * Roles in use: admin, lecturer, student (frontdesk removed).
  */
 
 export const ROLES = Object.freeze({
@@ -40,14 +41,16 @@ export function isActiveAccount(profile) {
 }
 
 /**
- * Capability matrix — expand as fine-grained permissions are needed.
+ * Capability matrix.
  * Keys are capability names; values are roles that may perform them.
+ * UI nav uses these; RLS remains the real security boundary.
  */
 const CAPABILITIES = Object.freeze({
   manage_academic_structure: [ROLES.ADMIN],
   manage_people: [ROLES.ADMIN],
   create_accounts: [ROLES.ADMIN],
   approve_marks: [ROLES.ADMIN],
+  approve_attendance: [ROLES.ADMIN],
   publish_results: [ROLES.ADMIN],
   manage_announcements: [ROLES.ADMIN],
   manage_resources: [ROLES.ADMIN],
