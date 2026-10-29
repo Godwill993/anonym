@@ -19,6 +19,7 @@ import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
 import { useToast } from '../../hooks/useToast';
+import ProfileUnlinkedState from '../../components/common/ProfileUnlinkedState';
 import {
   getMyLecturerProfile,
   getLecturerDashboardStats,
@@ -28,8 +29,6 @@ import {
   getMyNotifications,
 } from '../../services/lecturerService';
 import { createZoomMeeting } from '../../services/zoomService';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(iso) {
   if (!iso) return '--:--';
@@ -52,8 +51,6 @@ function statusBadge(status) {
   const s = map[status] || { cls: 'badge-gray', label: status };
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, value, label, color = 'blue', link, alert }) {
   const { translateText } = useTranslation();
@@ -81,8 +78,6 @@ function StatSkeleton() {
     </div>
   );
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LecturerDashboard() {
   const { language, translateText } = useTranslation();
@@ -199,20 +194,11 @@ export default function LecturerDashboard() {
   if (lecError) {
     return (
       <AppLayout pageTitle="Lecturer Dashboard">
-        <div className="empty-state">
-          <div className="empty-state-icon"><MdWarning /></div>
-          <div className="empty-state-title">{translateText('Profile Not Linked')}</div>
-          <p className="empty-state-text">
-            {lecError.code === 'PGRST116'
-              ? translateText('Your account is not yet linked to a lecturer profile. Please contact the administrator.')
-              : translateText('Your lecturer profile could not be loaded. Check your connection and try again.')}
-          </p>
-          {lecError.code !== 'PGRST116' && (
-            <button className="btn btn-outline btn-sm" onClick={() => refetchLecturerProfile()}>
-              <MdRefresh /> {translateText('Try again')}
-            </button>
-          )}
-        </div>
+        <ProfileUnlinkedState
+          role="lecturer"
+          errorCode={lecError.code}
+          onRetry={() => refetchLecturerProfile()}
+        />
       </AppLayout>
     );
   }
@@ -311,13 +297,12 @@ export default function LecturerDashboard() {
       </div>
 
       <div className="lecturer-dashboard-grid">
-        {/* Today's Sessions + Zoom */}
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSchedule color="var(--color-primary)" /> Today's Sessions
+              <MdSchedule color="var(--color-primary)" /> {translateText("Today's Sessions")}
             </span>
-            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">View All</Link>
+            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">{translateText('View All')}</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {sessionsLoading ? (
@@ -332,19 +317,19 @@ export default function LecturerDashboard() {
             ) : sessionsError ? (
               <div className="empty-state" role="alert" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdWarning /></div>
-                <div className="empty-state-title">Sessions unavailable</div>
-                <p className="empty-state-text">Today&apos;s sessions could not be loaded.</p>
+                <div className="empty-state-title">{translateText('Sessions unavailable')}</div>
+                <p className="empty-state-text">{translateText("Today's sessions could not be loaded.")}</p>
                 <button className="btn btn-outline btn-sm" onClick={() => refetchToday()}>
-                  <MdRefresh /> Retry
+                  <MdRefresh /> {translateText('Retry')}
                 </button>
               </div>
             ) : todaySessions.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdSchedule /></div>
-                <div className="empty-state-title">No sessions today</div>
-                <p className="empty-state-text">You have no scheduled classes today.</p>
+                <div className="empty-state-title">{translateText('No sessions today')}</div>
+                <p className="empty-state-text">{translateText('You have no scheduled classes today.')}</p>
                 <Link to="/lecturer/sessions" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
-                  Create a session
+                  {translateText('Create a session')}
                 </Link>
               </div>
             ) : (
@@ -398,7 +383,7 @@ export default function LecturerDashboard() {
                           className="btn btn-primary btn-sm"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
-                          <MdVideocam size={14} /> Start Meeting
+                          <MdVideocam size={14} /> {translateText('Start Meeting')}
                         </a>
                       ) : (
                         <button
@@ -409,14 +394,14 @@ export default function LecturerDashboard() {
                           onClick={() => handleAddZoom(s)}
                         >
                           <MdVideocam size={14} />
-                          {zoomLoading === s.id ? 'Creating…' : 'Add Zoom'}
+                          {zoomLoading === s.id ? translateText('Creating…') : translateText('Add Zoom')}
                         </button>
                       )}
                       <Link
                         to={`/lecturer/sessions?bc=${s.batch_courses?.id}`}
                         className="btn btn-ghost btn-sm"
                       >
-                        <MdHowToReg /> Attend
+                        <MdHowToReg /> {translateText('Attend')}
                       </Link>
                     </div>
                   </div>
@@ -426,13 +411,12 @@ export default function LecturerDashboard() {
           </div>
         </div>
 
-        {/* Mark Submissions Status */}
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdGrade color="var(--color-secondary)" /> My Marks
+              <MdGrade color="var(--color-secondary)" /> {translateText('My Marks')}
             </span>
-            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">Manage Marks</Link>
+            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">{translateText('Manage Marks')}</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {marksLoading ? (
@@ -445,177 +429,123 @@ export default function LecturerDashboard() {
                 ))}
               </div>
             ) : marksError ? (
-              <div className="empty-state" role="alert" style={{ padding: '2rem' }}>
-                <div className="empty-state-icon"><MdWarning /></div>
-                <div className="empty-state-title">Marks unavailable</div>
-                <p className="empty-state-text">Your mark submissions could not be loaded.</p>
+              <div className="empty-state" style={{ padding: '2rem' }}>
+                <div className="empty-state-title">{translateText('Marks unavailable')}</div>
+                <p className="empty-state-text">{translateText('Mark submissions could not be loaded.')}</p>
               </div>
             ) : markSubmissions.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <div className="empty-state-icon"><MdGrade /></div>
-                <div className="empty-state-title">No mark submissions yet</div>
-                <p className="empty-state-text">Start entering marks for your courses.</p>
-                <Link to="/lecturer/marks" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>Enter Marks</Link>
+                <div className="empty-state-title">{translateText('No mark entries yet')}</div>
+                <p className="empty-state-text">{translateText('Start entering marks for an assigned course.')}</p>
+                <Link to="/lecturer/marks" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
+                  {translateText('Open Marks')}
+                </Link>
               </div>
             ) : (
-              <div>
-                {markSubmissions.slice(0, 6).map((m) => (
-                  <div
-                    key={m.id}
-                    style={{
-                      padding: '0.875rem 1.25rem',
-                      borderBottom: '1px solid var(--color-border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {m.batch_courses?.courses?.code} — {m.batch_courses?.courses?.name}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                        {m.batch_courses?.batches?.name} · Sem {m.batch_courses?.semesters?.number}
-                      </div>
-                      {m.status === 'returned' && m.admin_comment && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', marginTop: 2 }}>
-                          {m.admin_comment}
-                        </div>
-                      )}
-                    </div>
-                    {statusBadge(m.status)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Upcoming */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSchedule color="var(--color-primary)" /> Upcoming
-            </span>
-            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">View All</Link>
-          </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {upcomingLoading ? (
-              <div style={{ padding: '1rem' }}>
-                <div className="skeleton skeleton-text" style={{ width: '70%', marginBottom: 8 }} />
-                <div className="skeleton skeleton-text" style={{ width: '50%' }} />
-              </div>
-            ) : upcomingSessions.length === 0 ? (
-              <div className="empty-state" style={{ padding: '1.5rem' }}>
-                <div className="empty-state-title">No upcoming sessions</div>
-              </div>
-            ) : (
-              upcomingSessions.map((s) => (
+              markSubmissions.slice(0, 6).map((m) => (
                 <div
-                  key={s.id}
+                  key={m.id}
                   style={{
                     padding: '0.75rem 1.25rem',
                     borderBottom: '1px solid var(--color-border)',
                     display: 'flex',
-                    gap: '0.75rem',
                     alignItems: 'center',
+                    gap: '0.75rem',
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                      {s.batch_courses?.courses?.name}
-                      {s.zoom_join_url && (
-                        <span style={{ marginLeft: 6, fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
-                          ONLINE
-                        </span>
-                      )}
+                      {m.batch_courses?.courses?.code} — {m.batch_courses?.courses?.name}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                      {s.batch_courses?.batches?.name} · {fmtDate(s.scheduled_start)} {fmtTime(s.scheduled_start)}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      {m.batch_courses?.batches?.name}
                     </div>
                   </div>
-                  {(s.zoom_start_url || s.zoom_join_url) && (
-                    <a
-                      href={s.zoom_start_url || s.zoom_join_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-outline btn-sm"
-                      style={{ fontSize: '0.72rem' }}
-                    >
-                      <MdVideocam size={13} /> Start
-                    </a>
-                  )}
+                  {statusBadge(m.status)}
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* Notifications */}
         <div className="card">
           <div className="card-header">
             <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdNotifications color="var(--color-secondary)" /> Recent Notifications
+              <MdSchedule color="var(--color-primary)" /> {translateText('Upcoming')}
             </span>
-            <Link to="/lecturer/notifications" className="btn btn-ghost btn-sm">View All</Link>
+            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">{translateText('View All')}</Link>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {upcomingLoading ? (
+              <div style={{ padding: '1rem' }}>
+                {[1, 2].map((i) => (
+                  <div key={i} className="skeleton skeleton-text" style={{ height: 36, marginBottom: 10 }} />
+                ))}
+              </div>
+            ) : upcomingSessions.length === 0 ? (
+              <div className="empty-state" style={{ padding: '2rem' }}>
+                <div className="empty-state-title">{translateText('No upcoming sessions')}</div>
+                <p className="empty-state-text">{translateText('Nothing scheduled for the next few days.')}</p>
+              </div>
+            ) : (
+              upcomingSessions.slice(0, 5).map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    borderBottom: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                    {s.batch_courses?.courses?.code} — {s.batch_courses?.courses?.name}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                    {fmtDate(s.scheduled_start)} · {fmtTime(s.scheduled_start)} – {fmtTime(s.scheduled_end)}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <MdNotifications color="var(--color-primary)" /> {translateText('Notifications')}
+            </span>
+            <Link to="/lecturer/notifications" className="btn btn-ghost btn-sm">{translateText('View all')}</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {notifsLoading ? (
               <div style={{ padding: '1rem' }}>
-                {[1, 2].map((i) => (
-                  <div key={i} style={{ marginBottom: 10 }}>
-                    <div className="skeleton skeleton-text" style={{ width: '80%', marginBottom: 4 }} />
-                    <div className="skeleton skeleton-text" style={{ width: '55%' }} />
-                  </div>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton skeleton-text" style={{ height: 32, marginBottom: 10 }} />
                 ))}
               </div>
             ) : notifications.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
-                <div className="empty-state-icon"><MdNotifications /></div>
-                <div className="empty-state-title">No notifications</div>
-                <p className="empty-state-text">You&apos;re all caught up!</p>
+                <div className="empty-state-title">{translateText('No notifications')}</div>
+                <p className="empty-state-text">{translateText("You're all caught up!")}</p>
               </div>
             ) : (
-              <div>
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    style={{
-                      padding: '0.875rem 1.25rem',
-                      borderBottom: '1px solid var(--color-border)',
-                      background: n.is_read ? 'transparent' : 'rgba(183,0,50,0.04)',
-                      display: 'flex',
-                      gap: '0.75rem',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    {!n.is_read && (
-                      <div
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          background: 'var(--color-secondary)',
-                          flexShrink: 0,
-                          marginTop: 5,
-                        }}
-                      />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: n.is_read ? 500 : 700, fontSize: '0.875rem', color: 'var(--color-text)' }}>
-                        {n.title}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                        {n.message}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                        {fmtDate(n.created_at)}
-                      </div>
-                    </div>
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    borderBottom: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div style={{ fontWeight: n.is_read ? 500 : 700, fontSize: '0.875rem' }}>{n.title}</div>
+                  {n.message && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 4 }}>{n.message}</div>
+                  )}
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+                    {fmtDate(n.created_at)}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))
             )}
           </div>
         </div>
