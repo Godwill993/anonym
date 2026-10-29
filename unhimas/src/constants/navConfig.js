@@ -123,10 +123,10 @@ export const NAV_CONFIG = {
     {
       group: 'Reports',
       items: [
-        { key: 'report-lecturer-hours', label: 'Lecturer Hours', path: '/admin/reports/lecturer-hours', icon: MdAccessTime },
-        { key: 'report-attendance', label: 'Attendance Report', path: '/admin/reports/attendance', icon: MdHowToReg },
-        { key: 'report-performance', label: 'Course Performance', path: '/admin/reports/course-performance', icon: MdBarChart },
-        { key: 'report-results', label: 'Results Report', path: '/admin/reports/results', icon: MdBarChart },
+        { key: 'lecturer-hours', label: 'Lecturer Hours', path: '/admin/reports/lecturer-hours', icon: MdAccessTime },
+        { key: 'attendance-reports', label: 'Attendance Reports', path: '/admin/reports/attendance', icon: MdHowToReg },
+        { key: 'course-performance', label: 'Academic Performance', path: '/admin/reports/course-performance', icon: MdBarChart },
+        { key: 'results-reports', label: 'Results Reports', path: '/admin/reports/results', icon: MdBarChart },
       ],
     },
     {
