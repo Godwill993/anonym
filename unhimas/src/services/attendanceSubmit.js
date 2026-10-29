@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { canEditAttendanceSession } from '../lib/marksWorkflow';
 
 /** Submit session attendance for admin review (draft/returned → submitted). */
 export async function submitSessionAttendance(sessionId) {
@@ -36,6 +37,5 @@ export async function resubmitSessionAttendance(sessionId) {
 
 /** Whether lecturer may still edit attendance for this session. */
 export function canEditSessionAttendance(session) {
-  const st = session?.attendance_status || 'draft';
-  return st === 'draft' || st === 'returned';
+  return canEditAttendanceSession(session?.attendance_status);
 }
