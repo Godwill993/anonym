@@ -26,6 +26,7 @@ export default function MarkApprovalPage() {
   const [returnComment, setReturnComment] = useState('');
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [submissionToReturn, setSubmissionToReturn] = useState(null);
+  const [forcePublishTarget, setForcePublishTarget] = useState(null);
 
   const { data: submissions = [], isLoading } = useQuery({
     queryKey: ['admin-mark-submissions', statusFilter],
@@ -67,11 +68,24 @@ export default function MarkApprovalPage() {
   });
 
   const publishBatchMutation = useMutation({
-    mutationFn: ({ batchId, semesterId }) => publishBatchResults(batchId, semesterId),
-    onSuccess: (count) => {
+    mutationFn: ({ batchId, semesterId, force = false }) =>
+      publishBatchResults(batchId, semesterId, { force }),
+    onSuccess: (count, vars) => {
       queryClient.invalidateQueries({ queryKey: ['admin-mark-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['batch-semester-readiness'] });
-      toast.success(translateText(`${count} course results published for this batch`));
+      queryClient.invalidateQueries({ queryKey: ['admin-submission-detail'] });
+      setForcePublishTarget(null);
+      if (vars?.force) {
+        toast.success(
+          translateText('Force-published approved courses only') +
+            (count != null ? ` (${count})` : ''),
+        );
+      } else {
+        toast.success(
+          translateText('Batch results published') +
+            (count != null ? ` (${count} courses)` : ''),
+        );
+      }
     },
     onError: (err) => toast.error(err.message || translateText('Batch publish failed')),
   });
@@ -113,16 +127,28 @@ export default function MarkApprovalPage() {
   const handlePublishFromRow = (sub) => {
     const batchId = sub?.batch_courses?.batches?.id;
     const semesterId = sub?.batch_courses?.semesters?.id;
-    const row = batchId && semesterId ? batchReadiness.find((r) => r.batch_id === batchId && r.semester_id === semesterId) : null;
-    if (row?.can_publish && batchId && semesterId) {
-      publishBatchMutation.mutate({ batchId, semesterId });
+    if (!batchId || !semesterId) {
+      toast.error(translateText('This marksheet is missing batch or semester information'));
       return;
     }
-    if (batchReadiness.length === 0) {
-      reviewMutation.mutate({ id: sub.id, status: 'published', admin_comment: 'Officially published to transcripts' });
+    const row = batchReadiness.find((r) => r.batch_id === batchId && r.semester_id === semesterId);
+    if (!row) {
+      toast.error(translateText('Could not load batch readiness. Refresh and try again.'));
       return;
     }
-    toast.error(translateText('All courses in this batch must be approved before publishing'));
+    if (row.can_publish) {
+      publishBatchMutation.mutate({ batchId, semesterId, force: false });
+      return;
+    }
+    if (row.ready_courses > 0 && row.pending_courses > 0) {
+      setForcePublishTarget({ batchId, semesterId, row });
+      return;
+    }
+    toast.error(
+      translateText(
+        'All courses in this batch must be approved before publishing. Wait for remaining marksheets, or approve them first.',
+      ),
+    );
   };
 
   const getStatusBadge = (status) => {
@@ -151,7 +177,7 @@ export default function MarkApprovalPage() {
         <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
           <li>{translateText('Lecturer: Mark Entry → Save All → Submit for Review')}</li>
           <li>{translateText('Admin: Approve, or Return with complaint (message required)')}</li>
-          <li>{translateText('When every course in a batch is approved → Publish batch results')}</li>
+          <li>{translateText('When every course in a batch is approved → Publish batch results. If one course is still missing, admin may Force publish approved courses only.')}</li>
         </ol>
       </div>
 
@@ -246,6 +272,14 @@ export default function MarkApprovalPage() {
                 {detailData?.batch_courses?.courses?.code} — {detailData?.batch_courses?.courses?.name}
               </h2>
               <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{getStatusBadge(detailData?.status)}</div>
+              {selectedBatchReady && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+                  {translateText('Batch readiness')}: {selectedBatchReady.ready_courses}/{selectedBatchReady.total_courses}
+                  {selectedBatchReady.pending_courses > 0
+                    ? ` · ${selectedBatchReady.pending_courses} ${translateText('pending')}`
+                    : ''}
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
               {detailData?.status === 'submitted' && mayApprove && (
@@ -259,8 +293,25 @@ export default function MarkApprovalPage() {
                 </>
               )}
               {detailData?.status === 'approved' && mayPublish && (
-                <button type="button" className="btn btn-primary btn-sm" style={{ background: '#059669' }} disabled={publishBatchMutation.isPending || (selectedBatchReady && !selectedBatchReady.can_publish)} onClick={() => handlePublishFromRow(detailData)}>
-                  <MdPublish /> {translateText('Publish batch results')}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{
+                    background:
+                      selectedBatchReady && !selectedBatchReady.can_publish ? '#b45309' : '#059669',
+                  }}
+                  disabled={
+                    publishBatchMutation.isPending ||
+                    (selectedBatchReady &&
+                      !selectedBatchReady.can_publish &&
+                      !(selectedBatchReady.ready_courses > 0 && selectedBatchReady.pending_courses > 0))
+                  }
+                  onClick={() => handlePublishFromRow(detailData)}
+                >
+                  <MdPublish />{' '}
+                  {selectedBatchReady && !selectedBatchReady.can_publish
+                    ? translateText('Force publish…')
+                    : translateText('Publish batch results')}
                 </button>
               )}
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedSubmissionId(null)}>{translateText('Close')}</button>
@@ -323,6 +374,61 @@ export default function MarkApprovalPage() {
         </p>
         <label className="form-label">{translateText('Complaint / instructions for lecturer')} *</label>
         <textarea className="form-input" rows={5} value={returnComment} onChange={(e) => setReturnComment(e.target.value)} placeholder={translateText('e.g. Exam scores for students 3–5 exceed the maximum; please correct.')} />
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(forcePublishTarget)}
+        onClose={() => setForcePublishTarget(null)}
+        title={translateText('Force publish batch results')}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setForcePublishTarget(null)}>
+              {translateText('Cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: '#b45309' }}
+              disabled={publishBatchMutation.isPending}
+              onClick={() => {
+                if (!forcePublishTarget) return;
+                publishBatchMutation.mutate({
+                  batchId: forcePublishTarget.batchId,
+                  semesterId: forcePublishTarget.semesterId,
+                  force: true,
+                });
+              }}
+            >
+              {publishBatchMutation.isPending
+                ? translateText('Publishing…')
+                : translateText('Force publish approved courses')}
+            </button>
+          </>
+        }
+      >
+        {forcePublishTarget?.row && (
+          <div style={{ fontSize: '0.875rem', lineHeight: 1.5 }}>
+            <p>
+              <strong>{forcePublishTarget.row.batch_name}</strong>
+              {' · '}
+              {forcePublishTarget.row.semester_name}
+              {forcePublishTarget.row.academic_year
+                ? ` · ${forcePublishTarget.row.academic_year}`
+                : ''}
+            </p>
+            <p style={{ color: 'var(--color-text-muted)' }}>
+              {translateText('Ready')}: {forcePublishTarget.row.ready_courses} /{' '}
+              {forcePublishTarget.row.total_courses}
+              {' · '}
+              {translateText('Still pending')}: {forcePublishTarget.row.pending_courses}
+            </p>
+            <p style={{ marginTop: '0.75rem' }}>
+              {translateText(
+                'Force publish releases only courses that are already approved. Draft, submitted, or returned courses will not appear on student results until they are approved and published later.',
+              )}
+            </p>
+          </div>
+        )}
       </Modal>
     </AppLayout>
   );
