@@ -2,74 +2,223 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MdHistory } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
-import DataTable from '../../components/common/DataTable';
-import { supabase } from '../../lib/supabase';
+import { getShiftHistory } from '../../services/campusOpsService';
+import { getDepartments } from '../../services/academicService';
+import { getLecturers } from '../../services/peopleService';
 
 export default function ShiftHistoryPage() {
-  const [limit] = useState(100);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedLecturer, setSelectedLecturer] = useState('');
+  const [selectedDept, setSelectedDept] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
 
   const { data: shifts = [], isLoading } = useQuery({
-    queryKey: ['admin-shift-history', limit],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('lecturer_shifts')
-        .select('*, lecturers (staff_id, first_name, last_name, departments (abbreviation))')
-        .order('clock_in', { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      return data || [];
-    },
+    queryKey: ['admin-shift-history', selectedDate, selectedLecturer, selectedDept, selectedStatus],
+    queryFn: () =>
+      getShiftHistory({
+        date: selectedDate || null,
+        lecturerId: selectedLecturer || null,
+        departmentId: selectedDept || null,
+        status: selectedStatus || null,
+      }),
   });
 
-  const columns = [
-    {
-      header: 'Lecturer',
-      accessorFn: (r) =>
-        r.lecturers
-          ? `${r.lecturers.first_name || ''} ${r.lecturers.last_name || ''}`.trim()
-          : '—',
-    },
-    {
-      header: 'Staff ID',
-      accessorFn: (r) => r.lecturers?.staff_id || '—',
-    },
-    {
-      header: 'Dept',
-      accessorFn: (r) => r.lecturers?.departments?.abbreviation || '—',
-    },
-    {
-      header: 'Clock In',
-      accessorFn: (r) => (r.clock_in ? new Date(r.clock_in).toLocaleString('en-GB') : '—'),
-    },
-    {
-      header: 'Clock Out',
-      accessorFn: (r) => (r.clock_out ? new Date(r.clock_out).toLocaleString('en-GB') : '—'),
-    },
-    {
-      header: 'Status',
-      accessorFn: (r) => r.status || '—',
-    },
-  ];
+  const { data: departments = [] } = useQuery({
+    queryKey: ['admin-departments'],
+    queryFn: getDepartments,
+  });
+
+  const { data: lecturers = [] } = useQuery({
+    queryKey: ['admin-lecturers'],
+    queryFn: () => getLecturers(),
+  });
+
+  let totalFilteredHours = 0;
+  shifts.forEach((s) => {
+    if (s.clock_out) {
+      const hrs = (new Date(s.clock_out) - new Date(s.clock_in)) / (1000 * 60 * 60);
+      if (hrs > 0) totalFilteredHours += hrs;
+    }
+  });
+
+  const handleResetFilters = () => {
+    setSelectedDate('');
+    setSelectedLecturer('');
+    setSelectedDept('');
+    setSelectedStatus('');
+  };
 
   return (
     <AppLayout pageTitle="Shift History">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">
-            <MdHistory style={{ verticalAlign: 'middle', marginRight: 8 }} />
-            Shift History
-          </h1>
-          <p className="page-subtitle">Past and current faculty campus clock-ins</p>
+          <h1 className="page-title">Lecturer Shift History & Logs</h1>
+          <p className="page-subtitle">
+            Historical digital registry of faculty campus presence and calculated teaching hours
+          </p>
+        </div>
+        <div className="page-header-actions">
+          <div
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              padding: '0.5rem 1rem',
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            Total Filtered Hours:{' '}
+            <span style={{ color: 'var(--color-primary)', fontWeight: 800 }}>
+              {totalFilteredHours.toFixed(2)} hrs
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <div className="card-body" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
+          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+            <label className="form-label">Date</label>
+            <input
+              type="date"
+              className="form-input"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
+            <label className="form-label">Lecturer</label>
+            <select
+              className="form-input"
+              value={selectedLecturer}
+              onChange={(e) => setSelectedLecturer(e.target.value)}
+            >
+              <option value="">All lecturers</option>
+              {lecturers.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.first_name} {l.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ margin: 0, minWidth: 140 }}>
+            <label className="form-label">Department</label>
+            <select
+              className="form-input"
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+            >
+              <option value="">All departments</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.abbreviation || d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ margin: 0, minWidth: 120 }}>
+            <label className="form-label">Status</label>
+            <select
+              className="form-input"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm" onClick={handleResetFilters}>
+            Reset
+          </button>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-body" style={{ padding: 0 }}>
-          {isLoading ? (
-            <div style={{ padding: '1.5rem', textAlign: 'center' }}>Loading…</div>
-          ) : (
-            <DataTable columns={columns} data={shifts} emptyMessage="No shift records" />
-          )}
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Lecturer</th>
+                <th>Department</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Clocked In By</th>
+                <th>Clocked Out By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                    Loading…
+                  </td>
+                </tr>
+              ) : shifts.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div className="empty-state">
+                      <MdHistory className="empty-state-icon" />
+                      <div className="empty-state-title">No Shift Records Found</div>
+                      <div className="empty-state-text">
+                        Shift records matching the selected date and criteria will appear here.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                shifts.map((shift) => {
+                  let duration = 'Active Now';
+                  if (shift.clock_out) {
+                    const diff =
+                      (new Date(shift.clock_out) - new Date(shift.clock_in)) / (1000 * 60 * 60);
+                    duration = `${diff.toFixed(2)} hrs`;
+                  }
+                  return (
+                    <tr key={shift.id}>
+                      <td>
+                        <strong>
+                          {shift.lecturers?.first_name} {shift.lecturers?.last_name}
+                        </strong>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                          ID: {shift.lecturers?.staff_id}
+                        </div>
+                      </td>
+                      <td>
+                        {shift.lecturers?.departments?.name
+                          ? `${shift.lecturers.departments.name} (${shift.lecturers.departments.abbreviation})`
+                          : '—'}
+                      </td>
+                      <td>{new Date(shift.clock_in).toLocaleString()}</td>
+                      <td>{shift.clock_out ? new Date(shift.clock_out).toLocaleString() : '—'}</td>
+                      <td>
+                        <strong style={{ color: shift.status === 'open' ? '#059669' : 'inherit' }}>
+                          {duration}
+                        </strong>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            shift.status === 'open' ? 'badge-green' : 'badge-blue'
+                          }`}
+                        >
+                          {(shift.status || '—').toUpperCase()}
+                        </span>
+                      </td>
+                      <td>{shift.clock_in_staff?.full_name || 'Administrator'}</td>
+                      <td>
+                        {shift.clock_out_staff?.full_name ||
+                          (shift.clock_out ? 'Administrator' : '—')}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </AppLayout>
