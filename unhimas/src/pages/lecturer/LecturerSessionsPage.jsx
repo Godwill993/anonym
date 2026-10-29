@@ -17,11 +17,28 @@ import {
   upsertAttendance,
   markAllPresent,
 } from '../../services/lecturerService';
+import {
+  submitSessionAttendance,
+  resubmitSessionAttendance,
+  canEditSessionAttendance,
+} from '../../services/attendanceSubmit';
 import { createZoomMeeting, deleteZoomMeeting } from '../../services/zoomService';
 import { splitLocalDateTime, combineLocalDateTime } from '../../utils/sessionDateTime';
-import { MdAdd, MdEdit, MdDelete, MdHowToReg, MdVideocam, MdVideocamOff } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdHowToReg, MdVideocam, MdVideocamOff, MdSend, MdReplay } from 'react-icons/md';
 
 const emptyForm = { session_date: '', start_time: '', end_time: '', room: '', topic: '', notes: '', is_online: false };
+
+function attendanceStatusBadge(status) {
+  const st = status || 'draft';
+  const map = {
+    draft: ['badge-gray', 'Draft'],
+    submitted: ['badge-amber', 'Submitted — awaiting admin'],
+    returned: ['badge-red', 'Returned by admin'],
+    approved: ['badge-green', 'Approved'],
+  };
+  const [cls, label] = map[st] || ['badge-gray', st];
+  return <span className={`badge ${cls}`}>{label}</span>;
+}
 
 export default function LecturerSessionsPage() {
   const { session, profile } = useAuth();
@@ -55,6 +72,8 @@ export default function LecturerSessionsPage() {
   });
 
   const selectedCourse = courses.find((c) => c.id === selectedBcId);
+  const selectedSession = sessions.find((s) => s.id === selectedSessionId) || null;
+  const attendanceEditable = canEditSessionAttendance(selectedSession);
 
   const { data: students = [] } = useQuery({
     queryKey: ['students-in-batch', selectedCourse?.batches?.id],
@@ -130,6 +149,20 @@ export default function LecturerSessionsPage() {
       if (data?.id) setSelectedSessionId(data.id);
     },
     onError: (err) => showToast(err.message || 'Failed to save session', 'error'),
+  });
+
+  const submitAttendanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedSessionId) throw new Error('No session selected');
+      const st = selectedSession?.attendance_status || 'draft';
+      if (st === 'returned') return resubmitSessionAttendance(selectedSessionId);
+      return submitSessionAttendance(selectedSessionId);
+    },
+    onSuccess: () => {
+      showToast('Attendance submitted to admin for approval', 'success');
+      refetchSessions();
+    },
+    onError: (err) => showToast(err.message || 'Could not submit attendance', 'error'),
   });
 
   const openCreate = () => {
@@ -212,6 +245,10 @@ export default function LecturerSessionsPage() {
 
   const markStatus = async (studentId, status) => {
     if (!selectedSessionId) return;
+    if (!attendanceEditable) {
+      showToast('Attendance is locked. Wait for admin return or use a draft session.', 'error');
+      return;
+    }
     try {
       await upsertAttendance({
         session_id: selectedSessionId,
@@ -227,6 +264,10 @@ export default function LecturerSessionsPage() {
 
   const markAll = async () => {
     if (!selectedSessionId || students.length === 0) return;
+    if (!attendanceEditable) {
+      showToast('Attendance is locked. Wait for admin return or use a draft session.', 'error');
+      return;
+    }
     try {
       await markAllPresent(selectedSessionId, students.map((s) => s.id), profile?.id);
       showToast('All students marked present.', 'success');
@@ -243,7 +284,7 @@ export default function LecturerSessionsPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Class Sessions & Attendance</h1>
-          <p className="page-subtitle">Create sessions for your courses and mark student attendance</p>
+          <p className="page-subtitle">Create sessions, mark attendance, then submit to admin for approval</p>
         </div>
       </div>
 
@@ -307,7 +348,7 @@ export default function LecturerSessionsPage() {
                           cursor: 'pointer',
                         }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           {new Date(s.scheduled_start).toLocaleDateString('en-GB', {
                             day: 'numeric', month: 'short', year: 'numeric',
                           })}
@@ -316,6 +357,7 @@ export default function LecturerSessionsPage() {
                               ONLINE
                             </span>
                           )}
+                          {attendanceStatusBadge(s.attendance_status)}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                           {new Date(s.scheduled_start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -385,21 +427,60 @@ export default function LecturerSessionsPage() {
           </div>
 
           <div className="card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <span className="card-title">
                 <MdHowToReg style={{ verticalAlign: 'middle', marginRight: 6 }} />
                 Attendance
+                {selectedSession && (
+                  <span style={{ marginLeft: 8, fontWeight: 500 }}>{attendanceStatusBadge(selectedSession.attendance_status)}</span>
+                )}
               </span>
-              {selectedSessionId && students.length > 0 && (
-                <button type="button" className="btn btn-outline btn-sm" onClick={markAll}>
-                  Mark all present
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {selectedSessionId && students.length > 0 && attendanceEditable && (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={markAll}>
+                    Mark all present
+                  </button>
+                )}
+                {selectedSessionId && attendanceEditable && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={submitAttendanceMutation.isPending}
+                    onClick={() => {
+                      if (!window.confirm('Submit this session attendance to admin for approval? You will not be able to edit until it is returned or approved.')) return;
+                      submitAttendanceMutation.mutate();
+                    }}
+                  >
+                    {(selectedSession?.attendance_status || 'draft') === 'returned' ? (
+                      <><MdReplay /> Resubmit to admin</>
+                    ) : (
+                      <><MdSend /> Submit to admin</>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
+
+            {selectedSession?.attendance_status === 'returned' && selectedSession.attendance_admin_comment && (
+              <div
+                style={{
+                  margin: '0 1rem 0.75rem',
+                  padding: '0.75rem 1rem',
+                  background: 'rgba(220, 38, 38, 0.08)',
+                  border: '1px solid rgba(220, 38, 38, 0.25)',
+                  borderRadius: 8,
+                  fontSize: '0.875rem',
+                }}
+              >
+                <strong style={{ color: '#b91c1c' }}>Admin feedback:</strong>{' '}
+                {selectedSession.attendance_admin_comment}
+              </div>
+            )}
+
             {!selectedSessionId ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
                 <div className="empty-state-title">Select a session</div>
-                <p className="empty-state-text">Choose a session on the left to mark attendance.</p>
+                <p className="empty-state-text">Choose a session on the left to mark attendance, then submit to admin.</p>
               </div>
             ) : students.length === 0 ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
@@ -427,6 +508,7 @@ export default function LecturerSessionsPage() {
                               className="form-input"
                               style={{ maxWidth: 140 }}
                               value={rec?.status || ''}
+                              disabled={!attendanceEditable}
                               onChange={(e) => markStatus(stu.id, e.target.value)}
                             >
                               <option value="">—</option>
@@ -441,6 +523,14 @@ export default function LecturerSessionsPage() {
                     })}
                   </tbody>
                 </table>
+                {!attendanceEditable && (
+                  <p style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    {(selectedSession?.attendance_status || '') === 'submitted' &&
+                      'Attendance is submitted and locked until admin approves or returns it.'}
+                    {(selectedSession?.attendance_status || '') === 'approved' &&
+                      'Attendance has been approved by admin and cannot be edited.'}
+                  </p>
+                )}
               </div>
             )}
           </div>
