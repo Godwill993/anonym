@@ -1,25 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  MdSettings,
-  MdSave,
-  MdGrade,
-  MdCheckCircle,
-  MdGroups,
-  MdDateRange,
-  MdSchedule,
-  MdSwapHoriz,
-  MdEvent,
-  MdAdminPanelSettings,
-  MdHistory,
-  MdBarChart,
-  MdLogin,
-  MdCampaign,
-  MdFolder,
-  MdPersonAdd,
-  MdBook,
-} from 'react-icons/md';
+import { MdSettings, MdSave, MdGrade, MdCheckCircle } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
 import {
@@ -27,24 +8,6 @@ import {
   updateSystemSettings,
   getGradingScale,
 } from '../../services/operationsService';
-
-/** Secondary screens — not in the sidebar; keep this list tight and non-duplicative. */
-const MORE_LINKS = [
-  { to: '/admin/batches', label: 'Batches', icon: MdGroups },
-  { to: '/admin/batch-courses', label: 'Batch courses', icon: MdBook },
-  { to: '/admin/academic-years', label: 'Years', icon: MdDateRange },
-  { to: '/admin/semesters', label: 'Semesters', icon: MdSchedule },
-  { to: '/admin/class-sessions', label: 'Sessions', icon: MdSchedule },
-  { to: '/admin/academic-events', label: 'Events', icon: MdEvent },
-  { to: '/admin/student-transfers', label: 'Transfers', icon: MdSwapHoriz },
-  { to: '/admin/create-account', label: 'Create account', icon: MdPersonAdd },
-  { to: '/admin/staff', label: 'Admins', icon: MdAdminPanelSettings },
-  { to: '/admin/results', label: 'Published results', icon: MdBarChart },
-  { to: '/admin/attendance', label: 'Attendance desk', icon: MdLogin },
-  { to: '/admin/announcements', label: 'News', icon: MdCampaign },
-  { to: '/admin/resources', label: 'Files', icon: MdFolder },
-  { to: '/admin/audit-log', label: 'Audit log', icon: MdHistory },
-];
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -71,6 +34,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings) {
+      // Synchronize the editable form only after the server-backed settings load.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         school_name: settings.school_name || 'UNHIMAS',
         school_abbreviation: settings.school_abbreviation || 'UNH',
@@ -108,54 +73,39 @@ export default function SettingsPage() {
     updateMutation.mutate(formData);
   };
 
-  const defaultScale =
-    gradingScale.length > 0
-      ? gradingScale
-      : [
-          { min_score: 80, max_score: 100, grade: 'A', grade_point: 4.0, remark: 'Excellent' },
-          { min_score: 70, max_score: 79.99, grade: 'B', grade_point: 3.0, remark: 'Very Good' },
-          { min_score: 60, max_score: 69.99, grade: 'C', grade_point: 2.0, remark: 'Good' },
-          { min_score: 50, max_score: 59.99, grade: 'D', grade_point: 1.0, remark: 'Pass' },
-          { min_score: 0, max_score: 49.99, grade: 'F', grade_point: 0.0, remark: 'Fail' },
-        ];
+  const defaultScale = gradingScale.length > 0 ? gradingScale : [
+    { min_score: 80, max_score: 100, grade: 'A', grade_point: 4.0, remark: 'Excellent' },
+    { min_score: 70, max_score: 79.99, grade: 'B', grade_point: 3.0, remark: 'Very Good' },
+    { min_score: 60, max_score: 69.99, grade: 'C', grade_point: 2.0, remark: 'Good' },
+    { min_score: 50, max_score: 59.99, grade: 'D', grade_point: 1.0, remark: 'Pass' },
+    { min_score: 0, max_score: 49.99, grade: 'F', grade_point: 0.0, remark: 'Fail' },
+  ];
 
   return (
     <AppLayout pageTitle="Settings">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Policy, grading, and all secondary tools</p>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: '1.25rem' }}>
-        <div className="card-header">
-          <div className="card-title">More tools</div>
-        </div>
-        <div className="card-body" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {MORE_LINKS.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} className="btn btn-outline btn-sm" style={{ textDecoration: 'none' }}>
-              <Icon size={16} /> {label}
-            </Link>
-          ))}
+          <h1 className="page-title">System Settings & Academic Policy</h1>
+          <p className="page-subtitle">Configure mark weighting, exam eligibility thresholds, and grading scale</p>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '1.5rem' }}>
+        {/* Settings Form */}
         <div className="card">
           <div className="card-header">
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSettings /> Configuration
+              <MdSettings /> Institutional & Assessment Configuration
             </div>
           </div>
           <div className="card-body">
             {settingsLoading ? (
-              <div>Loading…</div>
+              <div>Loading system settings...</div>
             ) : (
               <form onSubmit={handleSubmit}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
-                    <label className="form-label">University name</label>
+                    <label className="form-label">University Name</label>
                     <input
                       type="text"
                       className="form-input"
@@ -164,6 +114,7 @@ export default function SettingsPage() {
                       required
                     />
                   </div>
+
                   <div className="form-group">
                     <label className="form-label">Abbreviation</label>
                     <input
@@ -185,77 +136,84 @@ export default function SettingsPage() {
                     onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
                     required
                   />
+                  <div className="form-hint">Used for lecturer clock-in shift timestamps and class attendance</div>
                 </div>
 
-                <div
-                  style={{
-                    margin: '1.25rem 0 0.75rem',
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    borderBottom: '1px solid var(--color-border)',
-                    paddingBottom: 6,
-                  }}
-                >
-                  Marks breakdown (must total 100)
+                <div style={{ margin: '1.5rem 0 1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: '0.9rem' }}>
+                  Bilingual Cameroon Assessment Breakdown (Max 100%)
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
-                    <label className="form-label">Attendance %</label>
+                    <label className="form-label">Attendance Score (%)</label>
                     <input
                       type="number"
+                      step="1"
+                      min="0"
+                      max="20"
                       className="form-input"
-                      min={0}
-                      max={20}
                       value={formData.attendance_max}
-                      onChange={(e) => setFormData({ ...formData, attendance_max: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
                       required
                     />
+                    <div className="form-hint">Default: 5%</div>
                   </div>
+
                   <div className="form-group">
-                    <label className="form-label">Coursework %</label>
+                    <label className="form-label">Coursework CA (%)</label>
                     <input
                       type="number"
+                      step="1"
+                      min="0"
+                      max="50"
                       className="form-input"
-                      min={0}
-                      max={50}
                       value={formData.coursework_max}
                       onChange={(e) => setFormData({ ...formData, coursework_max: Number(e.target.value) })}
                       required
                     />
+                    <div className="form-hint">Default: 25%</div>
                   </div>
+
                   <div className="form-group">
-                    <label className="form-label">Exam %</label>
+                    <label className="form-label">Final Exam (%)</label>
                     <input
                       type="number"
+                      step="1"
+                      min="0"
+                      max="100"
                       className="form-input"
-                      min={0}
-                      max={100}
                       value={formData.exam_max}
                       onChange={(e) => setFormData({ ...formData, exam_max: Number(e.target.value) })}
                       required
                     />
+                    <div className="form-hint">Default: 70%</div>
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Exam eligibility attendance %</label>
+                <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                  <label className="form-label">Exam Eligibility Attendance Threshold (%)</label>
                   <input
                     type="number"
+                    step="1"
+                    min="50"
+                    max="100"
                     className="form-input"
-                    min={50}
-                    max={100}
                     value={formData.attendance_threshold}
-                    onChange={(e) =>
-                      setFormData({ ...formData, attendance_threshold: Number(e.target.value) })
-                    }
+                    onChange={(e) => setFormData({ ...formData, attendance_threshold: Number(e.target.value) })}
                     required
                   />
+                  <div className="form-hint">
+                    Students with overall attendance below this threshold ({formData.attendance_threshold}%) receive alerts before exams.
+                  </div>
                 </div>
 
-                <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn btn-primary" disabled={updateMutation.isPending}>
-                    <MdSave /> Save
+                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={updateMutation.isPending}
+                  >
+                    <MdSave /> Save System Settings
                   </button>
                 </div>
               </form>
@@ -263,10 +221,11 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Grading Scale Card */}
         <div className="card">
           <div className="card-header">
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdGrade /> GPA scale
+              <MdGrade /> Official GPA Grading Scale (4.00 Basis)
             </div>
           </div>
           <div className="card-body" style={{ padding: '0.5rem 0' }}>
@@ -274,19 +233,17 @@ export default function SettingsPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Score</th>
-                    <th>Grade</th>
-                    <th>Point</th>
-                    <th>Remark</th>
+                    <th>Score Range</th>
+                    <th>Letter Grade</th>
+                    <th>Grade Point</th>
+                    <th>Classification</th>
                   </tr>
                 </thead>
                 <tbody>
                   {defaultScale.map((scale, idx) => (
                     <tr key={idx}>
                       <td>
-                        <strong>
-                          {scale.min_score}% – {scale.max_score}%
-                        </strong>
+                        <strong>{scale.min_score}% – {scale.max_score}%</strong>
                       </td>
                       <td>
                         <span
@@ -294,9 +251,10 @@ export default function SettingsPage() {
                             scale.grade === 'A' || scale.grade === 'B'
                               ? 'badge-green'
                               : scale.grade === 'C' || scale.grade === 'D'
-                                ? 'badge-blue'
-                                : 'badge-red'
+                              ? 'badge-blue'
+                              : 'badge-red'
                           }`}
+                          style={{ fontSize: '0.85rem' }}
                         >
                           {scale.grade}
                         </span>
@@ -310,16 +268,9 @@ export default function SettingsPage() {
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                padding: '1rem',
-                fontSize: '0.78rem',
-                color: 'var(--color-text-muted)',
-                borderTop: '1px solid var(--color-border)',
-              }}
-            >
-              <MdCheckCircle style={{ color: '#10B981', verticalAlign: 'middle', marginRight: 4 }} />
-              Applied automatically on mark entry.
+            <div style={{ padding: '1rem', fontSize: '0.78rem', color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)' }}>
+              <MdCheckCircle style={{ color: '#10B981', verticalAlign: 'middle', marginRight: '4px' }} />
+              Grade points and letter grades are applied automatically by database stored procedures upon mark entry.
             </div>
           </div>
         </div>
