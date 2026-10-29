@@ -62,7 +62,7 @@ export default function MarkApprovalPage() {
         setIsReturnModalOpen(false);
         setReturnComment('');
         setSubmissionToReturn(null);
-      } else if (v.status === 'published') toast.success(translateText('Results published to student transcripts!'));
+      }
     },
     onError: (err) => toast.error(err.message || translateText('Workflow update failed')),
   });
@@ -102,18 +102,35 @@ export default function MarkApprovalPage() {
       return;
     }
     if (!submissionToReturn?.id) return;
-    reviewMutation.mutate({ id: submissionToReturn.id, status: 'returned', admin_comment: returnComment.trim() });
+    reviewMutation.mutate({
+      id: submissionToReturn.id,
+      status: 'returned',
+      admin_comment: returnComment.trim(),
+    });
   };
 
   const handleApprove = (sub) => {
     if (!sub?.id) return;
     setSelectedSubmissionId(sub.id);
-    reviewMutation.mutate({ id: sub.id, status: 'approved', admin_comment: 'Approved by Administrator' });
+    reviewMutation.mutate({
+      id: sub.id,
+      status: 'approved',
+      admin_comment: 'Approved by Administrator',
+    });
   };
 
   const filteredSubmissions = submissions.filter((s) => {
     const term = search.toLowerCase();
-    const hay = [s.batch_courses?.courses?.code, s.batch_courses?.courses?.name, s.batch_courses?.batches?.name, s.lecturers?.first_name, s.lecturers?.last_name].filter(Boolean).join(' ').toLowerCase();
+    const hay = [
+      s.batch_courses?.courses?.code,
+      s.batch_courses?.courses?.name,
+      s.batch_courses?.batches?.name,
+      s.lecturers?.first_name,
+      s.lecturers?.last_name,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
     return hay.includes(term);
   });
 
@@ -140,7 +157,7 @@ export default function MarkApprovalPage() {
       publishBatchMutation.mutate({ batchId, semesterId, force: false });
       return;
     }
-    if (row.ready_courses > 0 && row.pending_courses > 0) {
+    if (row.can_force_publish || (row.ready_courses > 0 && row.pending_courses > 0)) {
       setForcePublishTarget({ batchId, semesterId, row });
       return;
     }
@@ -168,26 +185,151 @@ export default function MarkApprovalPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Marks Approval & Publishing')}</h1>
-          <p className="page-subtitle">{translateText('Approve submitted marksheets, return them with a complaint, or publish a full batch.')}</p>
+          <p className="page-subtitle">
+            {translateText(
+              'Approve submitted marksheets, return them with a complaint, or publish a full batch.',
+            )}
+          </p>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem', borderLeft: '4px solid var(--color-primary)' }}>
+      <div
+        className="card"
+        style={{
+          marginBottom: '1.25rem',
+          padding: '1rem 1.25rem',
+          borderLeft: '4px solid var(--color-primary)',
+        }}
+      >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>{translateText('Mark approval workflow')}</div>
         <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
           <li>{translateText('Lecturer: Mark Entry → Save All → Submit for Review')}</li>
           <li>{translateText('Admin: Approve, or Return with complaint (message required)')}</li>
-          <li>{translateText('When every course in a batch is approved → Publish batch results. If one course is still missing, admin may Force publish approved courses only.')}</li>
+          <li>
+            {translateText(
+              'When every course in a batch is approved → Publish batch results. If one course is still missing, admin may Force publish approved courses only.',
+            )}
+          </li>
         </ol>
       </div>
+
+      {mayPublish && batchReadiness.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div className="card-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <h2 className="card-title" style={{ margin: 0 }}>
+              {translateText('Batch results readiness')}
+            </h2>
+            <p className="page-subtitle" style={{ margin: 0 }}>
+              {translateText(
+                'Publish releases an entire batch for a semester. All courses must be approved first, unless you Force publish approved courses only.',
+              )}
+            </p>
+          </div>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{translateText('Batch')}</th>
+                  <th>{translateText('Semester')}</th>
+                  <th>{translateText('Ready')}</th>
+                  <th>{translateText('Pending')}</th>
+                  <th>{translateText('Published')}</th>
+                  <th style={{ textAlign: 'right' }}>{translateText('Actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchReadiness.map((row) => (
+                  <tr key={`${row.batch_id}-${row.semester_id}`}>
+                    <td>
+                      <strong>{row.batch_name}</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {row.department_name}
+                        {row.batch_code ? ` · ${row.batch_code}` : ''}
+                      </div>
+                    </td>
+                    <td>
+                      {row.semester_name}
+                      {row.academic_year ? (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          {row.academic_year}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>
+                      {row.ready_courses}/{row.total_courses}
+                    </td>
+                    <td>{row.pending_courses}</td>
+                    <td>
+                      {row.published_courses}/{row.total_courses}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {row.all_published ? (
+                        <span className="badge badge-green">{translateText('Fully published')}</span>
+                      ) : row.can_publish ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ background: '#059669', fontWeight: 600 }}
+                          disabled={publishBatchMutation.isPending}
+                          onClick={() =>
+                            publishBatchMutation.mutate({
+                              batchId: row.batch_id,
+                              semesterId: row.semester_id,
+                              force: false,
+                            })
+                          }
+                        >
+                          <MdPublish /> {translateText('Publish batch')}
+                        </button>
+                      ) : row.can_force_publish ||
+                        (row.ready_courses > 0 && row.pending_courses > 0) ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ background: '#b45309', fontWeight: 600 }}
+                          disabled={publishBatchMutation.isPending}
+                          onClick={() =>
+                            setForcePublishTarget({
+                              batchId: row.batch_id,
+                              semesterId: row.semester_id,
+                              row,
+                            })
+                          }
+                        >
+                          <MdPublish /> {translateText('Force publish…')}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                          {translateText('Waiting for approvals')}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
           <div style={{ position: 'relative', minWidth: 240, flex: '1 1 200px' }}>
             <MdSearch style={{ position: 'absolute', left: 10, top: 10, color: 'var(--color-text-muted)' }} />
-            <input className="form-input" style={{ paddingLeft: 34 }} placeholder={translateText('Search course, batch, lecturer…')} value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input
+              className="form-input"
+              style={{ paddingLeft: 34 }}
+              placeholder={translateText('Search course, batch, lecturer…')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <select className="form-input" style={{ maxWidth: 260 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select
+            className="form-input"
+            style={{ maxWidth: 260 }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
             <option value="">{translateText('All Submission States')}</option>
             <option value="submitted">{translateText('Awaiting Review (Submitted)')}</option>
             <option value="approved">{translateText('Approved')}</option>
@@ -212,13 +354,19 @@ export default function MarkApprovalPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>{translateText('Loading…')}</td></tr>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                    {translateText('Loading…')}
+                  </td>
+                </tr>
               ) : filteredSubmissions.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
                     <div className="empty-state">
                       <div className="empty-state-title">{translateText('No marksheets in this filter')}</div>
-                      <div className="empty-state-text">{translateText('Lecturers must submit marks first. Try filter “All Submission States”.')}</div>
+                      <div className="empty-state-text">
+                        {translateText('Lecturers must submit marks first. Try filter “All Submission States”.')}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -227,31 +375,64 @@ export default function MarkApprovalPage() {
                   <tr key={sub.id}>
                     <td>
                       <strong>{sub.batch_courses?.courses?.code}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{sub.batch_courses?.courses?.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {sub.batch_courses?.courses?.name}
+                      </div>
                     </td>
                     <td>{sub.batch_courses?.batches?.name}</td>
                     <td>{sub.batch_courses?.semesters?.name}</td>
-                    <td>{sub.lecturers?.first_name} {sub.lecturers?.last_name}</td>
+                    <td>
+                      {sub.lecturers?.first_name} {sub.lecturers?.last_name}
+                    </td>
                     <td>{getStatusBadge(sub.status)}</td>
                     <td>{sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : '—'}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedSubmissionId(sub.id)}>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          gap: '0.35rem',
+                          flexWrap: 'wrap',
+                          justifyContent: 'flex-end',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setSelectedSubmissionId(sub.id)}
+                        >
                           <MdVisibility /> {translateText('Inspect')}
                         </button>
                         {sub.status === 'submitted' && mayApprove && (
                           <>
-                            <button type="button" className="btn btn-primary btn-sm" disabled={reviewMutation.isPending} onClick={() => handleApprove(sub)} style={{ fontWeight: 600 }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              disabled={reviewMutation.isPending}
+                              onClick={() => handleApprove(sub)}
+                              style={{ fontWeight: 600 }}
+                            >
                               <MdCheckCircle /> {translateText('Approve')}
                             </button>
-                            <button type="button" className="btn btn-secondary btn-sm" disabled={reviewMutation.isPending} onClick={() => handleOpenReturnModal(sub)} style={{ fontWeight: 600 }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              disabled={reviewMutation.isPending}
+                              onClick={() => handleOpenReturnModal(sub)}
+                              style={{ fontWeight: 600 }}
+                            >
                               <MdAssignmentReturn /> {translateText('Return with complaint')}
                             </button>
                           </>
                         )}
                         {sub.status === 'approved' && mayPublish && (
-                          <button type="button" className="btn btn-primary btn-sm" style={{ background: '#059669', fontWeight: 600 }} disabled={publishBatchMutation.isPending} onClick={() => handlePublishFromRow(sub)}>
-                            <MdPublish /> {translateText('Publish')}
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            style={{ background: '#059669', fontWeight: 600 }}
+                            disabled={publishBatchMutation.isPending}
+                            onClick={() => handlePublishFromRow(sub)}
+                          >
+                            <MdPublish /> {translateText('Publish batch')}
                           </button>
                         )}
                       </div>
@@ -271,10 +452,13 @@ export default function MarkApprovalPage() {
               <h2 className="card-title" style={{ margin: 0 }}>
                 {detailData?.batch_courses?.courses?.code} — {detailData?.batch_courses?.courses?.name}
               </h2>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{getStatusBadge(detailData?.status)}</div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                {getStatusBadge(detailData?.status)}
+              </div>
               {selectedBatchReady && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                  {translateText('Batch readiness')}: {selectedBatchReady.ready_courses}/{selectedBatchReady.total_courses}
+                  {translateText('Batch readiness')}: {selectedBatchReady.ready_courses}/
+                  {selectedBatchReady.total_courses}
                   {selectedBatchReady.pending_courses > 0
                     ? ` · ${selectedBatchReady.pending_courses} ${translateText('pending')}`
                     : ''}
@@ -284,10 +468,20 @@ export default function MarkApprovalPage() {
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
               {detailData?.status === 'submitted' && mayApprove && (
                 <>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenReturnModal(detailData)} disabled={reviewMutation.isPending}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenReturnModal(detailData)}
+                    disabled={reviewMutation.isPending}
+                  >
                     <MdAssignmentReturn /> {translateText('Return with complaint')}
                   </button>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApprove(detailData)} disabled={reviewMutation.isPending}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => handleApprove(detailData)}
+                    disabled={reviewMutation.isPending}
+                  >
                     <MdCheckCircle /> {translateText('Approve marksheet')}
                   </button>
                 </>
@@ -314,14 +508,22 @@ export default function MarkApprovalPage() {
                     : translateText('Publish batch results')}
                 </button>
               )}
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedSubmissionId(null)}>{translateText('Close')}</button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setSelectedSubmissionId(null)}
+              >
+                {translateText('Close')}
+              </button>
             </div>
           </div>
           <div className="card-body">
             {detailLoading ? (
               <div style={{ padding: '2rem', textAlign: 'center' }}>{translateText('Loading marks...')}</div>
             ) : !detailData?.marks?.length ? (
-              <div className="empty-state"><div className="empty-state-title">{translateText('No student marks on this sheet')}</div></div>
+              <div className="empty-state">
+                <div className="empty-state-title">{translateText('No student marks on this sheet')}</div>
+              </div>
             ) : (
               <div className="table-wrapper">
                 <table className="data-table">
@@ -340,11 +542,19 @@ export default function MarkApprovalPage() {
                     {detailData.marks.map((m) => (
                       <tr key={m.id}>
                         <td>{m.students?.matricule}</td>
-                        <td>{m.students?.first_name} {m.students?.last_name}</td>
+                        <td>
+                          {m.students?.first_name} {m.students?.last_name}
+                        </td>
                         <td>{m.attendance_score}</td>
                         <td>{m.coursework_score}</td>
                         <td>{m.exam_score}</td>
-                        <td><strong>{(Number(m.attendance_score) || 0) + (Number(m.coursework_score) || 0) + (Number(m.exam_score) || 0)}</strong></td>
+                        <td>
+                          <strong>
+                            {(Number(m.attendance_score) || 0) +
+                              (Number(m.coursework_score) || 0) +
+                              (Number(m.exam_score) || 0)}
+                          </strong>
+                        </td>
                         <td>{m.grade || '—'}</td>
                       </tr>
                     ))}
@@ -358,22 +568,50 @@ export default function MarkApprovalPage() {
 
       <Modal
         isOpen={isReturnModalOpen}
-        onClose={() => { setIsReturnModalOpen(false); setSubmissionToReturn(null); setReturnComment(''); }}
+        onClose={() => {
+          setIsReturnModalOpen(false);
+          setSubmissionToReturn(null);
+          setReturnComment('');
+        }}
         title={translateText('Return marksheet with complaint')}
         footer={
           <>
-            <button type="button" className="btn btn-outline" onClick={() => { setIsReturnModalOpen(false); setSubmissionToReturn(null); }}>{translateText('Cancel')}</button>
-            <button type="button" className="btn btn-secondary" onClick={handleConfirmReturn} disabled={reviewMutation.isPending}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                setIsReturnModalOpen(false);
+                setSubmissionToReturn(null);
+              }}
+            >
+              {translateText('Cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleConfirmReturn}
+              disabled={reviewMutation.isPending}
+            >
               {reviewMutation.isPending ? translateText('Sending…') : translateText('Send back to lecturer')}
             </button>
           </>
         }
       >
         <p style={{ marginBottom: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-          {translateText('Write a clear complaint or correction message. The lecturer will see this note and must fix the marksheet before resubmitting.')}
+          {translateText(
+            'Write a clear complaint or correction message. The lecturer will see this note and must fix the marksheet before resubmitting.',
+          )}
         </p>
         <label className="form-label">{translateText('Complaint / instructions for lecturer')} *</label>
-        <textarea className="form-input" rows={5} value={returnComment} onChange={(e) => setReturnComment(e.target.value)} placeholder={translateText('e.g. Exam scores for students 3–5 exceed the maximum; please correct.')} />
+        <textarea
+          className="form-input"
+          rows={5}
+          value={returnComment}
+          onChange={(e) => setReturnComment(e.target.value)}
+          placeholder={translateText(
+            'e.g. Exam scores for students 3–5 exceed the maximum; please correct.',
+          )}
+        />
       </Modal>
 
       <Modal
