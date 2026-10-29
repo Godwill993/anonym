@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 /**
  * Protect a route. Optionally restrict to specific roles.
- * roles: e.g. ['admin', 'frontdesk']
+ * roles: e.g. ['admin'] or ['lecturer', 'student']
  *
  * Also intercepts student and lecturer users who still have
  * must_reset_password = true and sends them to /set-new-password.
