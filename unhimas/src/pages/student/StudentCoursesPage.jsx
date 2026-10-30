@@ -144,7 +144,7 @@ export default function StudentCoursesPage() {
       </div>
 
       {feeBlocksReg && (
-        <div className="alert-banner alert-banner-danger" style={{ marginBottom: '1rem' }} role="status">
+        <div className="alert-banner alert-banner-danger" style={{ marginBottom: '0.85rem' }} role="status">
           <MdAccountBalanceWallet size={18} aria-hidden="true" />
           <span>
             {translateText('Outstanding fees block new course registration.')}{' '}
@@ -157,8 +157,12 @@ export default function StudentCoursesPage() {
       )}
 
       {semester && (
-        <div className="alert-banner" style={{ marginBottom: '1rem' }} role="status">
-          <MdInfo size={18} aria-hidden="true" />
+        <div className="alert-banner" style={{ marginBottom: '1.15rem' }} role="status">
+          {windowOpen ? (
+            <MdInfo size={18} aria-hidden="true" />
+          ) : (
+            <MdLock size={18} aria-hidden="true" />
+          )}
           <span>
             {windowOpen ? (
               <>
@@ -173,7 +177,6 @@ export default function StudentCoursesPage() {
               </>
             ) : (
               <>
-                <MdLock style={{ verticalAlign: 'middle' }} aria-hidden="true" />{' '}
                 {translateText(
                   'Registration is closed. Compulsory courses remain on your list; optional adds are locked.',
                 )}
@@ -191,40 +194,41 @@ export default function StudentCoursesPage() {
         </div>
       )}
 
-      <h2 style={{ fontSize: '1rem', margin: '0 0 0.75rem' }}>
-        {translateText('Current semester courses')}
-      </h2>
+      <div className="section-heading">
+        <h2>{translateText('Current semester courses')}</h2>
+        {semester && <span className="section-meta">{semester.name}</span>}
+      </div>
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div className="entity-grid">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="card" style={{ padding: '1.25rem' }}>
+            <div key={i} className="entity-card">
               <div className="skeleton skeleton-title" style={{ width: '70%', marginBottom: 8 }} />
               <div className="skeleton skeleton-text" style={{ width: '50%' }} />
             </div>
           ))}
         </div>
       ) : !semester ? (
-        <div className="empty-state">
+        <div className="empty-state card">
           <div className="empty-state-title">{translateText('No current semester')}</div>
           <p className="empty-state-text">
             {translateText('Ask administration to mark a semester as current.')}
           </p>
         </div>
       ) : currentWithReg.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state card">
           <div className="empty-state-icon">
             <MdBook />
           </div>
           <div className="empty-state-title">{translateText('No courses for this semester')}</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div className="entity-grid animate-stagger">
           {currentWithReg.map((bc) => (
-            <div key={bc.id} className="card" style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+            <article key={bc.id} className="entity-card">
+              <div className="entity-card-top">
                 <span className="badge badge-blue">{bc.courses?.code}</span>
-                <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div className="entity-card-badges">
                   {bc.is_compulsory ? (
                     <span className="badge badge-gray">{translateText('Compulsory')}</span>
                   ) : (
@@ -235,31 +239,27 @@ export default function StudentCoursesPage() {
                   ) : (
                     <span className="badge badge-muted">{translateText('Not registered')}</span>
                   )}
-                </span>
+                </div>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: 4 }}>
-                {bc.courses?.name}
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 6 }}>
+              <div className="entity-card-title">{bc.courses?.name}</div>
+              <div className="entity-card-meta">
                 {bc.courses?.credit_units} {translateText('credit unit(s)')}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600 }}>{translateText('Lecturer')}:</span>{' '}
+              <div className="entity-card-meta">
+                <strong>{translateText('Lecturer')}:</strong>{' '}
                 {bc.lecturers
                   ? `${bc.lecturers.first_name} ${bc.lecturers.last_name}`
                   : '—'}
               </div>
 
               {!bc.is_compulsory && (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="entity-card-actions">
                   {bc.canRegister && (
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
                       disabled={
-                        !windowOpen ||
-                        feeBlocksReg ||
-                        registerMutation.isPending
+                        !windowOpen || feeBlocksReg || registerMutation.isPending
                       }
                       onClick={() => registerMutation.mutate(bc.id)}
                     >
@@ -278,20 +278,21 @@ export default function StudentCoursesPage() {
                   )}
                 </div>
               )}
-            </div>
+            </article>
           ))}
         </div>
       )}
 
       {allCourses.length > 0 && (
         <>
-          <h2 style={{ fontSize: '1rem', margin: '1.75rem 0 0.75rem' }}>
-            {translateText('All batch courses')}
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          <div className="section-heading">
+            <h2>{translateText('All batch courses')}</h2>
+            <span className="section-meta">{allCourses.length}</span>
+          </div>
+          <div className="entity-grid">
             {allCourses.map((bc) => (
-              <div key={bc.id} className="card" style={{ padding: '1.25rem', opacity: 0.92 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <article key={bc.id} className="entity-card" style={{ opacity: 0.92 }}>
+                <div className="entity-card-top">
                   <span className="badge badge-blue">{bc.courses?.code}</span>
                   {bc.is_compulsory ? (
                     <span className="badge badge-gray">{translateText('Compulsory')}</span>
@@ -299,10 +300,8 @@ export default function StudentCoursesPage() {
                     <span className="badge badge-amber">{translateText('Optional')}</span>
                   )}
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: 4 }}>
-                  {bc.courses?.name}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                <div className="entity-card-title">{bc.courses?.name}</div>
+                <div className="entity-card-meta">
                   {bc.semesters?.name}
                   {bc.semesters?.is_current && (
                     <span className="badge badge-green" style={{ marginLeft: 6 }}>
@@ -310,7 +309,7 @@ export default function StudentCoursesPage() {
                     </span>
                   )}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </>

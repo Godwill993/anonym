@@ -118,11 +118,10 @@ export default function StudentDocumentsPage() {
         </div>
       )}
 
-      <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
+      <div className="stats-grid animate-stagger" style={{ marginBottom: '1.35rem' }}>
         <button
           type="button"
           className="stat-card"
-          style={{ cursor: 'pointer', textAlign: 'left', border: '1px solid var(--color-border)' }}
           onClick={() => printEnrollmentAttestation(studentProfile)}
         >
           <div className="stat-card-icon blue">
@@ -130,7 +129,7 @@ export default function StudentDocumentsPage() {
           </div>
           <div className="stat-card-body">
             <div className="stat-card-label">{translateText('Enrollment attestation')}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            <div className="entity-card-meta" style={{ marginTop: 4 }}>
               {translateText('Print certificat de scolarité')}
             </div>
           </div>
@@ -139,7 +138,6 @@ export default function StudentDocumentsPage() {
         <button
           type="button"
           className="stat-card"
-          style={{ cursor: 'pointer', textAlign: 'left', border: '1px solid var(--color-border)' }}
           onClick={() =>
             printFeeStatement({
               student: studentProfile,
@@ -154,7 +152,7 @@ export default function StudentDocumentsPage() {
           </div>
           <div className="stat-card-body">
             <div className="stat-card-label">{translateText('Fee statement')}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            <div className="entity-card-meta" style={{ marginTop: 4 }}>
               {outstanding > 0
                 ? `${translateText('Balance')}: ${formatXAF(outstanding)}`
                 : translateText('Account summary')}
@@ -162,17 +160,13 @@ export default function StudentDocumentsPage() {
           </div>
         </button>
 
-        <Link
-          to="/student/transcript"
-          className="stat-card"
-          style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--color-border)' }}
-        >
+        <Link to="/student/transcript" className="stat-card">
           <div className="stat-card-icon purple">
             <MdDescription aria-hidden="true" />
           </div>
           <div className="stat-card-body">
             <div className="stat-card-label">{translateText('Official transcript')}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            <div className="entity-card-meta" style={{ marginTop: 4 }}>
               {clearance?.cleared === false
                 ? translateText('Requires fee clearance')
                 : translateText('Published results only')}
@@ -180,17 +174,13 @@ export default function StudentDocumentsPage() {
           </div>
         </Link>
 
-        <Link
-          to="/student/fees"
-          className="stat-card"
-          style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--color-border)' }}
-        >
+        <Link to="/student/fees" className="stat-card">
           <div className="stat-card-icon green">
             <MdPayments aria-hidden="true" />
           </div>
           <div className="stat-card-body">
             <div className="stat-card-label">{translateText('Fees & payments')}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+            <div className="entity-card-meta" style={{ marginTop: 4 }}>
               {translateText('Pay and manage invoices')}
             </div>
           </div>
@@ -204,54 +194,41 @@ export default function StudentDocumentsPage() {
             {translateText('Payment receipts (Quitus)')}
           </span>
         </div>
-        <div className="card-body" style={{ padding: 0 }}>
+        <div className="card-body">
           {payLoading ? (
-            <div style={{ padding: '1rem' }}>{translateText('Loading…')}</div>
+            <div className="empty-state">{translateText('Loading…')}</div>
           ) : completedPayments.length === 0 ? (
-            <div className="empty-state" style={{ padding: '1.5rem' }}>
+            <div className="empty-state">
               <div className="empty-state-title">{translateText('No confirmed payments yet')}</div>
               <p className="empty-state-text">
                 {translateText('After finance confirms a payment, your quitus appears here.')}
               </p>
             </div>
           ) : (
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {completedPayments.map((p) => (
-                <li
-                  key={p.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1rem',
-                    borderBottom: '1px solid var(--color-border)',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      {formatXAF(p.amount)}
-                      {p.receipt_number ? (
-                        <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                          {' · '}{p.receipt_number}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                      {p.payment_reference} · {(p.method || '').replace(/_/g, ' ')}
-                    </div>
+            completedPayments.map((p) => (
+              <div key={p.id} className="list-row">
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 650, fontSize: '0.875rem' }}>
+                    {formatXAF(p.amount)}
+                    {p.receipt_number ? (
+                      <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                        {' · '}{p.receipt_number}
+                      </span>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => printPaymentQuitus(p, studentProfile)}
-                  >
-                    <MdPrint aria-hidden="true" /> {translateText('Quitus')}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginTop: 2 }}>
+                    {p.payment_reference} · {(p.method || '').replace(/_/g, ' ')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => printPaymentQuitus(p, studentProfile)}
+                >
+                  <MdPrint aria-hidden="true" /> {translateText('Quitus')}
+                </button>
+              </div>
+            ))
           )}
         </div>
       </div>
