@@ -34,7 +34,7 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast-container" aria-live="polite">
+    <div className="toast-container" aria-live="polite" aria-relevant="additions text">
       {toasts.map((t) => {
         let Icon = MdCheckCircle;
         if (t.type === 'error') Icon = MdError;
@@ -42,8 +42,12 @@ export default function ToastContainer() {
         if (t.type === 'warning') Icon = MdWarning;
 
         return (
-          <div key={t.id} className={`toast ${t.type}`}>
-            <Icon style={{ fontSize: '1.25rem', flexShrink: 0 }} />
+          <div
+            key={t.id}
+            className={`toast ${t.type}`}
+            role={t.type === 'error' ? 'alert' : 'status'}
+          >
+            <Icon style={{ fontSize: '1.25rem', flexShrink: 0 }} aria-hidden="true" />
             <span>{translateText(t.message)}</span>
           </div>
         );

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import {
   MdSearch,
   MdClose,
@@ -30,8 +30,9 @@ export default function DataTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(pageSize);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const searchId = useId();
+  const regionId = useId();
 
-  // Filter
   const filteredData = useMemo(() => {
     if (!search.trim()) return data;
     const term = search.toLowerCase();
@@ -48,7 +49,7 @@ export default function DataTable({
             (nested) =>
               nested &&
               typeof nested === 'string' &&
-              nested.toLowerCase().includes(term)
+              nested.toLowerCase().includes(term),
           );
         }
         return false;
@@ -56,7 +57,6 @@ export default function DataTable({
     });
   }, [data, search, searchField]);
 
-  // Sort
   const sortedData = useMemo(() => {
     if (!sortConfig.key) return filteredData;
     const { key, direction } = sortConfig;
@@ -66,7 +66,6 @@ export default function DataTable({
       let valA = a[key];
       let valB = b[key];
 
-      // Support custom sort comparator if defined on column
       if (col && typeof col.sortValue === 'function') {
         valA = col.sortValue(a);
         valB = col.sortValue(b);
@@ -85,7 +84,6 @@ export default function DataTable({
     });
   }, [filteredData, sortConfig, columns]);
 
-  // Pagination
   const totalPages = Math.ceil(sortedData.length / perPage) || 1;
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * perPage;
@@ -130,10 +128,13 @@ export default function DataTable({
 
   return (
     <div className="card">
-      {/* Table Toolbar */}
       <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
         <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 220px' }}>
+          <label htmlFor={searchId} className="sr-only">
+            {translateText(searchPlaceholder)}
+          </label>
           <MdSearch
+            aria-hidden="true"
             style={{
               position: 'absolute',
               left: '0.75rem',
@@ -145,12 +146,18 @@ export default function DataTable({
             }}
           />
           <input
-            type="text"
+            id={searchId}
+            type="search"
             className="form-input"
-            style={{ paddingLeft: '2.25rem', paddingRight: search ? '2rem' : '0.875rem', height: '38px' }}
+            style={{
+              paddingLeft: '2.25rem',
+              paddingRight: search ? '2rem' : '0.875rem',
+              height: '38px',
+            }}
             placeholder={translateText(searchPlaceholder)}
             value={search}
             onChange={handleSearchChange}
+            aria-label={translateText(searchPlaceholder)}
           />
           {search && (
             <button
@@ -173,7 +180,7 @@ export default function DataTable({
               title={translateText('Clear search')}
               aria-label={translateText('Clear search')}
             >
-              <MdClose size={16} />
+              <MdClose size={16} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -187,44 +194,72 @@ export default function DataTable({
               disabled={sortedData.length === 0}
               title={translateText('Export table to CSV')}
             >
-              <MdFileDownload /> {translateText('Export CSV')}
+              <MdFileDownload aria-hidden="true" /> {translateText('Export CSV')}
             </button>
           )}
           {actionButton && <div>{actionButton}</div>}
         </div>
       </div>
 
-      {/* Table wrapper */}
-      <div className="table-wrapper" tabIndex={0} aria-label={translateText('Data table content')}>
+      <div
+        className="table-wrapper"
+        role="region"
+        aria-labelledby={regionId}
+        id={regionId}
+      >
         <table className="data-table">
+          <caption className="sr-only">{translateText('Data table')}</caption>
           <thead>
             <tr>
               {columns.map((col, idx) => {
                 const colKey = col.accessor || col.key;
                 const isSortable = enableSorting && col.sortable !== false && Boolean(colKey);
                 const isSorted = sortConfig.key === colKey;
+                const ariaSort = isSorted
+                  ? sortConfig.direction === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : isSortable
+                    ? 'none'
+                    : undefined;
 
                 return (
                   <th
                     key={col.key || col.accessor || idx}
-                    style={{
-                      ...col.style,
-                      cursor: isSortable ? 'pointer' : 'default',
-                      userSelect: isSortable ? 'none' : 'auto',
-                    }}
-                    onClick={() => isSortable && handleHeaderClick(col)}
-                    aria-sort={
-                      isSorted
-                        ? sortConfig.direction === 'asc'
-                          ? 'ascending'
-                          : 'descending'
-                        : undefined
-                    }
+                    style={col.style}
+                    aria-sort={ariaSort}
+                    scope="col"
                   >
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <span>{translateText(col.header)}</span>
-                      {isSortable && (
-                        <span style={{ fontSize: '0.85rem', color: isSorted ? 'var(--color-secondary)' : 'var(--color-text-muted)' }}>
+                    {isSortable ? (
+                      <button
+                        type="button"
+                        className="table-sort-btn"
+                        onClick={() => handleHeaderClick(col)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          font: 'inherit',
+                          fontWeight: 700,
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          textTransform: 'inherit',
+                          letterSpacing: 'inherit',
+                        }}
+                      >
+                        <span>{translateText(col.header)}</span>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            fontSize: '0.85rem',
+                            color: isSorted
+                              ? 'var(--color-secondary)'
+                              : 'var(--color-text-muted)',
+                          }}
+                        >
                           {isSorted ? (
                             sortConfig.direction === 'asc' ? (
                               <MdArrowUpward />
@@ -235,8 +270,10 @@ export default function DataTable({
                             <span style={{ opacity: 0.35 }}>↕</span>
                           )}
                         </span>
-                      )}
-                    </div>
+                      </button>
+                    ) : (
+                      <span>{translateText(col.header)}</span>
+                    )}
                   </th>
                 );
               })}
@@ -247,7 +284,11 @@ export default function DataTable({
               <tr>
                 <td colSpan={columns.length} style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
                   <div className="empty-state" style={{ padding: '0.5rem' }}>
-                    <MdInbox className="empty-state-icon" style={{ fontSize: '2.5rem', opacity: 0.45 }} />
+                    <MdInbox
+                      className="empty-state-icon"
+                      style={{ fontSize: '2.5rem', opacity: 0.45 }}
+                      aria-hidden="true"
+                    />
                     <div className="empty-state-title" style={{ marginTop: '0.5rem' }}>
                       {translateText(search ? 'No matching records found' : emptyTitle)}
                     </div>
@@ -255,7 +296,7 @@ export default function DataTable({
                       {translateText(
                         search
                           ? 'Try adjusting your search criteria or clearing filters.'
-                          : emptySubtitle
+                          : emptySubtitle,
                       )}
                     </div>
                     {search && (
@@ -286,7 +327,6 @@ export default function DataTable({
         </table>
       </div>
 
-      {/* Pagination & Summary Footer */}
       {sortedData.length > 0 && (
         <div
           style={{
@@ -302,30 +342,37 @@ export default function DataTable({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <div>
+            <div aria-live="polite">
               {language === 'fr'
                 ? `Affichage de ${(currentPage - 1) * perPage + 1} à ${Math.min(
                     currentPage * perPage,
-                    sortedData.length
+                    sortedData.length,
                   )} sur ${sortedData.length} enregistrements`
                 : `Showing ${(currentPage - 1) * perPage + 1} to ${Math.min(
                     currentPage * perPage,
-                    sortedData.length
+                    sortedData.length,
                   )} of ${sortedData.length} records`}
             </div>
 
             {sortedData.length > 10 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.75rem' }}>{translateText('Rows per page:')}</span>
+                <label htmlFor={`${searchId}-perpage`} style={{ fontSize: '0.75rem' }}>
+                  {translateText('Rows per page:')}
+                </label>
                 <select
+                  id={`${searchId}-perpage`}
                   className="form-input"
-                  style={{ height: '30px', padding: '0.1rem 0.5rem', width: 'auto', fontSize: '0.75rem' }}
+                  style={{
+                    height: '30px',
+                    padding: '0.1rem 0.5rem',
+                    width: 'auto',
+                    fontSize: '0.75rem',
+                  }}
                   value={perPage}
                   onChange={(e) => {
                     setPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  aria-label={translateText('Select rows per page')}
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -345,7 +392,7 @@ export default function DataTable({
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 aria-label={translateText('Previous page')}
               >
-                <MdChevronLeft /> {translateText('Prev')}
+                <MdChevronLeft aria-hidden="true" /> {translateText('Prev')}
               </button>
               <span
                 style={{
@@ -356,6 +403,7 @@ export default function DataTable({
                   color: 'var(--color-text)',
                   fontSize: '0.8125rem',
                 }}
+                aria-current="page"
               >
                 {currentPage} / {totalPages}
               </span>
@@ -366,7 +414,7 @@ export default function DataTable({
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 aria-label={translateText('Next page')}
               >
-                {translateText('Next')} <MdChevronRight />
+                {translateText('Next')} <MdChevronRight aria-hidden="true" />
               </button>
             </div>
           )}
