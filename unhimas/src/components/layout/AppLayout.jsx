@@ -6,6 +6,7 @@ import Header from './Header';
 import { useTranslation } from '../../i18n';
 import '../../styles/layout.css';
 import '../../styles/ux.css';
+import '../../styles/ui-polish.css';
 
 export default function AppLayout({ children, pageTitle }) {
   const { translateText } = useTranslation();
@@ -15,7 +16,6 @@ export default function AppLayout({ children, pageTitle }) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  // Smooth scroll to top + reset progress whenever the route changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setScrollProgress(0);
@@ -65,10 +65,6 @@ export default function AppLayout({ children, pageTitle }) {
           pageTitle={pageTitle}
         />
 
-        {/*
-          Key by pathname so the enter animation re-runs on every navigation.
-          Sidebar + header stay mounted and do not flash.
-        */}
         <main id="main-content" className="page-content" tabIndex={-1}>
           <div key={location.pathname} className="page-transition">
             {children}
