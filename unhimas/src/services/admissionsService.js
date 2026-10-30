@@ -40,9 +40,19 @@ export async function getApplication(id) {
   return data;
 }
 
+/** Public status check — number + email via security definer RPC */
+export async function lookupApplication(applicationNumber, email) {
+  const { data, error } = await supabase.rpc('lookup_admission_application', {
+    p_number: applicationNumber,
+    p_email: email,
+  });
+  if (error) throw error;
+  if (Array.isArray(data)) return data[0] || null;
+  return data || null;
+}
+
 /** Public / unauthenticated submit */
 export async function submitApplication(payload) {
-  // Honeypot: bots fill hidden field
   if (payload.website) {
     return { application_number: 'APP-SPAM', status: 'submitted', _spam: true };
   }
@@ -101,10 +111,6 @@ export async function updateApplicationStatus(id, { status, adminNotes, reviewed
   return data;
 }
 
-/**
- * Accept application and create a student record in a target batch.
- * Generates a provisional matricule; admin can edit later.
- */
 export async function acceptAndEnrollApplication(applicationId, { batchId, reviewedBy }) {
   if (!batchId) throw new Error('Batch is required to enrol');
 

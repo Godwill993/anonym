@@ -13,6 +13,7 @@ import SetNewPasswordPage from './pages/auth/SetNewPasswordPage';
 import UnauthorizedPage from './pages/auth/UnauthorizedPage';
 import PublicResultsPage from './pages/public/PublicResultsPage';
 import ApplyPage from './pages/public/ApplyPage';
+import ApplicationStatusPage from './pages/public/ApplicationStatusPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -116,11 +117,11 @@ function App() {
               <Route path="/results" element={<PublicResultsPage />} />
               <Route path="/results/verify" element={<PublicResultsPage />} />
               <Route path="/apply" element={<ApplyPage />} />
+              <Route path="/apply/status" element={<ApplicationStatusPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               <Route path="/" element={<RoleRouter />} />
 
-              {/* Admin routes */}
               <Route
                 path="/admin/*"
                 element={
@@ -166,7 +167,6 @@ function App() {
                 }
               />
 
-              {/* Lecturer routes */}
               <Route
                 path="/lecturer/*"
                 element={
@@ -186,7 +186,6 @@ function App() {
                 }
               />
 
-              {/* Student routes */}
               <Route
                 path="/student/*"
                 element={
