@@ -44,6 +44,7 @@ import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 import AdminFeesPage from './pages/admin/AdminFeesPage';
+import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
 
 // Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
@@ -145,7 +146,7 @@ function App() {
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
                       <Route path="fees" element={<AdminFeesPage />} />
-                      <Route path="payments" element={<AdminFeesPage />} />
+                      <Route path="payments" element={<AdminPaymentsPage />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
