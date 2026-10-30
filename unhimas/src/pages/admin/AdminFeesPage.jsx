@@ -5,17 +5,20 @@ import {
   MdAdd,
   MdRefresh,
   MdCategory,
+  MdReceiptLong,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { useTranslation } from '../../i18n';
 import { useToast } from '../../hooks/useToast';
+import { getStudents } from '../../services/peopleService';
 import {
   listFeeCategories,
   listFeeStructures,
   listInvoices,
   upsertFeeCategory,
   upsertFeeStructure,
+  createInvoice,
   formatXAF,
 } from '../../services/feesService';
 
@@ -25,12 +28,19 @@ export default function AdminFeesPage() {
   const queryClient = useQueryClient();
   const [showCatModal, setShowCatModal] = useState(false);
   const [showStructModal, setShowStructModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [catForm, setCatForm] = useState({ code: '', name: '', description: '', sort_order: 50 });
   const [structForm, setStructForm] = useState({
     fee_category_id: '',
     amount: '',
     description: '',
     is_mandatory: true,
+  });
+  const [invoiceForm, setInvoiceForm] = useState({
+    student_id: '',
+    structure_ids: [],
+    notes: '',
+    due_date: '',
   });
 
   const { data: categories = [], isLoading: catLoading } = useQuery({
@@ -46,6 +56,12 @@ export default function AdminFeesPage() {
   const { data: invoices = [], isLoading: invLoading } = useQuery({
     queryKey: ['admin-invoices'],
     queryFn: () => listInvoices({ limit: 40 }),
+  });
+
+  const { data: students = [] } = useQuery({
+    queryKey: ['students-for-invoice'],
+    queryFn: () => getStudents({}),
+    enabled: showInvoiceModal,
   });
 
   const catMutation = useMutation({
@@ -70,6 +86,60 @@ export default function AdminFeesPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const invoiceMutation = useMutation({
+    mutationFn: createInvoice,
+    onSuccess: (inv) => {
+      toast.success(
+        translateText('Invoice issued') +
+          (inv?.invoice_number ? `: ${inv.invoice_number}` : ''),
+      );
+      setShowInvoiceModal(false);
+      setInvoiceForm({ student_id: '', structure_ids: [], notes: '', due_date: '' });
+      queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['student-invoices'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const activeStructures = structures.filter((s) => s.is_active);
+
+  const toggleStructure = (id) => {
+    setInvoiceForm((f) => {
+      const set = new Set(f.structure_ids);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      return { ...f, structure_ids: [...set] };
+    });
+  };
+
+  const submitInvoice = (e) => {
+    e.preventDefault();
+    if (!invoiceForm.student_id) {
+      toast.error(translateText('Select a student'));
+      return;
+    }
+    if (!invoiceForm.structure_ids.length) {
+      toast.error(translateText('Select at least one fee structure'));
+      return;
+    }
+    const items = activeStructures
+      .filter((s) => invoiceForm.structure_ids.includes(s.id))
+      .map((s) => ({
+        fee_structure_id: s.id,
+        fee_category_id: s.fee_category_id,
+        description: s.description || s.fee_categories?.name || 'Fee',
+        quantity: 1,
+        unit_amount: Number(s.amount),
+      }));
+    invoiceMutation.mutate({
+      studentId: invoiceForm.student_id,
+      items,
+      notes: invoiceForm.notes || null,
+      dueDate: invoiceForm.due_date || null,
+    });
+  };
+
   return (
     <AppLayout pageTitle="Fees & Invoices">
       <div className="page-header">
@@ -79,12 +149,15 @@ export default function AdminFeesPage() {
             {translateText('Manage fee categories, structures, and student invoices')}
           </p>
         </div>
-        <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
+        <div className="page-header-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCatModal(true)}>
             <MdCategory /> {translateText('Category')}
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowStructModal(true)}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowStructModal(true)}>
             <MdAdd /> {translateText('Fee structure')}
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowInvoiceModal(true)}>
+            <MdReceiptLong /> {translateText('Issue invoice')}
           </button>
           <button
             type="button"
@@ -163,7 +236,7 @@ export default function AdminFeesPage() {
             <div className="empty-state">
               <div className="empty-state-title">{translateText('No invoices')}</div>
               <p className="empty-state-text">
-                {translateText('Issue invoices to students from the student record or bulk tools (coming next).')}
+                {translateText('Use “Issue invoice” to bill a student for selected fee structures.')}
               </p>
             </div>
           ) : (
@@ -280,7 +353,7 @@ export default function AdminFeesPage() {
                 required
               >
                 <option value="">{translateText('Select…')}</option>
-                {(categories.length ? categories : []).map((c) => (
+                {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({c.code})
                   </option>
@@ -324,6 +397,82 @@ export default function AdminFeesPage() {
               </button>
               <button type="submit" className="btn btn-primary" disabled={structMutation.isPending}>
                 {translateText('Save')}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {showInvoiceModal && (
+        <Modal title={translateText('Issue invoice')} onClose={() => setShowInvoiceModal(false)}>
+          <form className="form-stack" onSubmit={submitInvoice}>
+            <div className="form-group">
+              <label>{translateText('Student')}</label>
+              <select
+                className="form-control"
+                value={invoiceForm.student_id}
+                onChange={(e) => setInvoiceForm((f) => ({ ...f, student_id: e.target.value }))}
+                required
+              >
+                <option value="">{translateText('Select student…')}</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.matricule} — {s.first_name} {s.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{translateText('Fee lines')}</label>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 8, padding: 8 }}>
+                {activeStructures.length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    {translateText('No active fee structures. Create one first.')}
+                  </p>
+                ) : (
+                  activeStructures.map((s) => (
+                    <label
+                      key={s.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={invoiceForm.structure_ids.includes(s.id)}
+                        onChange={() => toggleStructure(s.id)}
+                      />
+                      <span style={{ flex: 1 }}>
+                        {s.fee_categories?.name || s.description || 'Fee'}
+                      </span>
+                      <span style={{ fontWeight: 600 }}>{formatXAF(s.amount)}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="form-group">
+              <label>{translateText('Due date')}</label>
+              <input
+                type="date"
+                className="form-control"
+                value={invoiceForm.due_date}
+                onChange={(e) => setInvoiceForm((f) => ({ ...f, due_date: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>{translateText('Notes')}</label>
+              <textarea
+                className="form-control"
+                rows={2}
+                value={invoiceForm.notes}
+                onChange={(e) => setInvoiceForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowInvoiceModal(false)}>
+                {translateText('Cancel')}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={invoiceMutation.isPending}>
+                {invoiceMutation.isPending ? translateText('Issuing…') : translateText('Issue invoice')}
               </button>
             </div>
           </form>
