@@ -13,6 +13,8 @@ import {
   MdDescription,
   MdEventNote,
   MdArrowForward,
+  MdPayments,
+  MdAccountBalanceWallet,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +26,7 @@ import {
   getStudentNotifications,
   getMyUpcomingSessions,
 } from '../../services/studentService';
+import { getStudentFeeBalance, formatXAF } from '../../services/feesService';
 
 function StatCard({ icon, value, label, color = 'blue', link, suffix = '' }) {
   const { translateText } = useTranslation();
@@ -100,6 +103,12 @@ export default function StudentDashboard() {
     enabled: !!studentId && !!batchId && !!profileId,
   });
 
+  const { data: feeBalance } = useQuery({
+    queryKey: ['student-fee-balance', studentId],
+    queryFn: () => getStudentFeeBalance(studentId),
+    enabled: !!studentId,
+  });
+
   const {
     data: notifications = [],
     isLoading: notifsLoading,
@@ -131,6 +140,7 @@ export default function StudentDashboard() {
       refetchStats(),
       queryClient.invalidateQueries({ queryKey: ['student-notifications', profileId] }),
       queryClient.invalidateQueries({ queryKey: ['student-upcoming-sessions', batchId] }),
+      queryClient.invalidateQueries({ queryKey: ['student-fee-balance', studentId] }),
     ]);
   };
 
@@ -171,6 +181,7 @@ export default function StudentDashboard() {
   const attendanceThreshold = stats?.attendanceThreshold ?? 75;
   const lowAttendance =
     stats?.attendancePct != null && stats.attendancePct < attendanceThreshold;
+  const outstanding = Number(feeBalance?.outstanding_balance ?? 0);
 
   return (
     <AppLayout pageTitle="Student Dashboard">
@@ -228,6 +239,9 @@ export default function StudentDashboard() {
           <Link to="/student/results" className="quick-action-chip">
             <MdAssignment /> {translateText('Results')}
           </Link>
+          <Link to="/student/fees" className="quick-action-chip">
+            <MdPayments /> {translateText('Fees')}
+          </Link>
           <Link to="/student/timetable" className="quick-action-chip">
             <MdSchedule /> {translateText('Timetable')}
           </Link>
@@ -253,9 +267,21 @@ export default function StudentDashboard() {
         </div>
       )}
 
+      {outstanding > 0 && (
+        <div className="alert-banner" role="status" style={{ marginBottom: '1rem' }}>
+          <MdAccountBalanceWallet size={20} style={{ flexShrink: 0 }} />
+          <span>
+            {translateText('Outstanding fees')}: <strong>{formatXAF(outstanding)}</strong>
+          </span>
+          <Link to="/student/fees" style={{ color: 'var(--color-secondary)' }}>
+            {translateText('Pay now')} →
+          </Link>
+        </div>
+      )}
+
       <div className="stats-grid animate-stagger">
         {statsLoading ? (
-          [1, 2, 3, 4, 5, 6].map((i) => <StatSkeleton key={i} />)
+          [1, 2, 3, 4, 5, 6, 7].map((i) => <StatSkeleton key={i} />)
         ) : statsError ? (
           <div className="empty-state" role="alert" style={{ gridColumn: '1 / -1' }}>
             <div className="empty-state-icon">
@@ -279,6 +305,13 @@ export default function StudentDashboard() {
             <StatCard icon={<MdHowToReg />} value={stats.attendancePct !== null ? stats.attendancePct : '—'} label="Attendance Rate" color={lowAttendance ? 'red' : 'green'} link="/student/attendance" suffix="%" />
             <StatCard icon={<MdAssignment />} value={stats.publishedResults} label="Published Results" color="blue" link="/student/results" />
             <StatCard icon={<MdTrendingUp />} value={stats.gpa !== null ? stats.gpa : '—'} label={stats.gpaScope || 'GPA'} color="amber" link="/student/results" />
+            <StatCard
+              icon={<MdAccountBalanceWallet />}
+              value={formatXAF(outstanding)}
+              label="Outstanding fees"
+              color={outstanding > 0 ? 'red' : 'green'}
+              link="/student/fees"
+            />
             <StatCard icon={<MdDescription />} value={stats.publishedResults > 0 ? translateText('Open') : '—'} label="Official Transcript" color="purple" link="/student/transcript" />
             <StatCard icon={<MdNotifications />} value={stats.unreadNotifications} label="Unread Notifications" color={stats.unreadNotifications > 0 ? 'red' : 'blue'} link="/student/notifications" />
           </>
@@ -327,7 +360,7 @@ export default function StudentDashboard() {
               </div>
             ) : (
               notifications.map((n) => (
-                <div key={n.id} className={`list-row ${!n.is_read ? 'list-row-unread' : ''}`}>
+                <div key={n.id} className={`list-row ${!n.is_read ? 'list-row-unread' : ''`}>
                   {!n.is_read && (
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-secondary)', flexShrink: 0, marginTop: 6 }} />
                   )}
