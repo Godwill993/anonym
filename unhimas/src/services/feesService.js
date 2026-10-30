@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notifyInvoiceIssued, notifyPaymentReceived } from './notificationService';
 
 /** Format XAF amounts for display */
 export function formatXAF(amount) {
@@ -87,7 +88,7 @@ export async function listInvoices({ studentId, status, limit = 50 } = {}) {
     .from('student_invoices')
     .select(`
       *,
-      students ( id, matricule, first_name, last_name, profile_id ),
+      students ( id, matricule, first_name, last_name, profile_id, email ),
       academic_years ( id, name ),
       semesters ( id, name ),
       invoice_items ( * )
@@ -106,7 +107,7 @@ export async function getInvoice(invoiceId) {
     .from('student_invoices')
     .select(`
       *,
-      students ( id, matricule, first_name, last_name, profile_id ),
+      students ( id, matricule, first_name, last_name, profile_id, email ),
       academic_years ( id, name ),
       semesters ( id, name ),
       invoice_items ( * )
@@ -154,13 +155,19 @@ export async function createInvoice({ studentId, academicYearId, semesterId, ite
     if (itemsErr) throw itemsErr;
   }
 
-  return getInvoice(invoice.id);
+  const full = await getInvoice(invoice.id);
+  const stu = full?.students;
+  if (stu?.email) {
+    void notifyInvoiceIssued({
+      email: stu.email,
+      invoiceNumber: full.invoice_number,
+      amountLabel: formatXAF(full.total_amount),
+      studentName: `${stu.first_name || ''} ${stu.last_name || ''}`.trim(),
+    });
+  }
+  return full;
 }
 
-/**
- * Issue the same fee lines to every student in a batch.
- * Continues on individual failures; returns summary.
- */
 export async function bulkCreateInvoices({
   batchId,
   structureIds,
@@ -294,9 +301,19 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
       paid_at: new Date().toISOString(),
     })
     .eq('id', paymentId)
-    .select()
+    .select('*, students:student_id ( email, first_name, last_name )')
     .single();
   if (error) throw error;
+
+  const email = data?.students?.email;
+  if (email) {
+    void notifyPaymentReceived({
+      email,
+      paymentReference: data.payment_reference,
+      amountLabel: formatXAF(data.amount),
+      receiptNumber: data.receipt_number,
+    });
+  }
   return data;
 }
 
