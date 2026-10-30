@@ -11,7 +11,6 @@ import {
   MdSchedule,
   MdArrowForward,
   MdRefresh,
-  MdClass,
   MdVideocam,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
@@ -23,7 +22,6 @@ import {
   getMyLecturerProfile,
   getLecturerDashboardStats,
   getTodaySessions,
-  getUpcomingSessions,
   getMyMarkSubmissions,
 } from '../../services/lecturerService';
 import { createZoomMeeting } from '../../services/zoomService';
@@ -31,11 +29,6 @@ import { createZoomMeeting } from '../../services/zoomService';
 function fmtTime(iso) {
   if (!iso) return '--:--';
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function statusBadge(status, tx) {
@@ -77,7 +70,7 @@ function StatSkeleton() {
       <div className="skeleton skeleton-box" style={{ width: 44, height: 44, borderRadius: 8 }} />
       <div style={{ flex: 1 }}>
         <div className="skeleton skeleton-title" style={{ width: 60, marginBottom: 6 }} />
-        <div className="skeleton skeleton-text" style={{ width: 120 }} />
+        <div className="skeleton skeleton-text" style={{ width: 100 }} />
       </div>
     </div>
   );
@@ -87,7 +80,14 @@ export default function LecturerDashboard() {
   const { language, translateText } = useTranslation();
   const { session, profile } = useAuth();
   const queryClient = useQueryClient();
-  const { showToast } = useToast();
+  const toast = useToast();
+  const showToast = toast.showToast || toast.success
+    ? (msg, type) => {
+        if (toast.showToast) toast.showToast(msg, type);
+        else if (type === 'error') toast.error?.(msg);
+        else toast.success?.(msg);
+      }
+    : () => {};
   const [zoomLoading, setZoomLoading] = useState(null);
 
   const {
@@ -128,14 +128,7 @@ export default function LecturerDashboard() {
     retry: 1,
   });
 
-  const { data: upcomingSessions = [], isLoading: upcomingLoading } = useQuery({
-    queryKey: ['lecturer-upcoming-sessions', lecturerId],
-    queryFn: () => getUpcomingSessions(lecturerId),
-    enabled: !!lecturerId,
-    retry: 1,
-  });
-
-  const { data: markSubmissions = [], isLoading: marksLoading, error: marksError } = useQuery({
+  const { data: markSubmissions = [], isLoading: marksLoading } = useQuery({
     queryKey: ['my-mark-submissions', lecturerId],
     queryFn: () => getMyMarkSubmissions(lecturerId),
     enabled: !!lecturerId,
@@ -154,7 +147,6 @@ export default function LecturerDashboard() {
       refetchLecturerProfile(),
       refetchStats(),
       queryClient.invalidateQueries({ queryKey: ['lecturer-today-sessions', lecturerId] }),
-      queryClient.invalidateQueries({ queryKey: ['lecturer-upcoming-sessions', lecturerId] }),
       queryClient.invalidateQueries({ queryKey: ['my-mark-submissions', lecturerId] }),
     ]);
   };
@@ -172,14 +164,10 @@ export default function LecturerDashboard() {
         scheduledStart: s.scheduled_start,
         durationMinutes,
       });
-      showToast('Zoom meeting created!', 'success');
+      showToast(translateText('Zoom meeting created'), 'success');
       refetchToday();
     } catch (err) {
-      showToast(
-        err.message ||
-          'Could not create Zoom meeting. Set ZOOM_* secrets and deploy the zoom-meeting function.',
-        'error',
-      );
+      showToast(err.message || translateText('Could not create Zoom meeting'), 'error');
     } finally {
       setZoomLoading(null);
     }
@@ -190,15 +178,10 @@ export default function LecturerDashboard() {
       <AppLayout pageTitle="Lecturer Dashboard">
         <div className="page-header">
           <div className="page-header-left">
-            <h1 className="page-title">{translateText('My Dashboard')}</h1>
-            <p className="page-subtitle">{translateText('Loading your workspace…')}</p>
+            <h1 className="page-title">{translateText('Dashboard')}</h1>
           </div>
         </div>
-        <div className="stats-grid">
-          {[1, 2, 3, 4].map((i) => (
-            <StatSkeleton key={i} />
-          ))}
-        </div>
+        <div className="stats-grid">{[1, 2, 3, 4].map((i) => <StatSkeleton key={i} />)}</div>
       </AppLayout>
     );
   }
@@ -206,11 +189,7 @@ export default function LecturerDashboard() {
   if (lecError) {
     return (
       <AppLayout pageTitle="Lecturer Dashboard">
-        <ProfileUnlinkedState
-          role="lecturer"
-          errorCode={lecError.code}
-          onRetry={() => refetchLecturerProfile()}
-        />
+        <ProfileUnlinkedState role="lecturer" errorCode={lecError.code} onRetry={() => refetchLecturerProfile()} />
       </AppLayout>
     );
   }
@@ -220,272 +199,135 @@ export default function LecturerDashboard() {
   const returnedSubmissions = markSubmissions.filter((m) => m.status === 'returned');
   const marksNeedingAction = (stats?.pendingMarksDraft || 0) + (stats?.returnedMarks || 0);
 
-  const todayKey = new Date().toDateString();
-  const upcomingOnly = (upcomingSessions || []).filter(
-    (s) => s.scheduled_start && new Date(s.scheduled_start).toDateString() !== todayKey,
-  );
-
   return (
     <AppLayout pageTitle="Lecturer Dashboard">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">
-            {translateText('Welcome back,')} {firstName}
-          </h1>
+          <h1 className="page-title">{firstName}</h1>
           <p className="page-subtitle">
             {formattedDate}
             {dept ? ` · ${dept}` : ''}
           </p>
         </div>
         <div className="page-header-actions">
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={refreshDashboard}
-            aria-label={translateText('Refresh dashboard')}
-          >
-            <MdRefresh /> {translateText('Refresh')}
+          <button type="button" className="btn btn-outline btn-sm" onClick={refreshDashboard}>
+            <MdRefresh />
           </button>
         </div>
       </div>
 
       {stats?.currentShift && (
-        <div
-          style={{
-            background: 'rgba(16,185,129,0.07)',
-            border: '1px solid rgba(16,185,129,0.25)',
-            borderRadius: 'var(--radius-md)',
-            padding: '0.65rem 1rem',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            color: '#059669',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-          }}
-        >
+        <div className="alert-banner" style={{ marginBottom: '1rem', color: '#059669' }} role="status">
           <MdCheckCircle size={18} />
-          {translateText('You are currently clocked in (since')} {fmtTime(stats.currentShift.clock_in)}
+          {translateText('Clocked in since')} {fmtTime(stats.currentShift.clock_in)}
         </div>
       )}
 
       {returnedSubmissions.length > 0 && (
-        <div
-          style={{
-            background: 'rgba(183,0,50,0.06)',
-            border: '1px solid rgba(183,0,50,0.25)',
-            borderRadius: 'var(--radius-md)',
-            padding: '0.65rem 1rem',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            color: 'var(--color-secondary)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="alert-banner alert-banner-danger" role="status" style={{ marginBottom: '1rem' }}>
           <MdWarning size={18} />
-          {returnedSubmissions.length}{' '}
-          {translateText('mark submission(s) returned for correction — please review')}
-          <Link
-            to="/lecturer/marks"
-            style={{
-              marginLeft: 'auto',
-              color: 'var(--color-secondary)',
-              fontWeight: 700,
-              fontSize: '0.8125rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            {translateText('View Marks')} <MdArrowForward />
-          </Link>
+          {returnedSubmissions.length} {translateText('mark submission(s) returned')}
+          <Link to="/lecturer/marks">{translateText('Review')} →</Link>
         </div>
       )}
 
-      <div
-        className="stats-grid animate-stagger"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
-      >
+      <div className="stats-grid animate-stagger">
         {statsLoading ? (
           [1, 2, 3, 4].map((i) => <StatSkeleton key={i} />)
         ) : statsError ? (
-          <div className="empty-state" role="status" style={{ gridColumn: '1 / -1' }}>
-            <div className="empty-state-title">{translateText('Dashboard metrics unavailable')}</div>
+          <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchStats()}>
               <MdRefresh /> {translateText('Try again')}
             </button>
           </div>
         ) : (
           <>
-            <StatCard
-              icon={<MdBook />}
-              value={stats.totalCourses}
-              label="Assigned Courses"
-              color="blue"
-              link="/lecturer/courses"
-            />
-            <StatCard
-              icon={<MdSchedule />}
-              value={stats.todaySessions}
-              label="Sessions Today"
-              color="amber"
-              link="/lecturer/sessions"
-            />
+            <StatCard icon={<MdBook />} value={stats.totalCourses} label="Courses" color="blue" link="/lecturer/courses" />
+            <StatCard icon={<MdSchedule />} value={stats.todaySessions} label="Today" color="amber" link="/lecturer/sessions" />
             <StatCard
               icon={<MdGrade />}
               value={marksNeedingAction}
-              label="Marks to action"
+              label="Marks"
               color={marksNeedingAction > 0 ? 'red' : 'blue'}
               link="/lecturer/marks"
               alert={marksNeedingAction > 0}
             />
-            <StatCard
-              icon={<MdAccessTime />}
-              value={`${stats.monthlyHours ?? 0}h`}
-              label="Hours This Month"
-              color="green"
-              link="/lecturer/hours"
-            />
+            <StatCard icon={<MdAccessTime />} value={`${stats.monthlyHours ?? 0}h`} label="Hours" color="green" link="/lecturer/hours" />
           </>
         )}
       </div>
 
       <div
-        className="animate-stagger"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
-          gap: '1.25rem',
+          gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)',
+          gap: '1rem',
           marginTop: '1.25rem',
         }}
       >
         <div className="card">
           <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSchedule color="var(--color-primary)" /> {translateText("Today's Sessions")}
-            </span>
-            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">
-              {translateText('View All')}
-            </Link>
+            <span className="card-title">{translateText("Today's Sessions")}</span>
+            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">{translateText('All')}</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {sessionsLoading ? (
-              <div style={{ padding: '1rem' }}>
-                {[1, 2].map((i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <div className="skeleton skeleton-text" style={{ width: '70%', marginBottom: 6 }} />
-                    <div className="skeleton skeleton-text" style={{ width: '40%' }} />
-                  </div>
-                ))}
-              </div>
+              <div style={{ padding: '1rem' }}>{translateText('Loading…')}</div>
             ) : sessionsError ? (
-              <div className="empty-state" role="alert" style={{ padding: '1.5rem' }}>
-                <div className="empty-state-title">{translateText('Sessions unavailable')}</div>
+              <div className="empty-state" style={{ padding: '1.25rem' }}>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchToday()}>
                   <MdRefresh /> {translateText('Retry')}
                 </button>
               </div>
             ) : todaySessions.length === 0 ? (
-              <div className="empty-state" style={{ padding: '1.5rem' }}>
+              <div className="empty-state" style={{ padding: '1.25rem' }}>
                 <div className="empty-state-title">{translateText('No sessions today')}</div>
-                <p className="empty-state-text">{translateText('You have no scheduled classes today.')}</p>
-                <Link to="/lecturer/sessions" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
-                  {translateText('Open sessions')}
-                </Link>
               </div>
             ) : (
               todaySessions.map((s) => (
                 <div
                   key={s.id}
                   style={{
-                    padding: '0.75rem 1rem',
+                    padding: '0.65rem 1rem',
                     borderBottom: '1px solid var(--color-border)',
                     display: 'flex',
-                    alignItems: 'flex-start',
                     gap: '0.75rem',
                     flexWrap: 'wrap',
+                    alignItems: 'center',
                   }}
                 >
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 8,
-                      background: 'rgba(17,47,66,0.08)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <MdClass color="var(--color-primary)" size={18} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                      }}
-                    >
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>
                       {s.batch_courses?.courses?.code} — {s.batch_courses?.courses?.name}
-                      {s.zoom_join_url && (
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            background: '#2d8cff',
-                            color: '#fff',
-                            borderRadius: 4,
-                            padding: '1px 6px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          ONLINE
-                        </span>
-                      )}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                      {s.batch_courses?.batches?.name} · {fmtTime(s.scheduled_start)} –{' '}
-                      {fmtTime(s.scheduled_end)}
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                      {fmtTime(s.scheduled_start)} – {fmtTime(s.scheduled_end)}
                       {s.room ? ` · ${s.room}` : ''}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {s.zoom_join_url || s.zoom_start_url ? (
                       <a
                         href={s.zoom_start_url || s.zoom_join_url}
                         target="_blank"
                         rel="noreferrer"
                         className="btn btn-primary btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                       >
-                        <MdVideocam size={14} /> {translateText('Start Meeting')}
+                        <MdVideocam size={14} /> {translateText('Start')}
                       </a>
                     ) : (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         disabled={zoomLoading === s.id}
                         onClick={() => handleAddZoom(s)}
                       >
                         <MdVideocam size={14} />
-                        {zoomLoading === s.id ? translateText('Creating…') : translateText('Add Zoom')}
+                        {zoomLoading === s.id ? '…' : 'Zoom'}
                       </button>
                     )}
-                    <Link
-                      to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      <MdHowToReg /> {translateText('Attend')}
+                    <Link to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`} className="btn btn-ghost btn-sm">
+                      <MdHowToReg />
                     </Link>
                   </div>
                 </div>
@@ -496,51 +338,32 @@ export default function LecturerDashboard() {
 
         <div className="card">
           <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdGrade color="var(--color-secondary)" /> {translateText('Marks')}
-            </span>
-            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">
-              {translateText('Open')}
-            </Link>
+            <span className="card-title">{translateText('Marks')}</span>
+            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">{translateText('Open')}</Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {marksLoading ? (
-              <div style={{ padding: '1rem' }}>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="skeleton skeleton-text" style={{ height: 28, marginBottom: 8 }} />
-                ))}
-              </div>
-            ) : marksError ? (
-              <div className="empty-state" style={{ padding: '1.5rem' }}>
-                <div className="empty-state-title">{translateText('Marks unavailable')}</div>
-              </div>
+              <div style={{ padding: '1rem' }}>{translateText('Loading…')}</div>
             ) : markSubmissions.length === 0 ? (
-              <div className="empty-state" style={{ padding: '1.5rem' }}>
+              <div className="empty-state" style={{ padding: '1.25rem' }}>
                 <div className="empty-state-title">{translateText('No mark entries yet')}</div>
-                <Link to="/lecturer/marks" className="btn btn-primary btn-sm" style={{ marginTop: '0.75rem' }}>
-                  {translateText('Open Marks')}
-                </Link>
               </div>
             ) : (
-              markSubmissions.slice(0, 6).map((m) => (
+              markSubmissions.slice(0, 5).map((m) => (
                 <div
                   key={m.id}
                   style={{
-                    padding: '0.6rem 1rem',
+                    padding: '0.55rem 1rem',
                     borderBottom: '1px solid var(--color-border)',
                     display: 'flex',
                     justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    alignItems: 'center',
-                    fontSize: '0.8125rem',
+                    gap: 8,
+                    fontSize: '0.85rem',
                   }}
                 >
-                  <div style={{ minWidth: 0 }}>
-                    <strong>{m.batch_courses?.courses?.code || '—'}</strong>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                      {m.batch_courses?.batches?.name || '—'}
-                    </div>
-                  </div>
+                  <span>
+                    {m.batch_courses?.courses?.code || '—'}
+                  </span>
                   {statusBadge(m.status, translateText)}
                 </div>
               ))
@@ -548,38 +371,6 @@ export default function LecturerDashboard() {
           </div>
         </div>
       </div>
-
-      {!upcomingLoading && upcomingOnly.length > 0 && (
-        <div className="card animate-stagger" style={{ marginTop: '1.25rem' }}>
-          <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdSchedule color="var(--color-primary)" /> {translateText('Upcoming')}
-            </span>
-            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">
-              {translateText('View All')}
-            </Link>
-          </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {upcomingOnly.slice(0, 5).map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  padding: '0.6rem 1rem',
-                  borderBottom: '1px solid var(--color-border)',
-                  fontSize: '0.8125rem',
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>
-                  {s.batch_courses?.courses?.code} — {s.batch_courses?.courses?.name}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                  {fmtDate(s.scheduled_start)} · {fmtTime(s.scheduled_start)} – {fmtTime(s.scheduled_end)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </AppLayout>
   );
 }
