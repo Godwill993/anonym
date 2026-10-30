@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -10,12 +9,10 @@ import {
   MdCheckCircle,
   MdSchedule,
   MdRefresh,
-  MdVideocam,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
-import { useToast } from '../../hooks/useToast';
 import ProfileUnlinkedState from '../../components/common/ProfileUnlinkedState';
 import {
   getMyLecturerProfile,
@@ -27,7 +24,6 @@ import {
   getLecturerMarkStatusBreakdown,
   getLecturerHoursTrend,
 } from '../../services/dashboardAnalytics';
-import { createZoomMeeting } from '../../services/zoomService';
 import {
   ChartCard,
   StatusPieChart,
@@ -88,15 +84,6 @@ export default function LecturerDashboard() {
   const { language, translateText } = useTranslation();
   const { session, profile } = useAuth();
   const queryClient = useQueryClient();
-  const toast = useToast();
-  const showToast = toast.showToast || toast.success
-    ? (msg, type) => {
-        if (toast.showToast) toast.showToast(msg, type);
-        else if (type === 'error') toast.error?.(msg);
-        else toast.success?.(msg);
-      }
-    : () => {};
-  const [zoomLoading, setZoomLoading] = useState(null);
 
   const {
     data: lecturerProfile,
@@ -171,28 +158,6 @@ export default function LecturerDashboard() {
       queryClient.invalidateQueries({ queryKey: ['lecturer-mark-status', lecturerId] }),
       queryClient.invalidateQueries({ queryKey: ['lecturer-hours-trend', lecturerId] }),
     ]);
-  };
-
-  const handleAddZoom = async (s) => {
-    if (!s?.id) return;
-    setZoomLoading(s.id);
-    try {
-      const start = new Date(s.scheduled_start);
-      const end = new Date(s.scheduled_end);
-      const durationMinutes = Math.max(1, Math.round((end - start) / 60000));
-      await createZoomMeeting({
-        sessionId: s.id,
-        topic: s.topic || s.batch_courses?.courses?.name || 'Online Class',
-        scheduledStart: s.scheduled_start,
-        durationMinutes,
-      });
-      showToast(translateText('Zoom meeting created'), 'success');
-      refetchToday();
-    } catch (err) {
-      showToast(err.message || translateText('Could not create Zoom meeting'), 'error');
-    } finally {
-      setZoomLoading(null);
-    }
   };
 
   if (lecLoading) {
@@ -279,7 +244,6 @@ export default function LecturerDashboard() {
         )}
       </div>
 
-      {/* Charts: marks mix + hours */}
       <div className="lecturer-charts-grid" style={{ marginTop: '1.25rem' }}>
         <ChartCard
           title={translateText('Marks workflow')}
@@ -363,35 +327,13 @@ export default function LecturerDashboard() {
                       {s.room ? ` · ${s.room}` : ''}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {s.zoom_join_url || s.zoom_start_url ? (
-                      <a
-                        href={s.zoom_start_url || s.zoom_join_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-primary btn-sm"
-                      >
-                        <MdVideocam size={14} aria-hidden="true" /> {translateText('Start')}
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        disabled={zoomLoading === s.id}
-                        onClick={() => handleAddZoom(s)}
-                      >
-                        <MdVideocam size={14} aria-hidden="true" />
-                        {zoomLoading === s.id ? '…' : 'Zoom'}
-                      </button>
-                    )}
-                    <Link
-                      to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`}
-                      className="btn btn-ghost btn-sm"
-                      aria-label={translateText('Attendance')}
-                    >
-                      <MdHowToReg aria-hidden="true" />
-                    </Link>
-                  </div>
+                  <Link
+                    to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`}
+                    className="btn btn-ghost btn-sm"
+                    aria-label={translateText('Attendance')}
+                  >
+                    <MdHowToReg aria-hidden="true" />
+                  </Link>
                 </div>
               ))
             )}
