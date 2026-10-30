@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notifyApplicationSubmitted, notifyAdmissionDecision } from './notificationService';
 
 export const ADMISSION_STATUSES = [
   'submitted',
@@ -41,6 +42,11 @@ export async function getApplication(id) {
 
 /** Public / unauthenticated submit */
 export async function submitApplication(payload) {
+  // Honeypot: bots fill hidden field
+  if (payload.website) {
+    return { application_number: 'APP-SPAM', status: 'submitted', _spam: true };
+  }
+
   let applicationNumber;
   try {
     const { data } = await supabase.rpc('generate_application_number');
@@ -73,6 +79,8 @@ export async function submitApplication(payload) {
     .select()
     .single();
   if (error) throw error;
+
+  void notifyApplicationSubmitted(data);
   return data;
 }
 
@@ -89,5 +97,56 @@ export async function updateApplicationStatus(id, { status, adminNotes, reviewed
     .select()
     .single();
   if (error) throw error;
+  void notifyAdmissionDecision(data);
   return data;
+}
+
+/**
+ * Accept application and create a student record in a target batch.
+ * Generates a provisional matricule; admin can edit later.
+ */
+export async function acceptAndEnrollApplication(applicationId, { batchId, reviewedBy }) {
+  if (!batchId) throw new Error('Batch is required to enrol');
+
+  const app = await getApplication(applicationId);
+  if (!app) throw new Error('Application not found');
+  if (app.student_id) {
+    return { application: app, student: { id: app.student_id }, alreadyEnrolled: true };
+  }
+
+  const year = new Date().getFullYear();
+  const suffix = String(Date.now()).slice(-5);
+  const matricule = `UNH${year}${suffix}`;
+
+  const { data: student, error: stuErr } = await supabase
+    .from('students')
+    .insert({
+      matricule,
+      first_name: app.first_name,
+      middle_name: app.middle_name,
+      last_name: app.last_name,
+      email: app.email,
+      phone: app.phone,
+      batch_id: batchId,
+      admission_date: new Date().toISOString().slice(0, 10),
+    })
+    .select()
+    .single();
+  if (stuErr) throw stuErr;
+
+  const { data: updated, error: upErr } = await supabase
+    .from('admission_applications')
+    .update({
+      status: 'accepted',
+      student_id: student.id,
+      reviewed_by: reviewedBy || null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', applicationId)
+    .select()
+    .single();
+  if (upErr) throw upErr;
+
+  void notifyAdmissionDecision(updated);
+  return { application: updated, student, alreadyEnrolled: false };
 }
