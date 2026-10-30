@@ -9,7 +9,6 @@ import {
   MdWarning,
   MdCheckCircle,
   MdSchedule,
-  MdArrowForward,
   MdRefresh,
   MdVideocam,
 } from 'react-icons/md';
@@ -24,7 +23,16 @@ import {
   getTodaySessions,
   getMyMarkSubmissions,
 } from '../../services/lecturerService';
+import {
+  getLecturerMarkStatusBreakdown,
+  getLecturerHoursTrend,
+} from '../../services/dashboardAnalytics';
 import { createZoomMeeting } from '../../services/zoomService';
+import {
+  ChartCard,
+  StatusPieChart,
+  HoursAreaChart,
+} from '../../components/charts/DashboardCharts';
 
 function fmtTime(iso) {
   if (!iso) return '--:--';
@@ -135,6 +143,18 @@ export default function LecturerDashboard() {
     retry: 1,
   });
 
+  const { data: markMix = [], isLoading: mixLoading } = useQuery({
+    queryKey: ['lecturer-mark-status', lecturerId],
+    queryFn: () => getLecturerMarkStatusBreakdown(lecturerId),
+    enabled: !!lecturerId,
+  });
+
+  const { data: hoursTrend = [], isLoading: hoursLoading } = useQuery({
+    queryKey: ['lecturer-hours-trend', lecturerId],
+    queryFn: () => getLecturerHoursTrend(lecturerId, 6),
+    enabled: !!lecturerId,
+  });
+
   const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
@@ -148,6 +168,8 @@ export default function LecturerDashboard() {
       refetchStats(),
       queryClient.invalidateQueries({ queryKey: ['lecturer-today-sessions', lecturerId] }),
       queryClient.invalidateQueries({ queryKey: ['my-mark-submissions', lecturerId] }),
+      queryClient.invalidateQueries({ queryKey: ['lecturer-mark-status', lecturerId] }),
+      queryClient.invalidateQueries({ queryKey: ['lecturer-hours-trend', lecturerId] }),
     ]);
   };
 
@@ -211,21 +233,21 @@ export default function LecturerDashboard() {
         </div>
         <div className="page-header-actions">
           <button type="button" className="btn btn-outline btn-sm" onClick={refreshDashboard}>
-            <MdRefresh />
+            <MdRefresh aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {stats?.currentShift && (
         <div className="alert-banner" style={{ marginBottom: '1rem', color: '#059669' }} role="status">
-          <MdCheckCircle size={18} />
+          <MdCheckCircle size={18} aria-hidden="true" />
           {translateText('Clocked in since')} {fmtTime(stats.currentShift.clock_in)}
         </div>
       )}
 
       {returnedSubmissions.length > 0 && (
         <div className="alert-banner alert-banner-danger" role="status" style={{ marginBottom: '1rem' }}>
-          <MdWarning size={18} />
+          <MdWarning size={18} aria-hidden="true" />
           {returnedSubmissions.length} {translateText('mark submission(s) returned')}
           <Link to="/lecturer/marks">{translateText('Review')} →</Link>
         </div>
@@ -237,24 +259,57 @@ export default function LecturerDashboard() {
         ) : statsError ? (
           <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchStats()}>
-              <MdRefresh /> {translateText('Try again')}
+              <MdRefresh aria-hidden="true" /> {translateText('Try again')}
             </button>
           </div>
         ) : (
           <>
-            <StatCard icon={<MdBook />} value={stats.totalCourses} label="Courses" color="blue" link="/lecturer/courses" />
-            <StatCard icon={<MdSchedule />} value={stats.todaySessions} label="Today" color="amber" link="/lecturer/sessions" />
+            <StatCard icon={<MdBook aria-hidden="true" />} value={stats.totalCourses} label="Courses" color="blue" link="/lecturer/courses" />
+            <StatCard icon={<MdSchedule aria-hidden="true" />} value={stats.todaySessions} label="Today" color="amber" link="/lecturer/sessions" />
             <StatCard
-              icon={<MdGrade />}
+              icon={<MdGrade aria-hidden="true" />}
               value={marksNeedingAction}
               label="Marks"
               color={marksNeedingAction > 0 ? 'red' : 'blue'}
               link="/lecturer/marks"
               alert={marksNeedingAction > 0}
             />
-            <StatCard icon={<MdAccessTime />} value={`${stats.monthlyHours ?? 0}h`} label="Hours" color="green" link="/lecturer/hours" />
+            <StatCard icon={<MdAccessTime aria-hidden="true" />} value={`${stats.monthlyHours ?? 0}h`} label="Hours" color="green" link="/lecturer/hours" />
           </>
         )}
+      </div>
+
+      {/* Charts: marks mix + hours */}
+      <div className="lecturer-charts-grid" style={{ marginTop: '1.25rem' }}>
+        <ChartCard
+          title={translateText('Marks workflow')}
+          subtitle={translateText('Your submissions by status')}
+          height={230}
+        >
+          {mixLoading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              {translateText('Loading…')}
+            </div>
+          ) : (
+            <StatusPieChart
+              data={markMix.map((r) => ({ ...r, label: translateText(r.label) }))}
+              emptyLabel={translateText('No mark entries yet')}
+            />
+          )}
+        </ChartCard>
+        <ChartCard
+          title={translateText('Teaching hours')}
+          subtitle={translateText('Last 6 months')}
+          height={230}
+        >
+          {hoursLoading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              {translateText('Loading…')}
+            </div>
+          ) : (
+            <HoursAreaChart data={hoursTrend} emptyLabel={translateText('No hours recorded')} />
+          )}
+        </ChartCard>
       </div>
 
       <div
@@ -264,11 +319,14 @@ export default function LecturerDashboard() {
           gap: '1rem',
           marginTop: '1.25rem',
         }}
+        className="lecturer-lists-grid"
       >
         <div className="card">
           <div className="card-header">
             <span className="card-title">{translateText("Today's Sessions")}</span>
-            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">{translateText('All')}</Link>
+            <Link to="/lecturer/sessions" className="btn btn-ghost btn-sm">
+              {translateText('All')}
+            </Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {sessionsLoading ? (
@@ -276,7 +334,7 @@ export default function LecturerDashboard() {
             ) : sessionsError ? (
               <div className="empty-state" style={{ padding: '1.25rem' }}>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchToday()}>
-                  <MdRefresh /> {translateText('Retry')}
+                  <MdRefresh aria-hidden="true" /> {translateText('Retry')}
                 </button>
               </div>
             ) : todaySessions.length === 0 ? (
@@ -313,7 +371,7 @@ export default function LecturerDashboard() {
                         rel="noreferrer"
                         className="btn btn-primary btn-sm"
                       >
-                        <MdVideocam size={14} /> {translateText('Start')}
+                        <MdVideocam size={14} aria-hidden="true" /> {translateText('Start')}
                       </a>
                     ) : (
                       <button
@@ -322,12 +380,16 @@ export default function LecturerDashboard() {
                         disabled={zoomLoading === s.id}
                         onClick={() => handleAddZoom(s)}
                       >
-                        <MdVideocam size={14} />
+                        <MdVideocam size={14} aria-hidden="true" />
                         {zoomLoading === s.id ? '…' : 'Zoom'}
                       </button>
                     )}
-                    <Link to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`} className="btn btn-ghost btn-sm">
-                      <MdHowToReg />
+                    <Link
+                      to={`/lecturer/sessions?bc=${s.batch_courses?.id || ''}`}
+                      className="btn btn-ghost btn-sm"
+                      aria-label={translateText('Attendance')}
+                    >
+                      <MdHowToReg aria-hidden="true" />
                     </Link>
                   </div>
                 </div>
@@ -339,7 +401,9 @@ export default function LecturerDashboard() {
         <div className="card">
           <div className="card-header">
             <span className="card-title">{translateText('Marks')}</span>
-            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">{translateText('Open')}</Link>
+            <Link to="/lecturer/marks" className="btn btn-ghost btn-sm">
+              {translateText('Open')}
+            </Link>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {marksLoading ? (
@@ -361,9 +425,7 @@ export default function LecturerDashboard() {
                     fontSize: '0.85rem',
                   }}
                 >
-                  <span>
-                    {m.batch_courses?.courses?.code || '—'}
-                  </span>
+                  <span>{m.batch_courses?.courses?.code || '—'}</span>
                   {statusBadge(m.status, translateText)}
                 </div>
               ))
@@ -371,6 +433,20 @@ export default function LecturerDashboard() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .lecturer-charts-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+          gap: 1rem;
+        }
+        @media (max-width: 900px) {
+          .lecturer-charts-grid,
+          .lecturer-lists-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
+      `}</style>
     </AppLayout>
   );
 }
