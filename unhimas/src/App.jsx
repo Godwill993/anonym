@@ -66,6 +66,7 @@ import StudentNotificationsPage from './pages/student/StudentNotificationsPage';
 import StudentResourcesPage from './pages/student/StudentResourcesPage';
 import StudentProfilePage from './pages/student/StudentProfilePage';
 import StudentFeesPage from './pages/student/StudentFeesPage';
+import StudentDocumentsPage from './pages/student/StudentDocumentsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -179,6 +180,7 @@ function App() {
                       <Route path="attendance" element={<StudentAttendancePage />} />
                       <Route path="results" element={<StudentResultsPage />} />
                       <Route path="transcript" element={<StudentTranscriptPage />} />
+                      <Route path="documents" element={<StudentDocumentsPage />} />
                       <Route path="timetable" element={<StudentTimetablePage />} />
                       <Route path="fees" element={<StudentFeesPage />} />
                       <Route path="announcements" element={<StudentAnnouncementsPage />} />
