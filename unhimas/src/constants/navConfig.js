@@ -14,6 +14,7 @@ import {
   MdGroups,
   MdDateRange,
   MdSchedule,
+  MdDescription,
 } from 'react-icons/md';
 
 /**
@@ -94,6 +95,7 @@ export const NAV_CONFIG = {
         { key: 'courses', label: 'Courses', path: '/student/courses', icon: MdBook },
         { key: 'results', label: 'Results', path: '/student/results', icon: MdGrade, capability: 'view_own_results' },
         { key: 'fees', label: 'Fees', path: '/student/fees', icon: MdPayments, capability: 'view_own_fees' },
+        { key: 'documents', label: 'Documents', path: '/student/documents', icon: MdDescription },
         { key: 'timetable', label: 'Timetable', path: '/student/timetable', icon: MdCalendarToday },
       ],
     },
