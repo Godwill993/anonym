@@ -8,6 +8,7 @@ import {
   MdCheckCircle,
   MdRefresh,
   MdInfo,
+  MdPrint,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
@@ -41,9 +42,42 @@ function statusBadge(status) {
   return map[status] || 'badge-muted';
 }
 
+function printQuitus(payment, student) {
+  const w = window.open('', '_blank', 'noopener,noreferrer');
+  if (!w) return;
+  const name = student
+    ? `${student.first_name || ''} ${student.last_name || ''}`.trim()
+    : '';
+  w.document.write(`<!DOCTYPE html><html><head><title>Quitus ${payment.receipt_number || payment.payment_reference}</title>
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 480px; margin: 0 auto; }
+      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+      .muted { color: #666; font-size: 0.85rem; }
+      table { width: 100%; margin-top: 1.5rem; border-collapse: collapse; }
+      td { padding: 0.4rem 0; border-bottom: 1px solid #eee; }
+      td:last-child { text-align: right; font-weight: 600; }
+      .stamp { margin-top: 2rem; font-size: 0.8rem; color: #333; }
+    </style></head><body>
+    <h1>UNHIMAS — Payment receipt (Quitus)</h1>
+    <p class="muted">Official fee payment acknowledgement</p>
+    <table>
+      <tr><td>Student</td><td>${name || '—'} ${student?.matricule ? '(' + student.matricule + ')' : ''}</td></tr>
+      <tr><td>Reference</td><td>${payment.payment_reference || '—'}</td></tr>
+      <tr><td>Receipt</td><td>${payment.receipt_number || '—'}</td></tr>
+      <tr><td>Amount</td><td>${formatXAF(payment.amount)}</td></tr>
+      <tr><td>Method</td><td>${(payment.method || '').replace('_', ' ')}</td></tr>
+      <tr><td>Status</td><td>${payment.status}</td></tr>
+      <tr><td>Date</td><td>${payment.paid_at ? new Date(payment.paid_at).toLocaleString() : new Date(payment.created_at).toLocaleString()}</td></tr>
+    </table>
+    <p class="stamp">Generated from the student portal. Present this with your matricule when required.</p>
+    <script>window.onload=function(){window.print();}</script>
+    </body></html>`);
+  w.document.close();
+}
+
 export default function StudentFeesPage() {
   const { translateText } = useTranslation();
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -86,10 +120,16 @@ export default function StudentFeesPage() {
   const payMutation = useMutation({
     mutationFn: (payload) => initiatePayment(payload),
     onSuccess: (data) => {
-      toast.success(
-        translateText('Payment recorded') +
-          (data.receipt_number ? ` · ${data.receipt_number}` : ''),
-      );
+      if (data.status === 'completed') {
+        toast.success(
+          translateText('Payment recorded') +
+            (data.receipt_number ? ` · ${data.receipt_number}` : ''),
+        );
+      } else {
+        toast.success(
+          translateText('Payment submitted — pending confirmation by the finance office'),
+        );
+      }
       setPayInvoice(null);
       setPayAmount('');
       setPhone('');
@@ -122,15 +162,16 @@ export default function StudentFeesPage() {
       toast.error(translateText('Phone number is required for Mobile Money'));
       return;
     }
-    // Demo mode: complete immediately so students see receipt + balance update.
-    // Replace with real MoMo/Orange redirect + webhook later.
+    // Production default: pending until admin (or MoMo webhook) confirms.
+    // Set VITE_PAYMENTS_AUTO_COMPLETE=true only for local demos.
+    const autoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
     payMutation.mutate({
       invoiceId: payInvoice.id,
       studentId,
       amount,
       method: payMethod,
       phoneNumber: phone.trim() || null,
-      completeImmediately: true,
+      completeImmediately: autoComplete,
     });
   };
 
@@ -221,7 +262,7 @@ export default function StudentFeesPage() {
         <MdInfo size={18} style={{ flexShrink: 0 }} />
         <span>
           {translateText(
-            'Pay with MTN MoMo or Orange Money. You will receive a digital receipt (quitus) after a successful payment.',
+            'Pay with MTN MoMo or Orange Money. Payments stay pending until the finance office confirms. Then print your quitus.',
           )}
         </span>
       </div>
@@ -332,6 +373,16 @@ export default function StudentFeesPage() {
                         : new Date(p.created_at).toLocaleString()}
                     </div>
                   </div>
+                  {p.status === 'completed' && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => printQuitus(p, studentProfile)}
+                      title={translateText('Print quitus')}
+                    >
+                      <MdPrint size={14} /> {translateText('Quitus')}
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -389,7 +440,7 @@ export default function StudentFeesPage() {
             )}
             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               {translateText(
-                'In production this step redirects to MTN / Orange. For now the payment is confirmed instantly for testing.',
+                'After you confirm, complete the MoMo prompt on your phone. Finance will mark the payment completed, then you can print your quitus.',
               )}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
