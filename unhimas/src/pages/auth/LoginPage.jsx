@@ -196,7 +196,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            <div className="auth-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="auth-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: 8 }}>
               <Link to="/results" className="auth-link" style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>
                 {t('auth.verify_result')}
               </Link>
@@ -220,10 +220,18 @@ export default function LoginPage() {
           </form>
 
           <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
               {t('auth.official_portal')}{' '}
               <Link to="/results" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
                 {t('auth.results_verification')}
+              </Link>
+              <br />
+              <Link to="/apply" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
+                {translateText('Apply for admission')}
+              </Link>
+              {' · '}
+              <Link to="/apply/status" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+                {translateText('Check application status')}
               </Link>
             </div>
           </div>
