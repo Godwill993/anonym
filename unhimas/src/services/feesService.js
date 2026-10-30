@@ -119,7 +119,6 @@ export async function getInvoice(invoiceId) {
 
 export async function createInvoice({ studentId, academicYearId, semesterId, items, notes, dueDate }) {
   const { data: invNum, error: numErr } = await supabase.rpc('generate_invoice_number');
-  // Fallback if RPC not yet available
   const invoiceNumber =
     invNum ||
     `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -158,6 +157,77 @@ export async function createInvoice({ studentId, academicYearId, semesterId, ite
   return getInvoice(invoice.id);
 }
 
+/**
+ * Issue the same fee lines to every student in a batch.
+ * Continues on individual failures; returns summary.
+ */
+export async function bulkCreateInvoices({
+  batchId,
+  structureIds,
+  academicYearId,
+  semesterId,
+  notes,
+  dueDate,
+}) {
+  if (!batchId) throw new Error('Batch is required');
+  if (!structureIds?.length) throw new Error('Select at least one fee structure');
+
+  const { data: students, error: stuErr } = await supabase
+    .from('students')
+    .select('id, matricule, first_name, last_name')
+    .eq('batch_id', batchId);
+  if (stuErr) throw stuErr;
+  if (!students?.length) {
+    return { created: 0, failed: 0, errors: [], totalStudents: 0 };
+  }
+
+  const { data: structures, error: stErr } = await supabase
+    .from('fee_structures')
+    .select('id, fee_category_id, amount, description, fee_categories ( name )')
+    .in('id', structureIds)
+    .eq('is_active', true);
+  if (stErr) throw stErr;
+  if (!structures?.length) throw new Error('No active fee structures found');
+
+  const itemsTemplate = structures.map((s) => ({
+    fee_structure_id: s.id,
+    fee_category_id: s.fee_category_id,
+    description: s.description || s.fee_categories?.name || 'Fee',
+    quantity: 1,
+    unit_amount: Number(s.amount),
+  }));
+
+  let created = 0;
+  const errors = [];
+
+  for (const student of students) {
+    try {
+      await createInvoice({
+        studentId: student.id,
+        academicYearId,
+        semesterId,
+        items: itemsTemplate,
+        notes: notes || `Bulk invoice — batch`,
+        dueDate,
+      });
+      created += 1;
+    } catch (err) {
+      errors.push({
+        studentId: student.id,
+        matricule: student.matricule,
+        message: err?.message || 'Failed',
+      });
+    }
+  }
+
+  return {
+    created,
+    failed: errors.length,
+    errors,
+    totalStudents: students.length,
+  };
+}
+
 // ── Payments ────────────────────────────────────────────────
 
 export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
@@ -176,11 +246,6 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
   return data ?? [];
 }
 
-/**
- * Student-initiated payment (starts as pending).
- * Admin can later mark completed, or a future webhook can do so.
- * For demo / internal use we also support immediate complete.
- */
 export async function initiatePayment({
   invoiceId,
   studentId,
