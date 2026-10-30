@@ -20,6 +20,7 @@ const empty = {
   academic_year_id: '',
   previous_school: '',
   previous_qualification: '',
+  website: '', // honeypot — must stay empty
 };
 
 export default function ApplyPage() {
@@ -40,6 +41,7 @@ export default function ApplyPage() {
   const mutation = useMutation({
     mutationFn: submitApplication,
     onSuccess: (data) => {
+      if (data?._spam) return;
       setResult(data);
       setForm(empty);
     },
@@ -89,6 +91,19 @@ export default function ApplyPage() {
           </div>
         ) : (
           <form className="form-stack" onSubmit={onSubmit}>
+            {/* Honeypot — hidden from humans */}
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+              <label htmlFor="website">Website</label>
+              <input
+                id="website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={form.website}
+                onChange={set('website')}
+              />
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">
                 <label>{translateText('First Name')} *</label>
