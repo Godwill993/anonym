@@ -57,10 +57,13 @@ const CAPABILITIES = Object.freeze({
   view_audit_log: [ROLES.ADMIN],
   manage_settings: [ROLES.ADMIN],
   clock_lecturers: [ROLES.ADMIN],
+  manage_fees: [ROLES.ADMIN],
   enter_marks: [ROLES.LECTURER],
   mark_attendance: [ROLES.LECTURER],
   view_own_results: [ROLES.STUDENT],
   view_own_transcript: [ROLES.STUDENT],
+  view_own_fees: [ROLES.STUDENT],
+  pay_own_fees: [ROLES.STUDENT],
 });
 
 /** Check whether a profile may perform a named capability. */
