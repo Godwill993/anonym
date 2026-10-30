@@ -25,6 +25,18 @@ import {
   formatXAF,
 } from '../../services/feesService';
 
+function statusBadgeClass(status) {
+  const map = {
+    draft: 'badge-muted',
+    issued: 'badge-info',
+    partially_paid: 'badge-warning',
+    paid: 'badge-success',
+    cancelled: 'badge-danger',
+    waived: 'badge-muted',
+  };
+  return map[status] || 'badge-muted';
+}
+
 export default function AdminFeesPage() {
   const { translateText } = useTranslation();
   const toast = useToast();
@@ -190,26 +202,42 @@ export default function AdminFeesPage() {
   };
 
   const structureChecklist = (selectedIds, onToggle) => (
-    <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 8, padding: 8 }}>
+    <div
+      style={{
+        maxHeight: 200,
+        overflowY: 'auto',
+        border: '1px solid rgba(15, 23, 42, 0.08)',
+        borderRadius: 12,
+        padding: 8,
+        background: 'var(--color-bg)',
+      }}
+    >
       {activeStructures.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+        <p className="entity-card-meta" style={{ padding: 8 }}>
           {translateText('No active fee structures. Create one first.')}
         </p>
       ) : (
         activeStructures.map((s) => (
           <label
             key={s.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', cursor: 'pointer' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              cursor: 'pointer',
+              borderRadius: 8,
+            }}
           >
             <input
               type="checkbox"
               checked={selectedIds.includes(s.id)}
               onChange={() => onToggle(s.id)}
             />
-            <span style={{ flex: 1 }}>
+            <span style={{ flex: 1, fontSize: '0.875rem' }}>
               {s.fee_categories?.name || s.description || 'Fee'}
             </span>
-            <span style={{ fontWeight: 600 }}>{formatXAF(s.amount)}</span>
+            <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{formatXAF(s.amount)}</span>
           </label>
         ))
       )}
@@ -225,7 +253,7 @@ export default function AdminFeesPage() {
             {translateText('Manage fee categories, structures, and student invoices')}
           </p>
         </div>
-        <div className="page-header-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="page-header-actions">
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCatModal(true)}>
             <MdCategory /> {translateText('Category')}
           </button>
@@ -252,60 +280,80 @@ export default function AdminFeesPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '1.35rem' }}>
-        <div className="card-header">
-          <span className="card-title">{translateText('Fee structures')}</span>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          {structLoading ? (
-            <div className="empty-state">{translateText('Loading…')}</div>
-          ) : structures.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-title">{translateText('No fee structures yet')}</div>
-              <p className="empty-state-text">
-                {translateText('Create a category, then add amount structures for tuition, registration, etc.')}
-              </p>
+      <div className="section-heading">
+        <h2>{translateText('Fee structures')}</h2>
+        <span className="section-meta">{structures.length}</span>
+      </div>
+
+      {structLoading ? (
+        <div className="entity-grid">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="entity-card">
+              <div className="skeleton skeleton-title" style={{ width: '60%', marginBottom: 8 }} />
+              <div className="skeleton skeleton-text" style={{ width: '40%' }} />
             </div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{translateText('Category')}</th>
-                  <th>{translateText('Amount')}</th>
-                  <th>{translateText('Scope')}</th>
-                  <th>{translateText('Mandatory')}</th>
-                  <th>{translateText('Active')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {structures.map((s) => (
-                  <tr key={s.id}>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>
-                        {s.fee_categories?.name || '—'}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {s.fee_categories?.code}
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: 700 }}>{formatXAF(s.amount)}</td>
-                    <td style={{ fontSize: '0.85rem' }}>
-                      {s.batches?.name || s.departments?.name || s.academic_years?.name || translateText('Global')}
-                    </td>
-                    <td>{s.is_mandatory ? translateText('Yes') : translateText('No')}</td>
-                    <td>{s.is_active ? '✓' : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          ))}
         </div>
+      ) : structures.length === 0 ? (
+        <div className="empty-state card">
+          <div className="empty-state-title">{translateText('No fee structures yet')}</div>
+          <p className="empty-state-text">
+            {translateText('Create a category, then add amount structures for tuition, registration, etc.')}
+          </p>
+          <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setShowStructModal(true)}>
+            <MdAdd /> {translateText('Fee structure')}
+          </button>
+        </div>
+      ) : (
+        <div className="entity-grid animate-stagger">
+          {structures.map((s) => (
+            <article key={s.id} className="entity-card">
+              <div className="entity-card-top">
+                <span className="badge badge-blue">{s.fee_categories?.code || '—'}</span>
+                <div className="entity-card-badges">
+                  {s.is_mandatory ? (
+                    <span className="badge badge-amber">{translateText('Mandatory')}</span>
+                  ) : (
+                    <span className="badge badge-muted">{translateText('Optional')}</span>
+                  )}
+                  {s.is_active ? (
+                    <span className="badge badge-green">{translateText('Active')}</span>
+                  ) : (
+                    <span className="badge badge-muted">{translateText('Inactive')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="entity-card-title">
+                {s.fee_categories?.name || s.description || translateText('Fee')}
+              </div>
+              <div className="stat-card-value" style={{ fontSize: '1.15rem', marginTop: 2 }}>
+                {formatXAF(s.amount)}
+              </div>
+              {s.description && s.fee_categories?.name && (
+                <div className="entity-card-meta">{s.description}</div>
+              )}
+              <div className="entity-card-meta">
+                {translateText('Scope')}:{' '}
+                {s.batches?.name ||
+                  s.departments?.name ||
+                  s.academic_years?.name ||
+                  translateText('Global')}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="section-heading">
+        <h2>{translateText('Recent invoices')}</h2>
+        <span className="section-meta">{invoices.length}</span>
       </div>
 
       <div className="card">
         <div className="card-header">
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MdPayments /> {translateText('Recent invoices')}
+            <MdPayments color="var(--color-primary)" aria-hidden="true" />{' '}
+            {translateText('Ledger')}
           </span>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -333,16 +381,18 @@ export default function AdminFeesPage() {
               <tbody>
                 {invoices.map((inv) => (
                   <tr key={inv.id}>
-                    <td style={{ fontWeight: 600 }}>{inv.invoice_number}</td>
+                    <td style={{ fontWeight: 650 }}>{inv.invoice_number}</td>
                     <td>
                       {inv.students
                         ? `${inv.students.first_name} ${inv.students.last_name}`
                         : '—'}
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {inv.students?.matricule}
-                      </div>
+                      <div className="entity-card-meta">{inv.students?.matricule}</div>
                     </td>
-                    <td>{inv.status}</td>
+                    <td>
+                      <span className={`badge ${statusBadgeClass(inv.status)}`}>
+                        {(inv.status || '').replace(/_/g, ' ')}
+                      </span>
+                    </td>
                     <td>{formatXAF(inv.total_amount)}</td>
                     <td>{formatXAF(inv.amount_paid)}</td>
                     <td style={{ fontWeight: 700 }}>{formatXAF(inv.balance)}</td>
@@ -439,7 +489,7 @@ export default function AdminFeesPage() {
                 ))}
               </select>
               {catLoading && (
-                <small style={{ color: 'var(--color-text-muted)' }}>{translateText('Loading categories…')}</small>
+                <small className="entity-card-meta">{translateText('Loading categories…')}</small>
               )}
             </div>
             <div className="form-group">
@@ -462,7 +512,7 @@ export default function AdminFeesPage() {
                 onChange={(e) => setStructForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem' }}>
               <input
                 type="checkbox"
                 checked={structForm.is_mandatory}
@@ -496,13 +546,13 @@ export default function AdminFeesPage() {
                 <option value="">{translateText('Select student…')}</option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.matricule} — {s.first_name} {s.last_name}
+                    {s.first_name} {s.last_name} ({s.matricule})
                   </option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label>{translateText('Fee lines')}</label>
+              <label>{translateText('Fee structures')}</label>
               {structureChecklist(invoiceForm.structure_ids, (id) =>
                 toggleStructure(id, setInvoiceForm),
               )}
@@ -530,7 +580,7 @@ export default function AdminFeesPage() {
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={invoiceMutation.isPending}>
-                {invoiceMutation.isPending ? translateText('Issuing…') : translateText('Issue invoice')}
+                {translateText('Issue')}
               </button>
             </div>
           </form>
@@ -538,7 +588,7 @@ export default function AdminFeesPage() {
       )}
 
       {showBulkModal && (
-        <Modal title={translateText('Bulk invoice by batch')} onClose={() => setShowBulkModal(false)}>
+        <Modal title={translateText('Bulk invoices by batch')} onClose={() => setShowBulkModal(false)}>
           <form className="form-stack" onSubmit={submitBulk}>
             <div className="form-group">
               <label>{translateText('Batch')}</label>
@@ -551,18 +601,14 @@ export default function AdminFeesPage() {
                 <option value="">{translateText('Select batch…')}</option>
                 {batches.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name}
-                    {b.departments?.abbreviation ? ` (${b.departments.abbreviation})` : ''}
-                    {b.students?.[0]?.count != null ? ` — ${b.students[0].count} students` : ''}
+                    {b.name} {b.code ? `(${b.code})` : ''}
                   </option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label>{translateText('Fee lines')}</label>
-              {structureChecklist(bulkForm.structure_ids, (id) =>
-                toggleStructure(id, setBulkForm),
-              )}
+              <label>{translateText('Fee structures')}</label>
+              {structureChecklist(bulkForm.structure_ids, (id) => toggleStructure(id, setBulkForm))}
             </div>
             <div className="form-group">
               <label>{translateText('Due date')}</label>
@@ -582,15 +628,14 @@ export default function AdminFeesPage() {
                 onChange={(e) => setBulkForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              {translateText('Each student in the batch receives the same invoice lines. Failures are reported without stopping the batch.')}
-            </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-outline" onClick={() => setShowBulkModal(false)}>
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={bulkMutation.isPending}>
-                {bulkMutation.isPending ? translateText('Issuing…') : translateText('Issue to batch')}
+                {bulkMutation.isPending
+                  ? translateText('Creating…')
+                  : translateText('Create bulk invoices')}
               </button>
             </div>
           </form>
