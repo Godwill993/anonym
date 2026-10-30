@@ -1,0 +1,318 @@
+/* ============================================================
+   UI polish layer — applied after layout + components
+   Senior-level density, hierarchy, motion restraint
+   ============================================================ */
+
+/* Type scale refinement */
+.page-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.page-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.page-header {
+  margin-bottom: 1.15rem;
+}
+
+/* Content density */
+.page-content {
+  padding: 1.25rem 1.5rem 2rem;
+  max-width: 1400px;
+}
+
+/* Cards: quieter borders, soft elevation on interactive */
+.card {
+  border-color: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-radius: 12px;
+}
+
+.card-header {
+  padding: 0.85rem 1.15rem;
+  min-height: 2.85rem;
+  background: transparent;
+}
+
+.card-title {
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.stat-card {
+  border-color: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  min-height: 80px;
+  padding: 1rem 1.1rem;
+}
+
+a:has(> .stat-card):hover .stat-card,
+.stat-card:has(a:hover) {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+  border-color: rgba(17, 47, 66, 0.12);
+}
+
+.stat-card-value {
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.stat-card-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Buttons — material-like restraint */
+.btn {
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-primary {
+  box-shadow: 0 1px 2px rgba(17, 47, 66, 0.12);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 2px 6px rgba(17, 47, 66, 0.18);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+/* Form controls (alias used across pages) */
+.form-control {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+}
+
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Tables denser */
+.data-table th,
+.data-table td {
+  padding: 0.65rem 0.9rem;
+}
+
+.data-table th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+}
+
+/* Badges used by fees / admissions */
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-info { background: #e0f2fe; color: #075985; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-muted { background: #f1f5f9; color: #64748b; }
+
+[data-theme='dark'] .badge-success { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+[data-theme='dark'] .badge-info { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; }
+[data-theme='dark'] .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+[data-theme='dark'] .badge-danger { background: rgba(244, 63, 94, 0.2); color: #fda4af; }
+[data-theme='dark'] .badge-muted { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+
+/* Header: quieter */
+.app-header {
+  height: 56px;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.breadcrumb-title {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.header-search-input {
+  border-radius: 10px;
+  background: var(--color-bg);
+  border-color: transparent;
+}
+
+.header-search-input:focus {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Sidebar: Material-style quiet rail */
+.sidebar {
+  width: 240px;
+  background: #0c2433;
+}
+
+.main-area {
+  margin-left: 240px;
+}
+
+.sidebar-logo {
+  padding: 1rem 0.85rem;
+  min-height: 56px;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-logo img {
+  width: 32px;
+  height: 32px;
+}
+
+.sidebar-logo-name {
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav {
+  padding: 0.4rem 0.35rem;
+}
+
+.sidebar-item {
+  margin: 1px 0;
+  padding: 0.48rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  gap: 0.65rem;
+}
+
+.sidebar-item svg {
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+/* Quiet active — not solid red block (less "stain") */
+.sidebar-item.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-secondary);
+}
+
+.sidebar-item-child {
+  margin-left: 0.35rem;
+  padding-left: 1.85rem;
+  font-size: 0.78rem;
+  font-weight: 450;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.sidebar-item-child.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-item-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.sidebar-children {
+  margin: 0 0 0.2rem;
+  padding: 0;
+}
+
+.sidebar.collapsed {
+  width: 64px;
+}
+
+.main-area.sidebar-collapsed {
+  margin-left: 64px;
+}
+
+/* List rows tighter */
+.list-row {
+  padding: 0.75rem 1.1rem;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(var(--color-primary-rgb), 0.16);
+  color: inherit;
+}
+
+/* Motion: page enter softer */
+.page-transition {
+  animation: pageIn 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-area,
+  .main-area.sidebar-collapsed {
+    margin-left: 0;
+  }
+
+  .sidebar,
+  .sidebar.collapsed {
+    width: 240px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 1rem 0.9rem 1.5rem;
+  }
+
+  .page-title {
+    font-size: 1.2rem;
+  }
+}
