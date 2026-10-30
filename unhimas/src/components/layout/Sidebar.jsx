@@ -114,9 +114,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </div>
 
         <nav className="sidebar-nav" role="navigation">
-          {navGroups.map((group) => (
-            <div className="sidebar-group" key={group.group}>
-              <div className="sidebar-group-label">{translateText(group.group)}</div>
+          {navGroups.map((group, idx) => (
+            <div className="sidebar-group" key={group.group || `g-${idx}`}>
+              {group.group ? (
+                <div className="sidebar-group-label">{translateText(group.group)}</div>
+              ) : null}
               {group.items.map((item) => (
                 <NavItem
                   key={item.key}
