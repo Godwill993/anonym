@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MdLock, MdTrendingUp, MdWarning } from 'react-icons/md';
+import { Link } from 'react-router-dom';
+import { MdLock, MdTrendingUp, MdWarning, MdAccountBalanceWallet } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import { supabase } from '../../lib/supabase';
 import { getMyStudentProfile, getMyResults } from '../../services/studentService';
+import { checkFeeClearance } from '../../services/feeClearance';
+import { formatXAF } from '../../services/feesService';
 
 function GradeCell({ grade, gp }) {
   const colors = {
@@ -19,6 +23,7 @@ function GradeCell({ grade, gp }) {
 
 export default function StudentResultsPage() {
   const { session } = useAuth();
+  const { translateText } = useTranslation();
   const [semFilter, setSemFilter] = useState('all');
 
   const { data: studentProfile, isLoading: stuLoading } = useQuery({
@@ -29,13 +34,18 @@ export default function StudentResultsPage() {
 
   const studentId = studentProfile?.id;
 
-  const { data: results = [], isLoading: resLoading } = useQuery({
-    queryKey: ['my-results', studentId],
-    queryFn: () => getMyResults(studentId),
+  const { data: clearance, isLoading: clearanceLoading } = useQuery({
+    queryKey: ['fee-clearance', studentId],
+    queryFn: () => checkFeeClearance(studentId),
     enabled: !!studentId,
   });
 
-  // Query database-calculated semester GPA view
+  const { data: results = [], isLoading: resLoading } = useQuery({
+    queryKey: ['my-results', studentId],
+    queryFn: () => getMyResults(studentId),
+    enabled: !!studentId && clearance?.cleared !== false,
+  });
+
   const { data: semesterGpaList = [] } = useQuery({
     queryKey: ['student-semester-gpa', studentId],
     queryFn: async () => {
@@ -46,10 +56,9 @@ export default function StudentResultsPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!studentId,
+    enabled: !!studentId && clearance?.cleared !== false,
   });
 
-  // Query database-calculated overall cumulative GPA view
   const { data: overallGpaData } = useQuery({
     queryKey: ['student-overall-gpa', studentId],
     queryFn: async () => {
@@ -61,7 +70,7 @@ export default function StudentResultsPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!studentId,
+    enabled: !!studentId && clearance?.cleared !== false,
   });
 
   const semesterGpaMap = {};
@@ -69,7 +78,6 @@ export default function StudentResultsPage() {
     semesterGpaMap[g.semester_id] = g.semester_gpa;
   });
 
-  // Group by semester
   const bySemester = {};
   results.forEach((r) => {
     const semKey = r.mark_submissions?.batch_courses?.semesters?.id;
@@ -84,10 +92,8 @@ export default function StudentResultsPage() {
   });
 
   const semesters = Object.values(bySemester).sort((a, b) => b.semNum - a.semNum);
-
   const filtered = semFilter === 'all' ? semesters : semesters.filter((s) => s.semKey === semFilter);
 
-  // Credit-weighted GPA matching database view
   const computeGPA = (marks, semId) => {
     if (semId && semesterGpaMap[semId] !== undefined) {
       return Number(semesterGpaMap[semId]).toFixed(2);
@@ -103,14 +109,42 @@ export default function StudentResultsPage() {
     return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '0.00';
   };
 
-  const isLoading = stuLoading || resLoading;
+  const isLoading = stuLoading || clearanceLoading || (clearance?.cleared !== false && resLoading);
+
+  if (!clearanceLoading && clearance && !clearance.cleared && clearance.required) {
+    return (
+      <AppLayout pageTitle="My Results">
+        <div className="page-header">
+          <div className="page-header-left">
+            <h1 className="page-title">{translateText('My Results')}</h1>
+            <p className="page-subtitle">{translateText('Fee clearance required')}</p>
+          </div>
+        </div>
+        <div className="empty-state" style={{ paddingTop: '3rem' }}>
+          <div className="empty-state-icon">
+            <MdAccountBalanceWallet size={48} />
+          </div>
+          <div className="empty-state-title">{translateText('Outstanding fees')}</div>
+          <p className="empty-state-text">
+            {translateText('Settle your balance to view official results.')}{' '}
+            {clearance.outstanding != null && (
+              <strong>{formatXAF(clearance.outstanding)}</strong>
+            )}
+          </p>
+          <Link to="/student/fees" className="btn btn-primary">
+            {translateText('Go to Fees & Payments')}
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout pageTitle="My Results">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">My Results</h1>
-          <p className="page-subtitle">Published academic results only</p>
+          <h1 className="page-title">{translateText('My Results')}</h1>
+          <p className="page-subtitle">{translateText('Published academic results only')}</p>
         </div>
         {overallGpaData?.overall_gpa !== undefined && overallGpaData?.overall_gpa !== null && (
           <div className="page-header-actions">
@@ -139,17 +173,18 @@ export default function StudentResultsPage() {
         )}
       </div>
 
-      {/* Semester filter */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
         <button
+          type="button"
           className={`btn btn-sm ${semFilter === 'all' ? 'btn-primary' : 'btn-outline'}`}
           onClick={() => setSemFilter('all')}
         >
-          All Semesters
+          {translateText('All Semesters')}
         </button>
         {semesters.map((s) => (
           <button
             key={s.semKey}
+            type="button"
             className={`btn btn-sm ${semFilter === s.semKey ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setSemFilter(s.semKey)}
           >
@@ -172,9 +207,9 @@ export default function StudentResultsPage() {
           <div className="empty-state-icon" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>
             <MdLock size={48} />
           </div>
-          <div className="empty-state-title">No published results</div>
+          <div className="empty-state-title">{translateText('No published results')}</div>
           <p className="empty-state-text">
-            Your results will appear here once the administrator publishes them.
+            {translateText('Your results will appear here once the administrator publishes them.')}
           </p>
         </div>
       ) : (

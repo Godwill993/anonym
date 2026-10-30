@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { MdDownload, MdLock, MdSchool } from 'react-icons/md';
+import { Link } from 'react-router-dom';
+import { MdDownload, MdLock, MdSchool, MdAccountBalanceWallet } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import { getMyStudentProfile, getMyResults } from '../../services/studentService';
 import { buildTranscriptSummary } from '../../lib/transcript';
+import { checkFeeClearance } from '../../services/feeClearance';
+import { formatXAF } from '../../services/feesService';
 
 function formatNumber(value) {
   return value === null || value === undefined ? '—' : Number(value).toFixed(2);
@@ -11,25 +15,51 @@ function formatNumber(value) {
 
 export default function StudentTranscriptPage() {
   const { session } = useAuth();
+  const { translateText } = useTranslation();
   const { data: studentProfile, isLoading: profileLoading } = useQuery({
     queryKey: ['my-student-profile'],
     queryFn: getMyStudentProfile,
     enabled: !!session,
   });
   const studentId = studentProfile?.id;
-  const { data: results = [], isLoading: resultsLoading } = useQuery({
-    queryKey: ['my-results', studentId],
-    queryFn: () => getMyResults(studentId),
+
+  const { data: clearance, isLoading: clearanceLoading } = useQuery({
+    queryKey: ['fee-clearance', studentId],
+    queryFn: () => checkFeeClearance(studentId),
     enabled: !!studentId,
   });
 
+  const { data: results = [], isLoading: resultsLoading } = useQuery({
+    queryKey: ['my-results', studentId],
+    queryFn: () => getMyResults(studentId),
+    enabled: !!studentId && clearance?.cleared !== false,
+  });
+
   const summary = buildTranscriptSummary(results);
-  const isLoading = profileLoading || resultsLoading;
+  const isLoading = profileLoading || clearanceLoading || (clearance?.cleared !== false && resultsLoading);
   const producedAt = new Date().toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
   const printTranscript = () => window.print();
+
+  if (!clearanceLoading && clearance && !clearance.cleared && clearance.required) {
+    return (
+      <AppLayout pageTitle="Official Transcript">
+        <div className="empty-state" style={{ paddingTop: '4rem' }}>
+          <div className="empty-state-icon"><MdAccountBalanceWallet size={48} /></div>
+          <div className="empty-state-title">{translateText('Outstanding fees')}</div>
+          <p className="empty-state-text">
+            {translateText('Settle your balance to access the official transcript.')}{' '}
+            {clearance.outstanding != null && <strong>{formatXAF(clearance.outstanding)}</strong>}
+          </p>
+          <Link to="/student/fees" className="btn btn-primary">
+            {translateText('Go to Fees & Payments')}
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout pageTitle="Official Transcript">
@@ -74,24 +104,24 @@ export default function StudentTranscriptPage() {
       <div className="transcript-page">
         <div className="transcript-toolbar">
           <div>
-            <h1 className="page-title">Official Transcript</h1>
-            <p className="page-subtitle">Complete academic record based on published results</p>
+            <h1 className="page-title">{translateText('Official Transcript')}</h1>
+            <p className="page-subtitle">{translateText('Complete academic record based on published results')}</p>
           </div>
-          <button className="btn btn-primary" onClick={printTranscript} disabled={isLoading || results.length === 0}>
-            <MdDownload /> Print / Save PDF
+          <button type="button" className="btn btn-primary" onClick={printTranscript} disabled={isLoading || results.length === 0}>
+            <MdDownload /> {translateText('Print / Save PDF')}
           </button>
         </div>
 
         {isLoading ? (
           <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
             <div className="spinner" style={{ margin: '0 auto 1rem' }} />
-            Loading your official academic record...
+            {translateText('Loading…')}
           </div>
         ) : results.length === 0 ? (
           <div className="empty-state" style={{ paddingTop: '4rem' }}>
             <div className="empty-state-icon"><MdLock size={48} /></div>
-            <div className="empty-state-title">No official transcript available</div>
-            <p className="empty-state-text">Your published academic results will appear here after the administrator approves and publishes them.</p>
+            <div className="empty-state-title">{translateText('No official transcript available')}</div>
+            <p className="empty-state-text">{translateText('Your published academic results will appear here after the administrator approves and publishes them.')}</p>
           </div>
         ) : (
           <article className="transcript-document" id="transcript-document">
