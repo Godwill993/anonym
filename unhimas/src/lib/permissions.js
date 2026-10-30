@@ -58,6 +58,7 @@ const CAPABILITIES = Object.freeze({
   manage_settings: [ROLES.ADMIN],
   clock_lecturers: [ROLES.ADMIN],
   manage_fees: [ROLES.ADMIN],
+  manage_admissions: [ROLES.ADMIN],
   enter_marks: [ROLES.LECTURER],
   mark_attendance: [ROLES.LECTURER],
   view_own_results: [ROLES.STUDENT],

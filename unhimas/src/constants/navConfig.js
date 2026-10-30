@@ -24,16 +24,7 @@ import {
   MdReceiptLong,
 } from 'react-icons/md';
 
-/** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
- *  Optional `children` nest related pages under a parent (e.g. Batches under Departments).
- *  Batch programme (courses) is managed on the Batches page — not a separate nav item.
- *  Campus operations (clock-in) are admin-only.
- *  Profile is intentionally omitted — it lives in the header user menu.
- *
- *  Class attendance approval: /admin/attendance (student class sessions submitted by lecturers).
- *  Lecturer clock-in: /admin/lecturer-attendance (campus presence).
- *  Fees: /admin/fees (structures + invoices), /student/fees (balance + pay).
- */
+/** Navigation tree keyed by role. */
 export const NAV_CONFIG = {
   admin: [
     {
@@ -92,6 +83,7 @@ export const NAV_CONFIG = {
         { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
         { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
         { key: 'administrators', label: 'Administrators', path: '/admin/staff', icon: MdAdminPanelSettings, capability: 'manage_people' },
+        { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
       ],
     },
     {

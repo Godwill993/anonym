@@ -12,6 +12,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import SetNewPasswordPage from './pages/auth/SetNewPasswordPage';
 import UnauthorizedPage from './pages/auth/UnauthorizedPage';
 import PublicResultsPage from './pages/public/PublicResultsPage';
+import ApplyPage from './pages/public/ApplyPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -45,6 +46,7 @@ import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 import AdminFeesPage from './pages/admin/AdminFeesPage';
 import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
+import AdminAdmissionsPage from './pages/admin/AdminAdmissionsPage';
 
 // Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
@@ -113,6 +115,7 @@ function App() {
               <Route path="/set-new-password" element={<SetNewPasswordPage />} />
               <Route path="/results" element={<PublicResultsPage />} />
               <Route path="/results/verify" element={<PublicResultsPage />} />
+              <Route path="/apply" element={<ApplyPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               <Route path="/" element={<RoleRouter />} />
@@ -134,6 +137,7 @@ function App() {
                       <Route path="lecturers" element={<LecturersPage />} />
                       <Route path="staff" element={<StaffPage />} />
                       <Route path="create-account" element={<CreateAccountPage />} />
+                      <Route path="admissions" element={<AdminAdmissionsPage />} />
                       <Route path="mark-approval" element={<MarkApprovalPage />} />
                       <Route path="marks" element={<AdminMarksPage />} />
                       <Route path="attendance" element={<AdminAttendancePage />} />
