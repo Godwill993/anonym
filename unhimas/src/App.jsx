@@ -43,6 +43,7 @@ import ResultsReportPage from './pages/admin/reports/ResultsReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
+import AdminFeesPage from './pages/admin/AdminFeesPage';
 
 // Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
@@ -69,6 +70,7 @@ import StudentAnnouncementsPage from './pages/student/StudentAnnouncementsPage';
 import StudentNotificationsPage from './pages/student/StudentNotificationsPage';
 import StudentResourcesPage from './pages/student/StudentResourcesPage';
 import StudentProfilePage from './pages/student/StudentProfilePage';
+import StudentFeesPage from './pages/student/StudentFeesPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -142,6 +144,8 @@ function App() {
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
+                      <Route path="fees" element={<AdminFeesPage />} />
+                      <Route path="payments" element={<AdminFeesPage />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
@@ -189,6 +193,7 @@ function App() {
                       <Route path="results" element={<StudentResultsPage />} />
                       <Route path="transcript" element={<StudentTranscriptPage />} />
                       <Route path="timetable" element={<StudentTimetablePage />} />
+                      <Route path="fees" element={<StudentFeesPage />} />
                       <Route path="announcements" element={<StudentAnnouncementsPage />} />
                       <Route path="notifications" element={<StudentNotificationsPage />} />
                       <Route path="resources" element={<StudentResourcesPage />} />
