@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -26,7 +26,7 @@ const ROLE_PROFILE_PATHS = {
   student: '/student/profile',
 };
 
-export default function Header({ onMenuClick, pageTitle }) {
+export default function Header({ onMenuClick, pageTitle, mobileNavOpen = false }) {
   const { profile, signOut } = useAuth();
   const { language, toggleLanguage, translateText } = useTranslation();
   const { data: unreadNotificationCount = 0, isError: unreadNotificationsError } = useQuery({
@@ -47,7 +47,13 @@ export default function Header({ onMenuClick, pageTitle }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const menuBtnRef = useRef(null);
   const navigate = useNavigate();
+
+  const closeUserMenu = useCallback(() => {
+    setUserMenuOpen(false);
+    menuBtnRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -70,6 +76,62 @@ export default function Header({ onMenuClick, pageTitle }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Keyboard support for user menu
+  useEffect(() => {
+    if (!userMenuOpen) return undefined;
+
+    const menu = userMenuRef.current?.querySelector('[role="menu"]');
+    const items = () =>
+      Array.from(menu?.querySelectorAll('[role="menuitem"]') || []).filter(
+        (el) => el instanceof HTMLElement && !el.hasAttribute('disabled'),
+      );
+
+    // Focus first item when menu opens
+    const t = window.setTimeout(() => {
+      const first = items()[0];
+      first?.focus();
+    }, 0);
+
+    const onKey = (e) => {
+      const list = items();
+      if (!list.length) return;
+      const idx = list.indexOf(document.activeElement);
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeUserMenu();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = idx < 0 ? list[0] : list[(idx + 1) % list.length];
+        next?.focus();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = idx < 0 ? list[list.length - 1] : list[(idx - 1 + list.length) % list.length];
+        prev?.focus();
+        return;
+      }
+      if (e.key === 'Home') {
+        e.preventDefault();
+        list[0]?.focus();
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        list[list.length - 1]?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [userMenuOpen, closeUserMenu]);
+
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
@@ -91,14 +153,21 @@ export default function Header({ onMenuClick, pageTitle }) {
         </a>
 
         <button
+          type="button"
           className="header-mobile-menu-btn"
           onClick={onMenuClick}
-          aria-label={translateText('Open navigation menu')}
+          aria-label={
+            mobileNavOpen
+              ? translateText('Close navigation menu')
+              : translateText('Open navigation menu')
+          }
+          aria-expanded={mobileNavOpen}
+          aria-controls="app-sidebar"
         >
-          <MdMenu />
+          <MdMenu aria-hidden="true" />
         </button>
 
-        <div className="header-breadcrumb" aria-label={translateText('Breadcrumb')}>
+        <div className="header-breadcrumb">
           <span className="breadcrumb-title">{translateText(pageTitle || 'Dashboard')}</span>
         </div>
 
@@ -117,6 +186,12 @@ export default function Header({ onMenuClick, pageTitle }) {
             aria-label={translateText('Search')}
             readOnly
             onClick={() => setSearchOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSearchOpen(true);
+              }
+            }}
           />
         </div>
 
@@ -137,7 +212,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                 : translateText('Notifications')
             }
           >
-            <MdNotifications />
+            <MdNotifications aria-hidden="true" />
             {unreadNotificationCount > 0 && (
               <span className="notif-badge" aria-hidden="true">
                 {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
@@ -145,10 +220,8 @@ export default function Header({ onMenuClick, pageTitle }) {
             )}
           </Link>
 
-          {/* Theme switch intentionally hidden — default is light on all devices.
-              ThemeContext + toggleTheme remain available if needed later. */}
-
           <button
+            type="button"
             className="lang-btn"
             onClick={toggleLanguage}
             aria-label={`Switch to ${language === 'en' ? 'French' : 'English'}`}
@@ -163,10 +236,13 @@ export default function Header({ onMenuClick, pageTitle }) {
 
           <div className="user-menu-wrapper" ref={userMenuRef}>
             <button
+              ref={menuBtnRef}
+              type="button"
               className="user-menu-btn"
               onClick={() => setUserMenuOpen((v) => !v)}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
+              aria-controls="user-menu"
               aria-label={translateText('User menu')}
             >
               <div className="user-avatar" aria-hidden="true">
@@ -176,7 +252,12 @@ export default function Header({ onMenuClick, pageTitle }) {
             </button>
 
             {userMenuOpen && (
-              <div className="dropdown-menu" role="menu" aria-label="User options">
+              <div
+                id="user-menu"
+                className="dropdown-menu"
+                role="menu"
+                aria-label={translateText('User options')}
+              >
                 <div
                   style={{
                     padding: '0.6rem 1rem',
@@ -206,6 +287,7 @@ export default function Header({ onMenuClick, pageTitle }) {
                   to={profilePath}
                   className="dropdown-item"
                   role="menuitem"
+                  tabIndex={-1}
                   onClick={() => setUserMenuOpen(false)}
                 >
                   <MdAccountCircle aria-hidden="true" /> {translateText('Profile')}
@@ -215,15 +297,18 @@ export default function Header({ onMenuClick, pageTitle }) {
                     to="/admin/settings"
                     className="dropdown-item"
                     role="menuitem"
+                    tabIndex={-1}
                     onClick={() => setUserMenuOpen(false)}
                   >
                     <MdSettings aria-hidden="true" /> {translateText('Settings')}
                   </Link>
                 )}
-                <div className="dropdown-divider" />
+                <div className="dropdown-divider" role="separator" />
                 <button
+                  type="button"
                   className="dropdown-item danger"
                   role="menuitem"
+                  tabIndex={-1}
                   onClick={handleSignOut}
                 >
                   <MdLogout aria-hidden="true" /> {translateText('Sign out')}

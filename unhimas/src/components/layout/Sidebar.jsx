@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
 import { NAV_CONFIG } from '../../constants/navConfig';
@@ -85,6 +86,30 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   const { profile } = useAuth();
   const { translateText } = useTranslation();
   const role = profile?.role || 'student';
+  const asideRef = useRef(null);
+
+  // Escape closes mobile drawer; focus first link when opened
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onMobileClose?.();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+
+    const t = window.setTimeout(() => {
+      const first = asideRef.current?.querySelector('.sidebar-nav a, .sidebar-nav button');
+      if (first instanceof HTMLElement) first.focus();
+    }, 0);
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.clearTimeout(t);
+    };
+  }, [mobileOpen, onMobileClose]);
 
   const navGroups = (NAV_CONFIG[role] || [])
     .map((group) => ({
@@ -102,8 +127,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       />
 
       <aside
+        id="app-sidebar"
+        ref={asideRef}
         className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}
         aria-label={translateText('Main navigation')}
+        aria-hidden={false}
       >
         <div className="sidebar-logo">
           <img src={logo} alt="UNHIMAS logo" />
@@ -113,7 +141,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           </div>
         </div>
 
-        <nav className="sidebar-nav" role="navigation">
+        <nav className="sidebar-nav" aria-label={translateText('Main navigation')}>
           {navGroups.map((group, idx) => (
             <div className="sidebar-group" key={group.group || `g-${idx}`}>
               {group.group ? (
@@ -132,11 +160,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </nav>
 
         <button
+          type="button"
           className="sidebar-toggle-btn"
           onClick={onToggle}
           aria-label={translateText(collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+          aria-pressed={collapsed}
         >
-          {collapsed ? <MdChevronRight /> : <MdChevronLeft />}
+          {collapsed ? (
+            <MdChevronRight aria-hidden="true" />
+          ) : (
+            <MdChevronLeft aria-hidden="true" />
+          )}
         </button>
       </aside>
     </>

@@ -20,6 +20,7 @@ export default function AppLayout({ children, pageTitle }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setScrollProgress(0);
     setShowBackToTop(false);
+    setMobileOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -35,6 +36,16 @@ export default function AppLayout({ children, pageTitle }) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
+
+  // Lock body scroll when mobile nav is open
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,6 +74,7 @@ export default function AppLayout({ children, pageTitle }) {
         <Header
           onMenuClick={() => setMobileOpen((v) => !v)}
           pageTitle={pageTitle}
+          mobileNavOpen={mobileOpen}
         />
 
         <main id="main-content" className="page-content" tabIndex={-1}>
@@ -79,7 +91,7 @@ export default function AppLayout({ children, pageTitle }) {
         aria-label={translateText('Back to top')}
         title={translateText('Back to top')}
       >
-        <MdArrowUpward />
+        <MdArrowUpward aria-hidden="true" />
       </button>
     </div>
   );

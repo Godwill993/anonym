@@ -15,7 +15,8 @@
   --color-surface: #ffffff;
   --color-surface-hover: #f1f5f9;
   --color-text: #0f172a;
-  --color-text-muted: #64748b;
+  /* Darker muted for WCAG AA on white / #f4f6f9 (~4.6:1+) */
+  --color-text-muted: #475569;
   --color-border: #e2e8f0;
 
   --color-success: #10b981;
@@ -54,7 +55,7 @@
   --color-surface: #121a29;
   --color-surface-hover: #1b263b;
   --color-text: #f8fafc;
-  --color-text-muted: #94a3b8;
+  --color-text-muted: #cbd5e1;
   --color-border: #1e293b;
 
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -140,6 +141,24 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Touch-friendly minimum targets */
+@media (pointer: coarse) {
+  .icon-btn,
+  .header-mobile-menu-btn,
+  .lang-btn,
+  .modal-close,
+  .btn-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
   }
 }
 
