@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdHowToReg, MdRefresh } from 'react-icons/md';
+import { MdHowToReg, MdRefresh, MdPersonAdd } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
+import Modal from '../../components/common/Modal';
 import { useTranslation } from '../../i18n';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../context/AuthContext';
+import { getBatches } from '../../services/academicService';
 import {
   listApplications,
   updateApplicationStatus,
+  acceptAndEnrollApplication,
   ADMISSION_STATUSES,
 } from '../../services/admissionsService';
 
@@ -29,10 +32,18 @@ export default function AdminAdmissionsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
+  const [enrolApp, setEnrolApp] = useState(null);
+  const [batchId, setBatchId] = useState('');
 
   const { data: applications = [], isLoading } = useQuery({
     queryKey: ['admissions', statusFilter],
     queryFn: () => listApplications({ status: statusFilter || undefined, limit: 150 }),
+  });
+
+  const { data: batches = [] } = useQuery({
+    queryKey: ['batches-for-enrol'],
+    queryFn: () => getBatches(),
+    enabled: !!enrolApp,
   });
 
   const statusMutation = useMutation({
@@ -40,6 +51,25 @@ export default function AdminAdmissionsPage() {
       updateApplicationStatus(id, { status, reviewedBy: profile?.id }),
     onSuccess: () => {
       toast.success(translateText('Application updated'));
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const enrolMutation = useMutation({
+    mutationFn: () =>
+      acceptAndEnrollApplication(enrolApp.id, {
+        batchId,
+        reviewedBy: profile?.id,
+      }),
+    onSuccess: (res) => {
+      toast.success(
+        res.alreadyEnrolled
+          ? translateText('Already enrolled')
+          : `${translateText('Enrolled')} · ${res.student?.matricule || ''}`,
+      );
+      setEnrolApp(null);
+      setBatchId('');
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
     },
     onError: (e) => toast.error(e.message),
@@ -127,24 +157,43 @@ export default function AdminAdmissionsPage() {
                       <span className={`badge ${statusClass(app.status)}`}>
                         {app.status.replace('_', ' ')}
                       </span>
+                      {app.student_id && (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                          {translateText('Student linked')}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontSize: '0.85rem' }}>
                       {new Date(app.submitted_at).toLocaleDateString()}
                     </td>
                     <td>
-                      <select
-                        className="form-control"
-                        style={{ minWidth: 140, fontSize: '0.8rem' }}
-                        value={app.status}
-                        disabled={statusMutation.isPending}
-                        onChange={(e) =>
-                          statusMutation.mutate({ id: app.id, status: e.target.value })
-                        }
-                      >
-                        {ADMISSION_STATUSES.map((s) => (
-                          <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                        ))}
-                      </select>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <select
+                          className="form-control"
+                          style={{ minWidth: 120, fontSize: '0.8rem' }}
+                          value={app.status}
+                          disabled={statusMutation.isPending}
+                          onChange={(e) =>
+                            statusMutation.mutate({ id: app.id, status: e.target.value })
+                          }
+                        >
+                          {ADMISSION_STATUSES.map((s) => (
+                            <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                          ))}
+                        </select>
+                        {!app.student_id && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                              setEnrolApp(app);
+                              setBatchId('');
+                            }}
+                          >
+                            <MdPersonAdd size={14} /> {translateText('Enrol')}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -153,6 +202,57 @@ export default function AdminAdmissionsPage() {
           )}
         </div>
       </div>
+
+      {enrolApp && (
+        <Modal
+          title={`${translateText('Accept & enrol')} — ${enrolApp.application_number}`}
+          onClose={() => setEnrolApp(null)}
+        >
+          <form
+            className="form-stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!batchId) {
+                toast.error(translateText('Select a batch'));
+                return;
+              }
+              enrolMutation.mutate();
+            }}
+          >
+            <p style={{ fontSize: '0.9rem' }}>
+              {enrolApp.first_name} {enrolApp.last_name} · {enrolApp.email}
+            </p>
+            <div className="form-group">
+              <label>{translateText('Assign to batch')} *</label>
+              <select
+                className="form-control"
+                value={batchId}
+                onChange={(e) => setBatchId(e.target.value)}
+                required
+              >
+                <option value="">{translateText('Select batch…')}</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.departments?.name ? ` — ${b.departments.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              {translateText('Creates a student record with a provisional matricule and marks the application accepted.')}
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setEnrolApp(null)}>
+                {translateText('Cancel')}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={enrolMutation.isPending}>
+                {enrolMutation.isPending ? translateText('Enrolling…') : translateText('Accept & enrol')}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </AppLayout>
   );
 }
