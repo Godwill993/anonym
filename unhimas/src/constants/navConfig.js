@@ -20,6 +20,8 @@ import {
   MdLogin,
   MdBook,
   MdAdminPanelSettings,
+  MdPayments,
+  MdReceiptLong,
 } from 'react-icons/md';
 
 /** Navigation tree keyed by role. Optional `capability` hides the item when can() is false.
@@ -30,6 +32,7 @@ import {
  *
  *  Class attendance approval: /admin/attendance (student class sessions submitted by lecturers).
  *  Lecturer clock-in: /admin/lecturer-attendance (campus presence).
+ *  Fees: /admin/fees (structures + invoices), /student/fees (balance + pay).
  */
 export const NAV_CONFIG = {
   admin: [
@@ -89,6 +92,25 @@ export const NAV_CONFIG = {
         { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
         { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
         { key: 'administrators', label: 'Administrators', path: '/admin/staff', icon: MdAdminPanelSettings, capability: 'manage_people' },
+      ],
+    },
+    {
+      group: 'Finance',
+      items: [
+        {
+          key: 'fees',
+          label: 'Fees & Invoices',
+          path: '/admin/fees',
+          icon: MdPayments,
+          capability: 'manage_fees',
+        },
+        {
+          key: 'payments',
+          label: 'Payments',
+          path: '/admin/payments',
+          icon: MdReceiptLong,
+          capability: 'manage_fees',
+        },
       ],
     },
     {
@@ -184,6 +206,7 @@ export const NAV_CONFIG = {
         { key: 'results', label: 'Results', path: '/student/results', icon: MdAssignment, capability: 'view_own_results' },
         { key: 'transcript', label: 'Transcript', path: '/student/transcript', icon: MdAssignment, capability: 'view_own_transcript' },
         { key: 'timetable', label: 'Timetable', path: '/student/timetable', icon: MdCalendarToday },
+        { key: 'fees', label: 'Fees & Payments', path: '/student/fees', icon: MdPayments, capability: 'view_own_fees' },
       ],
     },
     {
