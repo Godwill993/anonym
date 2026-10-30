@@ -25,6 +25,7 @@ import {
   formatXAF,
   PAYMENT_METHODS,
 } from '../../services/feesService';
+import { printPaymentQuitus } from '../../utils/studentDocuments';
 
 function statusBadge(status) {
   const map = {
@@ -40,39 +41,6 @@ function statusBadge(status) {
     refunded: 'badge-muted',
   };
   return map[status] || 'badge-muted';
-}
-
-function printQuitus(payment, student) {
-  const w = window.open('', '_blank', 'noopener,noreferrer');
-  if (!w) return;
-  const name = student
-    ? `${student.first_name || ''} ${student.last_name || ''}`.trim()
-    : '';
-  w.document.write(`<!DOCTYPE html><html><head><title>Quitus ${payment.receipt_number || payment.payment_reference}</title>
-    <style>
-      body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 480px; margin: 0 auto; }
-      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-      .muted { color: #666; font-size: 0.85rem; }
-      table { width: 100%; margin-top: 1.5rem; border-collapse: collapse; }
-      td { padding: 0.4rem 0; border-bottom: 1px solid #eee; }
-      td:last-child { text-align: right; font-weight: 600; }
-      .stamp { margin-top: 2rem; font-size: 0.8rem; color: #333; }
-    </style></head><body>
-    <h1>UNHIMAS — Payment receipt (Quitus)</h1>
-    <p class="muted">Official fee payment acknowledgement</p>
-    <table>
-      <tr><td>Student</td><td>${name || '—'} ${student?.matricule ? '(' + student.matricule + ')' : ''}</td></tr>
-      <tr><td>Reference</td><td>${payment.payment_reference || '—'}</td></tr>
-      <tr><td>Receipt</td><td>${payment.receipt_number || '—'}</td></tr>
-      <tr><td>Amount</td><td>${formatXAF(payment.amount)}</td></tr>
-      <tr><td>Method</td><td>${(payment.method || '').replace('_', ' ')}</td></tr>
-      <tr><td>Status</td><td>${payment.status}</td></tr>
-      <tr><td>Date</td><td>${payment.paid_at ? new Date(payment.paid_at).toLocaleString() : new Date(payment.created_at).toLocaleString()}</td></tr>
-    </table>
-    <p class="stamp">Generated from the student portal. Present this with your matricule when required.</p>
-    <script>window.onload=function(){window.print();}</script>
-    </body></html>`);
-  w.document.close();
 }
 
 export default function StudentFeesPage() {
@@ -162,8 +130,6 @@ export default function StudentFeesPage() {
       toast.error(translateText('Phone number is required for Mobile Money'));
       return;
     }
-    // Production default: pending until admin (or MoMo webhook) confirms.
-    // Set VITE_PAYMENTS_AUTO_COMPLETE=true only for local demos.
     const autoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
     payMutation.mutate({
       invoiceId: payInvoice.id,
@@ -377,7 +343,7 @@ export default function StudentFeesPage() {
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
-                      onClick={() => printQuitus(p, studentProfile)}
+                      onClick={() => printPaymentQuitus(p, studentProfile)}
                       title={translateText('Print quitus')}
                     >
                       <MdPrint size={14} /> {translateText('Quitus')}
