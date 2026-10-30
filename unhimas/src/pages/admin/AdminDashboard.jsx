@@ -16,6 +16,17 @@ import {
   getLiveLecturerPresence,
   getPendingSubmissionsList,
 } from '../../services/adminService';
+import {
+  getDepartmentEnrollment,
+  getMarkStatusBreakdown,
+  getFeeCollectionSnapshot,
+} from '../../services/dashboardAnalytics';
+import {
+  ChartCard,
+  EnrollmentBarChart,
+  StatusPieChart,
+  FinanceBarChart,
+} from '../../components/charts/DashboardCharts';
 
 export default function AdminDashboard() {
   const { language, translateText } = useTranslation();
@@ -38,12 +49,42 @@ export default function AdminDashboard() {
     queryFn: getPendingSubmissionsList,
   });
 
+  const { data: enrollment = [], isLoading: enrollLoading } = useQuery({
+    queryKey: ['admin-dept-enrollment'],
+    queryFn: getDepartmentEnrollment,
+  });
+
+  const { data: markStatus = [], isLoading: markStatusLoading } = useQuery({
+    queryKey: ['admin-mark-status'],
+    queryFn: getMarkStatusBreakdown,
+  });
+
+  const { data: feeSnap, isLoading: feeLoading } = useQuery({
+    queryKey: ['admin-fee-snapshot'],
+    queryFn: getFeeCollectionSnapshot,
+  });
+
   const formattedDate = new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
+
+  const feeChartData = feeSnap
+    ? [
+        {
+          name: translateText('Fees'),
+          invoiced: feeSnap.invoiced,
+          paid: feeSnap.paid,
+          outstanding: feeSnap.outstanding,
+        },
+      ]
+    : [];
+
+  const refreshAll = () => {
+    refetchStats();
+  };
 
   return (
     <AppLayout pageTitle="Admin Dashboard">
@@ -53,8 +94,8 @@ export default function AdminDashboard() {
           <p className="page-subtitle">{formattedDate}</p>
         </div>
         <div className="page-header-actions">
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchStats()}>
-            <MdRefresh />
+          <button type="button" className="btn btn-outline btn-sm" onClick={refreshAll}>
+            <MdRefresh aria-hidden="true" />
           </button>
           <Link to="/admin/create-account" className="btn btn-primary btn-sm">
             {translateText('Create Account')}
@@ -64,47 +105,122 @@ export default function AdminDashboard() {
 
       <div className="stats-grid animate-stagger">
         <div className="stat-card">
-          <div className="stat-card-icon blue"><MdSchool /></div>
+          <div className="stat-card-icon blue">
+            <MdSchool aria-hidden="true" />
+          </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '…' : stats.totalStudents ?? 0}</div>
             <div className="stat-card-label">{translateText('Students')}</div>
             <div className="stat-card-trend">
-              <Link to="/admin/students">{translateText('Open')} <MdArrowForward style={{ fontSize: '0.85rem' }} /></Link>
+              <Link to="/admin/students">
+                {translateText('Open')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon purple"><MdPersonPin /></div>
+          <div className="stat-card-icon purple">
+            <MdPersonPin aria-hidden="true" />
+          </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '…' : stats.totalLecturers ?? 0}</div>
             <div className="stat-card-label">{translateText('Lecturers')}</div>
             <div className="stat-card-trend">
-              <Link to="/admin/lecturers">{translateText('Open')} <MdArrowForward style={{ fontSize: '0.85rem' }} /></Link>
+              <Link to="/admin/lecturers">
+                {translateText('Open')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon red"><MdAssignmentLate /></div>
+          <div className="stat-card-icon red">
+            <MdAssignmentLate aria-hidden="true" />
+          </div>
           <div className="stat-card-body">
-            <div className="stat-card-value" style={{ color: stats.pendingMarkSubmissions > 0 ? 'var(--color-secondary)' : 'inherit' }}>
+            <div
+              className="stat-card-value"
+              style={{
+                color: stats.pendingMarkSubmissions > 0 ? 'var(--color-secondary)' : 'inherit',
+              }}
+            >
               {statsLoading ? '…' : stats.pendingMarkSubmissions ?? 0}
             </div>
             <div className="stat-card-label">{translateText('Pending marks')}</div>
             <div className="stat-card-trend">
-              <Link to="/admin/mark-approval">{translateText('Review')} <MdArrowForward style={{ fontSize: '0.85rem' }} /></Link>
+              <Link to="/admin/mark-approval">
+                {translateText('Review')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-icon amber"><MdAccessTime /></div>
+          <div className="stat-card-icon amber">
+            <MdAccessTime aria-hidden="true" />
+          </div>
           <div className="stat-card-body">
             <div className="stat-card-value">{statsLoading ? '…' : stats.activeLecturerShifts ?? 0}</div>
             <div className="stat-card-label">{translateText('Clocked in')}</div>
             <div className="stat-card-trend">
-              <Link to="/admin/lecturer-attendance">{translateText('Clock-in')} <MdArrowForward style={{ fontSize: '0.85rem' }} /></Link>
+              <Link to="/admin/lecturer-attendance">
+                {translateText('Clock-in')} <MdArrowForward style={{ fontSize: '0.85rem' }} />
+              </Link>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Strategic charts */}
+      <div className="dashboard-charts-grid" style={{ marginTop: '1.25rem' }}>
+        <ChartCard
+          title={translateText('Students by department')}
+          subtitle={translateText('Active enrollment mix')}
+          height={240}
+        >
+          {enrollLoading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              {translateText('Loading…')}
+            </div>
+          ) : (
+            <EnrollmentBarChart
+              data={enrollment}
+              emptyLabel={translateText('No enrollment data')}
+            />
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title={translateText('Marks pipeline')}
+          subtitle={translateText('Submission workflow')}
+          height={240}
+        >
+          {markStatusLoading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              {translateText('Loading…')}
+            </div>
+          ) : (
+            <StatusPieChart
+              data={markStatus.map((r) => ({
+                ...r,
+                label: translateText(r.label),
+              }))}
+              emptyLabel={translateText('No mark submissions yet')}
+            />
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title={translateText('Fee collection')}
+          subtitle={translateText('Invoiced · paid · outstanding')}
+          height={240}
+        >
+          {feeLoading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              {translateText('Loading…')}
+            </div>
+          ) : (
+            <FinanceBarChart data={feeChartData} emptyLabel={translateText('No fee data yet')} />
+          )}
+        </ChartCard>
       </div>
 
       <div
@@ -114,18 +230,20 @@ export default function AdminDashboard() {
           gap: '1rem',
           marginTop: '1.25rem',
         }}
-        className="animate-stagger"
+        className="animate-stagger dashboard-queues"
       >
         <div className="card">
           <div className="card-header">
             <div className="card-title">{translateText('Approval queue')}</div>
             <Link to="/admin/mark-approval" className="btn btn-ghost btn-sm">
-              {translateText('Open')} <MdArrowForward />
+              {translateText('Open')} <MdArrowForward aria-hidden="true" />
             </Link>
           </div>
           <div className="card-body" style={{ padding: '0.25rem 0' }}>
             {marksLoading ? (
-              <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>{translateText('Loading…')}</div>
+              <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>
+                {translateText('Loading…')}
+              </div>
             ) : pendingMarks.length === 0 ? (
               <div className="empty-state" style={{ padding: '1.5rem 1rem' }}>
                 <div className="empty-state-title">{translateText('All caught up')}</div>
@@ -161,12 +279,14 @@ export default function AdminDashboard() {
           <div className="card-header">
             <div className="card-title">{translateText('On campus')}</div>
             <Link to="/admin/lecturer-attendance" className="btn btn-ghost btn-sm">
-              {translateText('Open')} <MdArrowForward />
+              {translateText('Open')} <MdArrowForward aria-hidden="true" />
             </Link>
           </div>
           <div className="card-body" style={{ padding: '0.25rem 0' }}>
             {shiftsLoading ? (
-              <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>{translateText('Loading…')}</div>
+              <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>
+                {translateText('Loading…')}
+              </div>
             ) : liveShifts.length === 0 ? (
               <div className="empty-state" style={{ padding: '1.5rem 1rem' }}>
                 <div className="empty-state-title">{translateText('No one clocked in')}</div>
@@ -189,7 +309,8 @@ export default function AdminDashboard() {
                       {shift.lecturers?.first_name} {shift.lecturers?.last_name}
                     </span>
                     <span className="badge badge-green">
-                      <MdCheckCircle style={{ verticalAlign: 'middle' }} /> {translateText('In')}
+                      <MdCheckCircle style={{ verticalAlign: 'middle' }} aria-hidden="true" />{' '}
+                      {translateText('In')}
                     </span>
                   </li>
                 ))}
@@ -198,6 +319,22 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .dashboard-charts-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 1rem;
+        }
+        @media (max-width: 1100px) {
+          .dashboard-charts-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .dashboard-queues {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
+      `}</style>
     </AppLayout>
   );
 }
