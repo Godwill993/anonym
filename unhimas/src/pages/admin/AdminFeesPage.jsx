@@ -6,12 +6,14 @@ import {
   MdRefresh,
   MdCategory,
   MdReceiptLong,
+  MdGroups,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import { useTranslation } from '../../i18n';
 import { useToast } from '../../hooks/useToast';
 import { getStudents } from '../../services/peopleService';
+import { getBatches } from '../../services/academicService';
 import {
   listFeeCategories,
   listFeeStructures,
@@ -19,6 +21,7 @@ import {
   upsertFeeCategory,
   upsertFeeStructure,
   createInvoice,
+  bulkCreateInvoices,
   formatXAF,
 } from '../../services/feesService';
 
@@ -29,6 +32,7 @@ export default function AdminFeesPage() {
   const [showCatModal, setShowCatModal] = useState(false);
   const [showStructModal, setShowStructModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [catForm, setCatForm] = useState({ code: '', name: '', description: '', sort_order: 50 });
   const [structForm, setStructForm] = useState({
     fee_category_id: '',
@@ -38,6 +42,12 @@ export default function AdminFeesPage() {
   });
   const [invoiceForm, setInvoiceForm] = useState({
     student_id: '',
+    structure_ids: [],
+    notes: '',
+    due_date: '',
+  });
+  const [bulkForm, setBulkForm] = useState({
+    batch_id: '',
     structure_ids: [],
     notes: '',
     due_date: '',
@@ -62,6 +72,12 @@ export default function AdminFeesPage() {
     queryKey: ['students-for-invoice'],
     queryFn: () => getStudents({}),
     enabled: showInvoiceModal,
+  });
+
+  const { data: batches = [] } = useQuery({
+    queryKey: ['batches-for-bulk'],
+    queryFn: () => getBatches(),
+    enabled: showBulkModal,
   });
 
   const catMutation = useMutation({
@@ -102,10 +118,25 @@ export default function AdminFeesPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: bulkCreateInvoices,
+    onSuccess: (summary) => {
+      toast.success(
+        `${translateText('Bulk complete')}: ${summary.created}/${summary.totalStudents} ${translateText('invoices created')}` +
+          (summary.failed ? ` (${summary.failed} ${translateText('failed')})` : ''),
+      );
+      setShowBulkModal(false);
+      setBulkForm({ batch_id: '', structure_ids: [], notes: '', due_date: '' });
+      queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const activeStructures = structures.filter((s) => s.is_active);
 
-  const toggleStructure = (id) => {
-    setInvoiceForm((f) => {
+  const toggleStructure = (id, formSetter) => {
+    formSetter((f) => {
       const set = new Set(f.structure_ids);
       if (set.has(id)) set.delete(id);
       else set.add(id);
@@ -140,6 +171,51 @@ export default function AdminFeesPage() {
     });
   };
 
+  const submitBulk = (e) => {
+    e.preventDefault();
+    if (!bulkForm.batch_id) {
+      toast.error(translateText('Select a batch'));
+      return;
+    }
+    if (!bulkForm.structure_ids.length) {
+      toast.error(translateText('Select at least one fee structure'));
+      return;
+    }
+    bulkMutation.mutate({
+      batchId: bulkForm.batch_id,
+      structureIds: bulkForm.structure_ids,
+      notes: bulkForm.notes || null,
+      dueDate: bulkForm.due_date || null,
+    });
+  };
+
+  const structureChecklist = (selectedIds, onToggle) => (
+    <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 8, padding: 8 }}>
+      {activeStructures.length === 0 ? (
+        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+          {translateText('No active fee structures. Create one first.')}
+        </p>
+      ) : (
+        activeStructures.map((s) => (
+          <label
+            key={s.id}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(s.id)}
+              onChange={() => onToggle(s.id)}
+            />
+            <span style={{ flex: 1 }}>
+              {s.fee_categories?.name || s.description || 'Fee'}
+            </span>
+            <span style={{ fontWeight: 600 }}>{formatXAF(s.amount)}</span>
+          </label>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <AppLayout pageTitle="Fees & Invoices">
       <div className="page-header">
@@ -158,6 +234,9 @@ export default function AdminFeesPage() {
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowInvoiceModal(true)}>
             <MdReceiptLong /> {translateText('Issue invoice')}
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowBulkModal(true)}>
+            <MdGroups /> {translateText('Bulk by batch')}
           </button>
           <button
             type="button"
@@ -236,7 +315,7 @@ export default function AdminFeesPage() {
             <div className="empty-state">
               <div className="empty-state-title">{translateText('No invoices')}</div>
               <p className="empty-state-text">
-                {translateText('Use “Issue invoice” to bill a student for selected fee structures.')}
+                {translateText('Use “Issue invoice” or “Bulk by batch” to bill students.')}
               </p>
             </div>
           ) : (
@@ -424,30 +503,9 @@ export default function AdminFeesPage() {
             </div>
             <div className="form-group">
               <label>{translateText('Fee lines')}</label>
-              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 8, padding: 8 }}>
-                {activeStructures.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                    {translateText('No active fee structures. Create one first.')}
-                  </p>
-                ) : (
-                  activeStructures.map((s) => (
-                    <label
-                      key={s.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', cursor: 'pointer' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={invoiceForm.structure_ids.includes(s.id)}
-                        onChange={() => toggleStructure(s.id)}
-                      />
-                      <span style={{ flex: 1 }}>
-                        {s.fee_categories?.name || s.description || 'Fee'}
-                      </span>
-                      <span style={{ fontWeight: 600 }}>{formatXAF(s.amount)}</span>
-                    </label>
-                  ))
-                )}
-              </div>
+              {structureChecklist(invoiceForm.structure_ids, (id) =>
+                toggleStructure(id, setInvoiceForm),
+              )}
             </div>
             <div className="form-group">
               <label>{translateText('Due date')}</label>
@@ -473,6 +531,66 @@ export default function AdminFeesPage() {
               </button>
               <button type="submit" className="btn btn-primary" disabled={invoiceMutation.isPending}>
                 {invoiceMutation.isPending ? translateText('Issuing…') : translateText('Issue invoice')}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {showBulkModal && (
+        <Modal title={translateText('Bulk invoice by batch')} onClose={() => setShowBulkModal(false)}>
+          <form className="form-stack" onSubmit={submitBulk}>
+            <div className="form-group">
+              <label>{translateText('Batch')}</label>
+              <select
+                className="form-control"
+                value={bulkForm.batch_id}
+                onChange={(e) => setBulkForm((f) => ({ ...f, batch_id: e.target.value }))}
+                required
+              >
+                <option value="">{translateText('Select batch…')}</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.departments?.abbreviation ? ` (${b.departments.abbreviation})` : ''}
+                    {b.students?.[0]?.count != null ? ` — ${b.students[0].count} students` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{translateText('Fee lines')}</label>
+              {structureChecklist(bulkForm.structure_ids, (id) =>
+                toggleStructure(id, setBulkForm),
+              )}
+            </div>
+            <div className="form-group">
+              <label>{translateText('Due date')}</label>
+              <input
+                type="date"
+                className="form-control"
+                value={bulkForm.due_date}
+                onChange={(e) => setBulkForm((f) => ({ ...f, due_date: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>{translateText('Notes')}</label>
+              <textarea
+                className="form-control"
+                rows={2}
+                value={bulkForm.notes}
+                onChange={(e) => setBulkForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              {translateText('Each student in the batch receives the same invoice lines. Failures are reported without stopping the batch.')}
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowBulkModal(false)}>
+                {translateText('Cancel')}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={bulkMutation.isPending}>
+                {bulkMutation.isPending ? translateText('Issuing…') : translateText('Issue to batch')}
               </button>
             </div>
           </form>
