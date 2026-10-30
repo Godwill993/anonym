@@ -25,10 +25,8 @@ import CoursesPage from './pages/admin/CoursesPage';
 import BatchCoursesPage from './pages/admin/BatchCoursesPage';
 import StudentsPage from './pages/admin/StudentsPage';
 import LecturersPage from './pages/admin/LecturersPage';
-import StaffPage from './pages/admin/StaffPage';
 import CreateAccountPage from './pages/admin/CreateAccountPage';
 import MarkApprovalPage from './pages/admin/MarkApprovalPage';
-import AdminMarksPage from './pages/admin/AdminMarksPage';
 import AdminAttendancePage from './pages/admin/AdminAttendancePage';
 import AdminResultsPage from './pages/admin/AdminResultsPage';
 import AdminTimetablePage from './pages/admin/AdminTimetablePage';
@@ -38,20 +36,13 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
 import StudentTransfersPage from './pages/admin/StudentTransfersPage';
 import AcademicEventsPage from './pages/admin/AcademicEventsPage';
-import LecturerHoursReportPage from './pages/admin/reports/LecturerHoursReportPage';
-import AttendanceReportPage from './pages/admin/reports/AttendanceReportPage';
-import CoursePerformanceReportPage from './pages/admin/reports/CoursePerformanceReportPage';
-import ResultsReportPage from './pages/admin/reports/ResultsReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
 import AdminFeesPage from './pages/admin/AdminFeesPage';
 import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
 import AdminAdmissionsPage from './pages/admin/AdminAdmissionsPage';
-
-// Campus ops (admin)
 import LecturerAttendancePage from './pages/admin/LecturerAttendancePage';
-import ShiftHistoryPage from './pages/admin/ShiftHistoryPage';
 
 // Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
@@ -136,11 +127,9 @@ function App() {
                       <Route path="batch-courses" element={<BatchCoursesPage />} />
                       <Route path="students" element={<StudentsPage />} />
                       <Route path="lecturers" element={<LecturersPage />} />
-                      <Route path="staff" element={<StaffPage />} />
                       <Route path="create-account" element={<CreateAccountPage />} />
                       <Route path="admissions" element={<AdminAdmissionsPage />} />
                       <Route path="mark-approval" element={<MarkApprovalPage />} />
-                      <Route path="marks" element={<AdminMarksPage />} />
                       <Route path="attendance" element={<AdminAttendancePage />} />
                       <Route path="results" element={<AdminResultsPage />} />
                       <Route path="timetable" element={<AdminTimetablePage />} />
@@ -152,13 +141,7 @@ function App() {
                       <Route path="resources" element={<AdminResourcesPage />} />
                       <Route path="fees" element={<AdminFeesPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />
-                      <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
-                      <Route path="reports/attendance" element={<AttendanceReportPage />} />
-                      <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
-                      <Route path="reports/performance" element={<CoursePerformanceReportPage />} />
-                      <Route path="reports/results" element={<ResultsReportPage />} />
                       <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
-                      <Route path="shift-history" element={<ShiftHistoryPage />} />
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="audit-log" element={<AuditLogPage />} />
                       <Route path="profile" element={<AdminProfilePage />} />
