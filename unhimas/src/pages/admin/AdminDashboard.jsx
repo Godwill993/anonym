@@ -8,6 +8,25 @@ import {
   MdArrowForward,
   MdRefresh,
   MdCheckCircle,
+  MdPersonAdd,
+  MdHowToReg,
+  MdPayments,
+  MdReceiptLong,
+  MdGrade,
+  MdBarChart,
+  MdCalendarToday,
+  MdCampaign,
+  MdFolder,
+  MdLogin,
+  MdHistory,
+  MdTransferWithinAStation,
+  MdAssessment,
+  MdSettings,
+  MdApartment,
+  MdBook,
+  MdGroups,
+  MdNotifications,
+  MdFactCheck,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useTranslation } from '../../i18n';
@@ -27,6 +46,52 @@ import {
   StatusPieChart,
   FinanceBarChart,
 } from '../../components/charts/DashboardCharts';
+
+const QUICK_ACTIONS = [
+  {
+    group: 'Daily work',
+    items: [
+      { to: '/admin/mark-approval', label: 'Approve marks', icon: MdGrade, accent: true },
+      { to: '/admin/admissions', label: 'Admissions', icon: MdHowToReg },
+      { to: '/admin/fees', label: 'Fees', icon: MdPayments },
+      { to: '/admin/payments', label: 'Payments', icon: MdReceiptLong },
+      { to: '/admin/lecturer-attendance', label: 'Clock-in', icon: MdLogin },
+      { to: '/admin/attendance', label: 'Class attendance', icon: MdFactCheck },
+      { to: '/admin/announcements', label: 'Announcements', icon: MdCampaign },
+      { to: '/admin/notifications', label: 'Notifications', icon: MdNotifications },
+    ],
+  },
+  {
+    group: 'People',
+    items: [
+      { to: '/admin/students', label: 'Students', icon: MdSchool },
+      { to: '/admin/lecturers', label: 'Lecturers', icon: MdPersonPin },
+      { to: '/admin/create-account', label: 'Create account', icon: MdPersonAdd },
+      { to: '/admin/student-transfers', label: 'Transfers', icon: MdTransferWithinAStation },
+    ],
+  },
+  {
+    group: 'Academics',
+    items: [
+      { to: '/admin/departments', label: 'Departments', icon: MdApartment },
+      { to: '/admin/batches', label: 'Batches', icon: MdGroups },
+      { to: '/admin/courses', label: 'Courses', icon: MdBook },
+      { to: '/admin/timetable', label: 'Timetable', icon: MdCalendarToday },
+      { to: '/admin/results', label: 'Results', icon: MdBarChart },
+      { to: '/admin/resources', label: 'Resources', icon: MdFolder },
+    ],
+  },
+  {
+    group: 'Reports & system',
+    items: [
+      { to: '/admin/reports/results', label: 'Results report', icon: MdAssessment },
+      { to: '/admin/reports/attendance', label: 'Attendance report', icon: MdAssessment },
+      { to: '/admin/reports/lecturer-hours', label: 'Lecturer hours', icon: MdAccessTime },
+      { to: '/admin/shift-history', label: 'Shift history', icon: MdHistory },
+      { to: '/admin/settings', label: 'Settings', icon: MdSettings },
+    ],
+  },
+];
 
 export default function AdminDashboard() {
   const { language, translateText } = useTranslation();
@@ -103,7 +168,31 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="stats-grid animate-stagger">
+      {/* Quick access — routes not crowded into the sidebar */}
+      <section className="quick-actions-bar" aria-label={translateText('Quick access')}>
+        {QUICK_ACTIONS.map((group) => (
+          <div key={group.group} style={{ marginBottom: group === QUICK_ACTIONS[QUICK_ACTIONS.length - 1] ? 0 : '0.85rem' }}>
+            <div className="quick-actions-label">{translateText(group.group)}</div>
+            <div className="quick-actions-row">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`quick-action-chip${item.accent ? ' accent' : ''}`}
+                  >
+                    <Icon aria-hidden="true" />
+                    {translateText(item.label)}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div className="stats-grid animate-stagger" style={{ marginTop: '1.25rem' }}>
         <div className="stat-card">
           <div className="stat-card-icon blue">
             <MdSchool aria-hidden="true" />
@@ -169,7 +258,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Strategic charts */}
       <div className="dashboard-charts-grid" style={{ marginTop: '1.25rem' }}>
         <ChartCard
           title={translateText('Students by department')}
