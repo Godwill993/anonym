@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/lib/transcript.test.js src/lib/grading.test.js src/lib/marksWorkflow.test.js src/lib/feeClearanceLogic.test.js src/lib/permissions.test.js src/lib/publicFormGuard.test.js src/lib/turnstile.test.js",
+    "test": "node --test src/lib/transcript.test.js src/lib/grading.test.js src/lib/marksWorkflow.test.js src/lib/feeClearanceLogic.test.js src/lib/permissions.test.js src/lib/publicFormGuard.test.js src/lib/turnstile.test.js src/lib/paymentStatusLogic.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
