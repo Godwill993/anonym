@@ -8,8 +8,6 @@
  * (TURNSTILE_SECRET_KEY) for server-side verification.
  */
 
-import { supabase } from './supabase';
-
 export function getTurnstileSiteKey() {
   try {
     const key = import.meta.env?.VITE_TURNSTILE_SITE_KEY;
@@ -56,6 +54,8 @@ export async function verifyTurnstileWithServer(token) {
   if (!local.ok) return local;
 
   try {
+    // Lazy import so pure helper unit tests do not load the Supabase client
+    const { supabase } = await import('./supabase.js');
     const { data, error } = await supabase.functions.invoke('verify-turnstile', {
       body: { token: token.trim() },
     });
