@@ -1,5 +1,9 @@
 import { getStudentFeeBalance } from './feesService';
 import { supabase } from '../lib/supabase';
+import {
+  evaluateFeeClearance,
+  normalizeFeeClearancePolicy,
+} from '../lib/feeClearanceLogic';
 
 /**
  * Whether fee clearance is required before viewing results/transcript.
@@ -17,15 +21,7 @@ export async function getFeeClearancePolicy() {
     if (error || !data) {
       return { enabled: true, minPaidRatio: 1 };
     }
-    const value = data.value || {};
-    const minPaidRatio = Number(value.min_paid_ratio ?? value.minPaidRatio ?? 1);
-    return {
-      enabled: value.enabled !== false,
-      minPaidRatio:
-        Number.isFinite(minPaidRatio) && minPaidRatio > 0 && minPaidRatio <= 1
-          ? minPaidRatio
-          : 1,
-    };
+    return normalizeFeeClearancePolicy(data.value || {});
   } catch {
     return { enabled: true, minPaidRatio: 1 };
   }
@@ -43,14 +39,10 @@ export async function isFeeClearanceRequired() {
 export async function checkFeeClearance(studentId) {
   const policy = await getFeeClearancePolicy();
   if (!policy.enabled) {
-    return {
-      cleared: true,
-      outstanding: 0,
-      required: false,
-      totalInvoiced: 0,
-      totalPaid: 0,
+    return evaluateFeeClearance({
+      enabled: false,
       minPaidRatio: policy.minPaidRatio,
-    };
+    });
   }
   if (!studentId) {
     return {
@@ -64,21 +56,13 @@ export async function checkFeeClearance(studentId) {
   }
   try {
     const bal = await getStudentFeeBalance(studentId);
-    const outstanding = Number(bal?.outstanding_balance ?? 0);
-    const totalInvoiced = Number(bal?.total_invoiced ?? 0);
-    const totalPaid = Number(bal?.total_paid ?? 0);
-    const ratio = totalInvoiced > 0 ? totalPaid / totalInvoiced : 1;
-    const meetsRatio = ratio + 1e-9 >= policy.minPaidRatio;
-    const cleared = outstanding <= 0 || meetsRatio;
-    return {
-      cleared,
-      outstanding,
-      required: true,
-      totalInvoiced,
-      totalPaid,
+    return evaluateFeeClearance({
+      outstanding: bal?.outstanding_balance,
+      totalInvoiced: bal?.total_invoiced,
+      totalPaid: bal?.total_paid,
       minPaidRatio: policy.minPaidRatio,
-      paidRatio: ratio,
-    };
+      enabled: true,
+    });
   } catch {
     // Fail open on balance errors so a missing fees migration does not block academics
     return {
@@ -90,3 +74,5 @@ export async function checkFeeClearance(studentId) {
     };
   }
 }
+
+export { evaluateFeeClearance, normalizeFeeClearancePolicy };
