@@ -4,6 +4,7 @@ import {
   isHoneypotTriggered,
   sanitizeAdmissionPayload,
   validateAdmissionPayload,
+  validateApplicationLookup,
 } from '../lib/publicFormGuard';
 
 export const ADMISSION_STATUSES = [
@@ -47,9 +48,14 @@ export async function getApplication(id) {
 
 /** Public status check — number + email via security definer RPC */
 export async function lookupApplication(applicationNumber, email) {
+  const validated = validateApplicationLookup(applicationNumber, email);
+  if (!validated.ok) {
+    throw new Error(validated.message);
+  }
+
   const { data, error } = await supabase.rpc('lookup_admission_application', {
-    p_number: applicationNumber,
-    p_email: email,
+    p_number: validated.number,
+    p_email: validated.email,
   });
   if (error) throw error;
   if (Array.isArray(data)) return data[0] || null;
