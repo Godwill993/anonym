@@ -7,62 +7,57 @@ This note inventories those routes and the protections currently in code.
 
 | Route / entry | Purpose | Primary controls |
 |---------------|---------|------------------|
-| `/apply` | Online admission application | Honeypot (`website`), min form time (~2.5s), field validation + sanitize, silent bot response, **optional Turnstile** |
-| Application status page | Lookup by application number + email | Number/email validation & normalize, dual-factor RPC, **8s client throttle** |
-| Public results verification | Lookup published grades by matricule | Matricule validation & normalize, read-only RPC, **8s client throttle** |
+| `/apply` | Online admission application | Honeypot, min form time, validation, optional **Turnstile + server verify** |
+| Application status page | Lookup by application number + email | Number/email validation, dual-factor RPC, **8s client throttle** |
+| Public results verification | Lookup published grades by matricule | Matricule validation, read-only RPC, **8s client throttle** |
 | `/login` | Authenticated access | Supabase Auth; inactive profiles blocked in app |
 
 ## Client helpers
 
-Implemented in `src/lib/publicFormGuard.js` (unit-tested):
+- `src/lib/publicFormGuard.js` — honeypot, timing, lookup validation, throttle
+- `src/lib/turnstile.js` — site key gate, script loader, **server verify** via Edge Function
 
-- Honeypot / timing / admission payload validate+sanitize
-- Application lookup validate/normalize
-- Results matricule validate/normalize
-- Public lookup throttle (`sessionStorage`, default 8s)
+## Enabling Turnstile (end-to-end)
 
-Turnstile (optional) in `src/lib/turnstile.js` + `TurnstileWidget`:
-
-- Enabled only when `VITE_TURNSTILE_SITE_KEY` is set
-- When disabled, `/apply` behaviour is unchanged
-
-## Enabling Turnstile
-
-1. Create a Cloudflare Turnstile widget (managed / non-interactive recommended).
-2. Set in the frontend environment:
+1. Create a Cloudflare Turnstile widget.
+2. Frontend:
 
 ```env
 VITE_TURNSTILE_SITE_KEY=your_site_key
 ```
 
-3. Redeploy the web app.
+3. Supabase secrets + deploy:
 
-**Server-side verification (recommended under spam pressure):** add an Edge Function that posts the token to Cloudflare’s siteverify API using `TURNSTILE_SECRET_KEY`, and reject application inserts without a valid token. The current client gate is a UX/bot hurdle, not cryptographic proof by itself.
+```bash
+npx supabase secrets set TURNSTILE_SECRET_KEY=your_secret_key
+npx supabase functions deploy verify-turnstile
+```
+
+4. Redeploy the web app.
+
+When the site key is **unset**, `/apply` skips Turnstile entirely (honeypot + timing only).
+
+When the site key is **set**, submit flow:
+
+1. Require a widget token locally
+2. `POST` to Edge Function `verify-turnstile` (Cloudflare siteverify)
+3. Only then insert the application
 
 ## Server expectations
 
 | Mechanism | Expectation |
 |-----------|-------------|
-| `lookup_admission_application` RPC | SECURITY DEFINER; requires number **and** email; minimal columns |
-| `public_result_lookup` RPC | SECURITY DEFINER; **published** results only; no private contact data |
-| `admission_applications` insert | RLS allows controlled public insert of applications only |
+| `verify-turnstile` | Secret `TURNSTILE_SECRET_KEY`; public invoke with anon key |
+| `lookup_admission_application` RPC | SECURITY DEFINER; number **and** email |
+| `public_result_lookup` RPC | Published results only |
 | Payments | Students cannot force `completed` from the client in production |
 
-## Residual gaps (not replaced by client code)
+## Residual gaps
 
-1. **Live RLS inventory** — run `supabase/scripts/rls_inventory.sql` on production.
-2. **Edge rate limits / WAF** — client throttle is bypassable; use Cloudflare or Supabase limits under load.
-3. **Turnstile secret verification** — wire Edge Function when spam warrants it.
+1. Live RLS inventory (`supabase/scripts/rls_inventory.sql`)
+2. Edge rate limits / WAF under heavy attack
+3. Application insert is still a direct client insert after CAPTCHA — acceptable for most campuses; a single “submit application” Edge Function could combine verify + insert later
 
 ## Observability
 
-Render crashes flow through `ErrorBoundary` → `reportError` in `src/lib/observability.js`.
-To attach Sentry later without rewriting call sites, set:
-
-```js
-window.__UNHIMAS_REPORT_ERROR__ = (error, context) => {
-  // Sentry.captureException(error, { extra: context })
-};
-```
-
-Or install `@sentry/react` and initialize in `main.jsx` when `VITE_SENTRY_DSN` is present.
+`ErrorBoundary` → `src/lib/observability.js` (`reportError`). Optional Sentry via `VITE_SENTRY_DSN` or `window.__UNHIMAS_REPORT_ERROR__`.
