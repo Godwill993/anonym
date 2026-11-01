@@ -41,14 +41,7 @@ export function isValidEmail(email) {
   if (typeof email !== 'string') return false;
   const s = email.trim();
   if (s.length < 5 || s.length > 254) return false;
-  return /^[^
-	@]+@[^
-	@]+
-?
-?
-?
-?[^
-	@]+$/.test(s);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
 /**
