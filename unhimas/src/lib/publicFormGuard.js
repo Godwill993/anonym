@@ -45,6 +45,46 @@ export function isValidEmail(email) {
 }
 
 /**
+ * Normalize an application number for lookup (trim + uppercase).
+ * @param {string} value
+ */
+export function normalizeApplicationNumber(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+/**
+ * Plausible application number shape used by UNHIMAS generators.
+ * Accepts APP-YYYY-##### and short fallbacks like APP-#####.
+ * @param {string} value
+ */
+export function isPlausibleApplicationNumber(value) {
+  const n = normalizeApplicationNumber(value);
+  if (n.length < 6 || n.length > 40) return false;
+  // APP-2026-01000 or APP-01000 or APP-2026-1
+  return /^APP-[A-Z0-9-]{3,}$/.test(n);
+}
+
+/**
+ * Validate public application status lookup inputs.
+ * @returns {{ ok: true, number: string, email: string } | { ok: false, message: string }}
+ */
+export function validateApplicationLookup(applicationNumber, email) {
+  const number = normalizeApplicationNumber(applicationNumber);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+
+  if (!number) {
+    return { ok: false, message: 'Application number is required' };
+  }
+  if (!isPlausibleApplicationNumber(number)) {
+    return { ok: false, message: 'Enter a valid application number (e.g. APP-2026-01000)' };
+  }
+  if (!isValidEmail(normalizedEmail)) {
+    return { ok: false, message: 'A valid email address is required' };
+  }
+  return { ok: true, number, email: normalizedEmail };
+}
+
+/**
  * Validate required admission application fields (client + service).
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
