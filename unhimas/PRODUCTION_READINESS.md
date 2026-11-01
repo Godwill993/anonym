@@ -5,7 +5,7 @@
 **Application root:** `unhimas/`  
 **Test status:** run `npm test` (expect 67+ pure unit tests)
 
-Authoritative “what is done / what remains” reference before institutional go-live. Covers engineering Stages **0–15**.
+Authoritative “what is done / what remains” reference before institutional go-live. Covers engineering Stages **0–16**.
 
 ---
 
@@ -14,7 +14,7 @@ Authoritative “what is done / what remains” reference before institutional g
 | Area | Grade | Notes |
 |------|-------|-------|
 | Authentication & roles | A− | JWT + profile roles; max-3-admins DB-enforced |
-| Payments workflow | A | Pending → admin or **payment-webhook**; amount guards |
+| Payments workflow | A | Pending → admin or **payment-webhook**; shared status rules |
 | Marks / attendance | A | Status machines + edit locks |
 | Fee clearance | A | Pure logic unit-tested |
 | Edge Functions | A− | Zoom gated; push secret; Turnstile verify; payment webhook |
@@ -37,7 +37,8 @@ Authoritative “what is done / what remains” reference before institutional g
 | 11 | Observability hook + public endpoints documentation |
 | 12–13 | Optional Turnstile widget + **server-side** `verify-turnstile` |
 | 14 | **`payment-webhook`** for MoMo/automation completion |
-| 15 | Pure payment transition rules + this consolidated report |
+| 15 | Pure payment transition rules + consolidated report |
+| 16 | Admin `markPaymentCompleted` uses same rules + pending-only update |
 
 ---
 
@@ -66,6 +67,7 @@ npx supabase functions deploy payment-webhook   # if automated MoMo
 ### 3.4 Smoke tests
 - [ ] Marks/attendance submit → lock → approve/publish
 - [ ] Student payment stays `pending` until admin or webhook completes it
+- [ ] Completing a non-pending payment is rejected with a clear error
 - [ ] Fee clearance gates results when enabled
 - [ ] Student JWT cannot create Zoom meetings (403)
 - [ ] `/apply` honeypot; optional Turnstile path
@@ -98,6 +100,7 @@ src/lib/feeClearanceLogic.js
 src/lib/paymentStatusLogic.js
 src/lib/turnstile.js
 src/lib/observability.js
+src/services/feesService.js
 src/components/common/ErrorBoundary.jsx
 supabase/functions/zoom-meeting/
 supabase/functions/verify-turnstile/
@@ -114,4 +117,4 @@ cd unhimas && npm test
 
 ---
 
-*Updated through Stage 15. Re-run tests and live RLS inventory after further changes.*
+*Updated through Stage 16. Re-run tests and live RLS inventory after further changes.*
