@@ -14,6 +14,8 @@ export const ALLOWED_PAYMENT_METHODS = Object.freeze([
   'other',
 ]);
 
+export const MOMO_METHODS = Object.freeze(['mtn_momo', 'orange_money']);
+
 /**
  * Whether a payment row may be transitioned to completed.
  * @param {string|null|undefined} status
@@ -73,9 +75,40 @@ export function validatePaymentCompletion(payment, opts = {}) {
 }
 
 /**
+ * Normalize Cameroon phone input to digits (optional leading country code 237).
+ * @param {string|null|undefined} value
+ * @returns {string} digits only
+ */
+export function normalizeCameroonPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('237') && digits.length >= 12) {
+    return digits.slice(3);
+  }
+  if (digits.startsWith('00237') && digits.length >= 14) {
+    return digits.slice(5);
+  }
+  return digits;
+}
+
+/**
+ * Plausible CM mobile number: 9 digits starting with 6 (after stripping 237).
+ * @param {string|null|undefined} value
+ */
+export function isPlausibleCameroonMobile(value) {
+  const n = normalizeCameroonPhone(value);
+  return /^6\d{8}$/.test(n);
+}
+
+/**
  * Validate a new payment attempt before insert.
- * @param {{ invoiceId?: string, studentId?: string, amount?: number|string, method?: string }} payload
- * @returns {{ ok: true, amount: number, method: string } | { ok: false, message: string }}
+ * @param {{
+ *   invoiceId?: string,
+ *   studentId?: string,
+ *   amount?: number|string,
+ *   method?: string,
+ *   phoneNumber?: string|null,
+ * }} payload
+ * @returns {{ ok: true, amount: number, method: string, phoneNumber: string|null, invoiceId: string, studentId: string } | { ok: false, message: string }}
  */
 export function validatePaymentInitiation(payload) {
   if (!payload || typeof payload !== 'object') {
@@ -103,5 +136,24 @@ export function validatePaymentInitiation(payload) {
   const methodRaw = String(payload.method || 'other').trim().toLowerCase();
   const method = ALLOWED_PAYMENT_METHODS.includes(methodRaw) ? methodRaw : 'other';
 
-  return { ok: true, amount, method, invoiceId, studentId };
+  let phoneNumber = null;
+  const rawPhone = payload.phoneNumber;
+  if (rawPhone != null && String(rawPhone).trim()) {
+    const normalized = normalizeCameroonPhone(rawPhone);
+    phoneNumber = normalized || null;
+  }
+
+  if (MOMO_METHODS.includes(method)) {
+    if (!phoneNumber || !isPlausibleCameroonMobile(phoneNumber)) {
+      return {
+        ok: false,
+        message:
+          'A valid Cameroon mobile number is required for Mobile Money (e.g. 6XX XXX XXX)',
+      };
+    }
+    // Store national 9-digit form for operator consistency
+    phoneNumber = normalizeCameroonPhone(phoneNumber);
+  }
+
+  return { ok: true, amount, method, phoneNumber, invoiceId, studentId };
 }
