@@ -4,10 +4,11 @@
  * When VITE_TURNSTILE_SITE_KEY is unset, Turnstile is disabled and forms
  * behave exactly as before (honeypot + timing remain the primary bot controls).
  *
- * Client-side presence of a token is a UX gate only. For production-grade
- * verification, validate the token server-side with TURNSTILE_SECRET_KEY
- * (Edge Function) — see docs/PUBLIC_ENDPOINTS.md.
+ * When enabled, ApplyPage also calls the `verify-turnstile` Edge Function
+ * (TURNSTILE_SECRET_KEY) for server-side verification.
  */
+
+import { supabase } from './supabase';
 
 export function getTurnstileSiteKey() {
   try {
@@ -37,6 +38,51 @@ export function requireTurnstileToken(token) {
     ok: false,
     message: 'Please complete the security check before submitting.',
   };
+}
+
+/**
+ * Server-side verification via Supabase Edge Function `verify-turnstile`.
+ * No-ops (success) when Turnstile is disabled in the frontend env.
+ *
+ * @param {string} token
+ * @returns {Promise<{ ok: true } | { ok: false, message: string }>}
+ */
+export async function verifyTurnstileWithServer(token) {
+  if (!isTurnstileEnabled()) {
+    return { ok: true };
+  }
+
+  const local = requireTurnstileToken(token);
+  if (!local.ok) return local;
+
+  try {
+    const { data, error } = await supabase.functions.invoke('verify-turnstile', {
+      body: { token: token.trim() },
+    });
+
+    if (error) {
+      return {
+        ok: false,
+        message:
+          'Security verification is temporarily unavailable. Please try again shortly.',
+      };
+    }
+
+    if (data?.success === true) {
+      return { ok: true };
+    }
+
+    return {
+      ok: false,
+      message: 'Security check failed. Please try the challenge again.',
+    };
+  } catch {
+    return {
+      ok: false,
+      message:
+        'Security verification is temporarily unavailable. Please try again shortly.',
+    };
+  }
 }
 
 const SCRIPT_ID = 'cf-turnstile-script';
