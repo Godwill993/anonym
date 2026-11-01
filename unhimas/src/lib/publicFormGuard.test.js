@@ -6,6 +6,9 @@ import {
   isValidEmail,
   validateAdmissionPayload,
   sanitizeAdmissionPayload,
+  normalizeApplicationNumber,
+  isPlausibleApplicationNumber,
+  validateApplicationLookup,
   MIN_FORM_MS,
 } from './publicFormGuard.js';
 
@@ -41,6 +44,38 @@ describe('isValidEmail', () => {
     assert.equal(isValidEmail('nope'), false);
     assert.equal(isValidEmail('@missing.local'), false);
     assert.equal(isValidEmail('missing@'), false);
+  });
+});
+
+describe('application number helpers', () => {
+  it('normalizes case and whitespace', () => {
+    assert.equal(normalizeApplicationNumber('  app-2026-01000 '), 'APP-2026-01000');
+  });
+
+  it('accepts plausible APP numbers', () => {
+    assert.equal(isPlausibleApplicationNumber('APP-2026-01000'), true);
+    assert.equal(isPlausibleApplicationNumber('app-01000'), true);
+  });
+
+  it('rejects garbage numbers', () => {
+    assert.equal(isPlausibleApplicationNumber('x'), false);
+    assert.equal(isPlausibleApplicationNumber('12345'), false);
+    assert.equal(isPlausibleApplicationNumber(''), false);
+  });
+});
+
+describe('validateApplicationLookup', () => {
+  it('lowercases email and uppercases application number', () => {
+    const r = validateApplicationLookup(' app-2026-01000 ', 'Ada@Example.COM');
+    assert.equal(r.ok, true);
+    assert.equal(r.number, 'APP-2026-01000');
+    assert.equal(r.email, 'ada@example.com');
+  });
+
+  it('rejects missing or invalid fields', () => {
+    assert.equal(validateApplicationLookup('', 'a@b.co').ok, false);
+    assert.equal(validateApplicationLookup('APP-2026-1', 'not-an-email').ok, false);
+    assert.equal(validateApplicationLookup('nope', 'a@b.co').ok, false);
   });
 });
 
