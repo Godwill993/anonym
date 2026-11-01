@@ -15,6 +15,7 @@ import {
   MdDateRange,
   MdSchedule,
   MdDescription,
+  MdMenuBook,
 } from 'react-icons/md';
 
 /**
@@ -34,6 +35,7 @@ export const NAV_CONFIG = {
           icon: MdApartment,
           capability: 'manage_academic_structure',
           children: [
+            { key: 'programmes', label: 'Programmes', path: '/admin/programmes', icon: MdMenuBook, capability: 'manage_academic_structure' },
             { key: 'batches', label: 'Batches', path: '/admin/batches', icon: MdGroups, capability: 'manage_academic_structure' },
             { key: 'years', label: 'Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
             { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
