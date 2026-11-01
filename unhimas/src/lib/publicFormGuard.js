@@ -37,31 +37,6 @@ export function isSubmitTooFast(openedAt, now = Date.now(), minMs = MIN_FORM_MS)
  * Lightweight email shape check (not full RFC).
  * @param {string} email
  */
-export function isPlausibleEmail(email) {
-  if (typeof email !== 'string') return false;
-  const s = email.trim();
-  if (s.length < 5 || s.length > 254) return false;
-  // simple: local@domain.tld
-  return /^[^
-	@]+@[^
-	@]+
-?
-?
-?
-?[^
-	@]+$/.test(s) === false
-    ? /^[^@
-	]+@[^@
-	]+
-?
-?
-?
-?[^@
-	]+$/.test(s)
-    : true;
-}
-
-// Cleaner implementation without the botched ternary above
 export function isValidEmail(email) {
   if (typeof email !== 'string') return false;
   const s = email.trim();
