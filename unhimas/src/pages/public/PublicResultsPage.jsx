@@ -12,32 +12,42 @@ import {
 import { lookupPublishedResults } from '../../services/results';
 import { useTranslation } from '../../i18n';
 import FaqAccordion from '../../components/common/FaqAccordion';
+import { validateResultsLookup } from '../../lib/publicFormGuard';
 import logo from '../../assets/unhimas_logo.jpg';
 
 export default function PublicResultsPage() {
   const { language, toggleLanguage } = useTranslation();
   const [matricule, setMatricule] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [lookupKey, setLookupKey] = useState('');
+  const [localError, setLocalError] = useState('');
 
   const { data = [], isLoading, error } = useQuery({
-    queryKey: ['public-result-lookup', matricule.trim().toUpperCase()],
-    queryFn: async () => lookupPublishedResults(matricule.trim().toUpperCase()),
-    enabled: submitted && Boolean(matricule.trim()),
+    queryKey: ['public-result-lookup', lookupKey],
+    queryFn: async () => lookupPublishedResults(lookupKey),
+    enabled: Boolean(lookupKey),
     retry: false,
   });
 
   const onSubmit = (event) => {
     event.preventDefault();
-    if (matricule.trim()) {
-      setSubmitted(true);
+    setLocalError('');
+    const validated = validateResultsLookup(matricule);
+    if (!validated.ok) {
+      setLookupKey('');
+      setLocalError(
+        language === 'fr'
+          ? 'Saisissez un matricule étudiant valide (ex. UNH202612345 ou UNH/2026/SWE/001).'
+          : validated.message,
+      );
+      return;
     }
+    setLookupKey(validated.matricule);
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  // Verification reference code
   const verificationRef = data?.length > 0
     ? `UNH-VER-${Math.abs(data[0].matricule.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)).toString(16).toUpperCase().padStart(8, '0')}`
     : null;
@@ -63,10 +73,11 @@ export default function PublicResultsPage() {
     },
   ];
 
+  const submitted = Boolean(lookupKey);
+
   return (
     <div className="auth-page" style={{ alignItems: 'flex-start', paddingTop: '3rem', paddingBottom: '3rem' }}>
       <div className="auth-card" style={{ maxWidth: '820px' }}>
-        {/* Header */}
         <div className="auth-card-header" style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
             <button
@@ -101,7 +112,6 @@ export default function PublicResultsPage() {
           </div>
         </div>
 
-        {/* Body */}
         <div className="auth-card-body" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
@@ -123,8 +133,7 @@ export default function PublicResultsPage() {
             </Link>
           </div>
 
-          {/* Form */}
-          <form onSubmit={onSubmit} style={{ marginBottom: '1.5rem' }}>
+          <form onSubmit={onSubmit} style={{ marginBottom: '1.5rem' }} noValidate>
             <div className="form-group">
               <label className="form-label" htmlFor="matricule">
                 {language === 'fr' ? 'Matricule de l\'étudiant' : 'Student Matricule / Student ID'}
@@ -153,10 +162,13 @@ export default function PublicResultsPage() {
                   value={matricule}
                   onChange={(event) => {
                     setMatricule(event.target.value);
-                    setSubmitted(false);
+                    setLookupKey('');
+                    setLocalError('');
                   }}
                   placeholder="e.g. UNH/2026/SWE/001"
                   required
+                  spellCheck={false}
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -178,16 +190,16 @@ export default function PublicResultsPage() {
             </button>
           </form>
 
-          {/* Error / Not found alerts */}
-          {error && (
+          {(localError || error) && (
             <div className="auth-alert error" role="alert" style={{ marginBottom: '1.5rem' }}>
-              {language === 'fr'
-                ? 'Erreur lors de la vérification. Veuillez vérifier le matricule ou réessayer plus tard.'
-                : 'Could not connect to the verification registry. Please check your matricule or retry shortly.'}
+              {localError
+                || (language === 'fr'
+                  ? 'Erreur lors de la vérification. Veuillez vérifier le matricule ou réessayer plus tard.'
+                  : 'Could not connect to the verification registry. Please check your matricule or retry shortly.')}
             </div>
           )}
 
-          {submitted && !isLoading && !error && data?.length === 0 && (
+          {submitted && !isLoading && !error && !localError && data?.length === 0 && (
             <div
               className="auth-alert"
               style={{
@@ -207,14 +219,13 @@ export default function PublicResultsPage() {
                 </strong>
                 <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem', lineHeight: 1.5 }}>
                   {language === 'fr'
-                    ? `Aucun résultat officiellement publié n'a été trouvé pour le matricule "${matricule.toUpperCase()}". Veuillez confirmer avec l'administration de l'UNHIMAS si les notes sont en cours de validation.`
-                    : `No published marks were found for matricule "${matricule.toUpperCase()}". Results must be officially approved and published by the administration before appearing here.`}
+                    ? `Aucun résultat officiellement publié n'a été trouvé pour le matricule "${lookupKey}". Veuillez confirmer avec l'administration de l'UNHIMAS si les notes sont en cours de validation.`
+                    : `No published marks were found for matricule "${lookupKey}". Results must be officially approved and published by the administration before appearing here.`}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Verified Results Sheet */}
           {submitted && !isLoading && data?.length > 0 && (
             <div
               className="card"
@@ -226,7 +237,6 @@ export default function PublicResultsPage() {
                 boxShadow: '0 8px 24px rgba(17, 47, 66, 0.08)',
               }}
             >
-              {/* Official Seal Banner */}
               <div
                 style={{
                   background: 'var(--color-primary)',
@@ -270,7 +280,6 @@ export default function PublicResultsPage() {
                 </div>
               </div>
 
-              {/* Metadata Info Bar */}
               <div
                 style={{
                   display: 'grid',
@@ -300,7 +309,6 @@ export default function PublicResultsPage() {
                 </div>
               </div>
 
-              {/* Courses Table */}
               <div className="table-wrapper">
                 <table className="data-table">
                   <thead>
@@ -340,7 +348,6 @@ export default function PublicResultsPage() {
             </div>
           )}
 
-          {/* Privacy Note */}
           <div
             className="form-hint"
             style={{
@@ -362,7 +369,6 @@ export default function PublicResultsPage() {
             </span>
           </div>
 
-          {/* FAQ Accordion Component */}
           <FaqAccordion
             items={faqItems}
             title={language === 'fr' ? 'Questions Fréquentes' : 'Frequently Asked Questions'}
