@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MdSearch, MdSchool } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 import { lookupApplication } from '../../services/admissionsService';
-import { isValidEmail } from '../../lib/publicFormGuard';
+import { validateApplicationLookup } from '../../lib/publicFormGuard';
 
 export default function ApplicationStatusPage() {
   const { translateText } = useTranslation();
@@ -18,21 +18,15 @@ export default function ApplicationStatusPage() {
     setError('');
     setResult(null);
 
-    const appNumber = number.trim();
-    const appEmail = email.trim();
-
-    if (!appNumber) {
-      setError(translateText('Application number is required'));
-      return;
-    }
-    if (!isValidEmail(appEmail)) {
-      setError(translateText('A valid email address is required'));
+    const validated = validateApplicationLookup(number, email);
+    if (!validated.ok) {
+      setError(translateText(validated.message));
       return;
     }
 
     setLoading(true);
     try {
-      const row = await lookupApplication(appNumber, appEmail);
+      const row = await lookupApplication(validated.number, validated.email);
       if (!row) {
         setError(translateText('No application found for that number and email.'));
       } else {
@@ -68,10 +62,11 @@ export default function ApplicationStatusPage() {
               onChange={(e) => setNumber(e.target.value)}
               placeholder="APP-2026-01000"
               autoComplete="off"
+              spellCheck={false}
             />
           </div>
           <div className="form-group">
-            <label>Email</label>
+            <label>{translateText('Email')}</label>
             <input
               type="email"
               className="form-control"
