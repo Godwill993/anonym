@@ -2,14 +2,30 @@
 
 ## 1. Database
 
-Apply migrations in order on the Supabase project:
+Apply **all** migrations in chronological order (see `supabase/MIGRATIONS.md`).
 
-1. Existing core migrations
-2. `20261030000000_fees_and_payments.sql`
-3. `20261030100000_admissions.sql`
-4. `20261030200000_production_hardening.sql`
+At minimum confirm the presence of:
 
-Verify: tables `fee_categories`, `student_invoices`, `payments`, `admission_applications`, `system_settings` exist.
+- `fee_categories`, `student_invoices`, `payments`
+- `admission_applications`
+- `system_settings`
+- attendance workflow columns + edit-lock trigger
+
+### 1.1 RLS verification (required before go-live)
+
+Run the read-only diagnostic script in the Supabase SQL Editor:
+
+```sql
+-- File: supabase/scripts/rls_inventory.sql
+```
+
+Review the output for:
+
+- Any public table with RLS **DISABLED**
+- Unexpected open SELECT policies on `students`, `lecturers`, `marks`, `payments`, `resources`
+- Active administrator count (must be ≤ 3)
+
+Do **not** apply corrective policy migrations until this inventory has been reviewed against the live project.
 
 ## 2. Environment
 
@@ -19,6 +35,8 @@ VITE_SUPABASE_ANON_KEY=
 # Optional: POST endpoint for email/SMS (Resend, SendGrid, Make, Edge Function)
 VITE_NOTIFY_WEBHOOK_URL=
 ```
+
+Never expose the service-role key in the frontend.
 
 ## 3. Feature flags (`system_settings`)
 
@@ -44,10 +62,12 @@ Set `VITE_NOTIFY_WEBHOOK_URL` to a function that accepts JSON and sends mail. Ev
 
 ## 7. Security
 
-- Max 3 admins (enforced).
+- Maximum of **3** active administrators (database-enforced via triggers).
+- Admin count is visible on the Staff / Administrators page.
 - Public `/apply` uses honeypot field `website`.
 - Add Cloudflare Turnstile/CAPTCHA when traffic warrants it.
 - Restrict Supabase dashboard access; rotate keys after staff changes.
+- Global React Error Boundary is in place (prevents blank-page crashes).
 
 ## 8. Monitoring
 
