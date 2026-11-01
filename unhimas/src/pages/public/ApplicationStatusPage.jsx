@@ -3,7 +3,21 @@ import { Link } from 'react-router-dom';
 import { MdSearch, MdSchool } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 import { lookupApplication } from '../../services/admissionsService';
-import { validateApplicationLookup } from '../../lib/publicFormGuard';
+import {
+  validateApplicationLookup,
+  checkPublicLookupThrottle,
+  recordPublicLookupAttempt,
+} from '../../lib/publicFormGuard';
+
+const THROTTLE_KEY = 'unhimas:public-lookup:application-status';
+
+function browserStore() {
+  try {
+    return typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function ApplicationStatusPage() {
   const { translateText } = useTranslation();
@@ -24,6 +38,18 @@ export default function ApplicationStatusPage() {
       return;
     }
 
+    const store = browserStore();
+    const gate = checkPublicLookupThrottle(store, THROTTLE_KEY);
+    if (!gate.allowed) {
+      const secs = Math.ceil((gate.retryAfterMs || 0) / 1000);
+      setError(
+        translateText('Please wait a few seconds before searching again.') +
+          (secs > 0 ? ` (${secs}s)` : ''),
+      );
+      return;
+    }
+
+    recordPublicLookupAttempt(store, THROTTLE_KEY);
     setLoading(true);
     try {
       const row = await lookupApplication(validated.number, validated.email);
