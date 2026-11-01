@@ -1,10 +1,18 @@
 /**
- * Pure payment status transition rules for UNHIMAS.
- * Mirrors the Edge Function `payment-webhook` guards so client/admin UI
- * and server automation stay aligned. No I/O — unit-testable.
+ * Pure payment status transition + initiation rules for UNHIMAS.
+ * Mirrors Edge Function `payment-webhook` guards and client initiatePayment.
+ * No I/O — unit-testable.
  */
 
 export const COMPLETABLE_STATUSES = Object.freeze(['pending']);
+
+export const ALLOWED_PAYMENT_METHODS = Object.freeze([
+  'mtn_momo',
+  'orange_money',
+  'bank',
+  'cash',
+  'other',
+]);
 
 /**
  * Whether a payment row may be transitioned to completed.
@@ -62,4 +70,38 @@ export function validatePaymentCompletion(payment, opts = {}) {
     return { ok: false, reason: 'amount_mismatch', ...amountGate };
   }
   return { ok: true };
+}
+
+/**
+ * Validate a new payment attempt before insert.
+ * @param {{ invoiceId?: string, studentId?: string, amount?: number|string, method?: string }} payload
+ * @returns {{ ok: true, amount: number, method: string } | { ok: false, message: string }}
+ */
+export function validatePaymentInitiation(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return { ok: false, message: 'Invalid payment payload' };
+  }
+
+  const invoiceId = String(payload.invoiceId || '').trim();
+  const studentId = String(payload.studentId || '').trim();
+  if (!invoiceId) {
+    return { ok: false, message: 'Invoice is required' };
+  }
+  if (!studentId) {
+    return { ok: false, message: 'Student is required' };
+  }
+
+  const amount = Number(payload.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, message: 'Payment amount must be a positive number' };
+  }
+  // Hard ceiling to catch unit mistakes (e.g. millimes); institutional fees are well below this
+  if (amount > 500_000_000) {
+    return { ok: false, message: 'Payment amount is unrealistically large' };
+  }
+
+  const methodRaw = String(payload.method || 'other').trim().toLowerCase();
+  const method = ALLOWED_PAYMENT_METHODS.includes(methodRaw) ? methodRaw : 'other';
+
+  return { ok: true, amount, method, invoiceId, studentId };
 }
