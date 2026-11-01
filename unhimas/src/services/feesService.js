@@ -242,7 +242,8 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
     .from('payments')
     .select(`
       *,
-      student_invoices ( id, invoice_number, total_amount, balance )
+      student_invoices ( id, invoice_number, total_amount, balance ),
+      students ( id, matricule, first_name, last_name )
     `)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -253,6 +254,12 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
   return data ?? [];
 }
 
+/**
+ * Record a payment attempt.
+ * Students may only create pending payments (DB RLS also enforces this).
+ * completeImmediately is only honoured when the explicit env flag is set
+ * (normally used for admin cash / test environments).
+ */
 export async function initiatePayment({
   invoiceId,
   studentId,
@@ -262,6 +269,11 @@ export async function initiatePayment({
   notes,
   completeImmediately = false,
 }) {
+  // Defense-in-depth: never allow client-side forced completion unless the
+  // deployment explicitly opts in via environment variable.
+  const envAllowsAutoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
+  const shouldComplete = Boolean(completeImmediately && envAllowsAutoComplete);
+
   let paymentReference;
   try {
     const { data } = await supabase.rpc('generate_payment_reference');
@@ -276,10 +288,10 @@ export async function initiatePayment({
     student_id: studentId,
     amount: Number(amount),
     method: method || 'other',
-    status: completeImmediately ? 'completed' : 'pending',
+    status: shouldComplete ? 'completed' : 'pending',
     phone_number: phoneNumber || null,
     notes: notes || null,
-    paid_at: completeImmediately ? new Date().toISOString() : null,
+    paid_at: shouldComplete ? new Date().toISOString() : null,
   };
 
   const { data, error } = await supabase
