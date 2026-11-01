@@ -1,10 +1,15 @@
 import { supabase } from '../lib/supabase';
+import { validateResultsLookup } from '../lib/publicFormGuard';
 
 export async function lookupPublishedResults(matricule) {
-  const normalized = matricule.trim().toUpperCase();
-  if (!normalized) throw new Error('Enter a student matricule.');
+  const validated = validateResultsLookup(matricule);
+  if (!validated.ok) {
+    throw new Error(validated.message);
+  }
 
-  const { data, error } = await supabase.rpc('public_result_lookup', { p_matricule: normalized });
+  const { data, error } = await supabase.rpc('public_result_lookup', {
+    p_matricule: validated.matricule,
+  });
   if (error) throw error;
   return data || [];
 }
