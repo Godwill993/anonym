@@ -25,6 +25,7 @@ import {
   formatXAF,
   PAYMENT_METHODS,
 } from '../../services/feesService';
+import { validatePaymentInitiation } from '../../lib/paymentStatusLogic';
 import { printPaymentQuitus } from '../../utils/studentDocuments';
 
 function statusBadge(status) {
@@ -121,22 +122,26 @@ export default function StudentFeesPage() {
   const submitPayment = (e) => {
     e.preventDefault();
     if (!payInvoice || !studentId) return;
-    const amount = Number(payAmount);
-    if (!amount || amount <= 0) {
-      toast.error(translateText('Enter a valid amount'));
-      return;
-    }
-    if ((payMethod === 'mtn_momo' || payMethod === 'orange_money') && !phone.trim()) {
-      toast.error(translateText('Phone number is required for Mobile Money'));
-      return;
-    }
-    const autoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
-    payMutation.mutate({
+
+    const validated = validatePaymentInitiation({
       invoiceId: payInvoice.id,
       studentId,
-      amount,
+      amount: payAmount,
       method: payMethod,
-      phoneNumber: phone.trim() || null,
+      phoneNumber: phone,
+    });
+    if (!validated.ok) {
+      toast.error(translateText(validated.message));
+      return;
+    }
+
+    const autoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
+    payMutation.mutate({
+      invoiceId: validated.invoiceId,
+      studentId: validated.studentId,
+      amount: validated.amount,
+      method: validated.method,
+      phoneNumber: validated.phoneNumber,
       completeImmediately: autoComplete,
     });
   };
@@ -163,6 +168,7 @@ export default function StudentFeesPage() {
   }
 
   const outstanding = Number(balance?.outstanding_balance ?? 0);
+  const needsMoMoPhone = payMethod === 'mtn_momo' || payMethod === 'orange_money';
 
   return (
     <AppLayout pageTitle="Fees & Payments">
@@ -361,7 +367,7 @@ export default function StudentFeesPage() {
           title={translateText('Pay invoice') + ` ${payInvoice.invoice_number}`}
           onClose={() => setPayInvoice(null)}
         >
-          <form onSubmit={submitPayment} className="form-stack">
+          <form onSubmit={submitPayment} className="form-stack" noValidate>
             <div className="form-group">
               <label>{translateText('Amount (XAF)')}</label>
               <input
@@ -388,7 +394,7 @@ export default function StudentFeesPage() {
                 ))}
               </select>
             </div>
-            {(payMethod === 'mtn_momo' || payMethod === 'orange_money') && (
+            {needsMoMoPhone && (
               <div className="form-group">
                 <label>
                   <MdPhoneAndroid style={{ verticalAlign: 'middle' }} />{' '}
@@ -397,11 +403,18 @@ export default function StudentFeesPage() {
                 <input
                   type="tel"
                   className="form-control"
-                  placeholder="6XXXXXXXX"
+                  placeholder="6XXXXXXXX or +237 6XX XXX XXX"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
+                  inputMode="tel"
+                  autoComplete="tel"
                 />
+                <p className="form-hint" style={{ marginTop: 6, fontSize: '0.75rem' }}>
+                  {translateText(
+                    'Enter a Cameroon mobile number starting with 6 (nine digits).',
+                  )}
+                </p>
               </div>
             )}
             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
