@@ -9,6 +9,9 @@ import {
   normalizeApplicationNumber,
   isPlausibleApplicationNumber,
   validateApplicationLookup,
+  normalizeMatricule,
+  isPlausibleMatricule,
+  validateResultsLookup,
   MIN_FORM_MS,
 } from './publicFormGuard.js';
 
@@ -76,6 +79,37 @@ describe('validateApplicationLookup', () => {
     assert.equal(validateApplicationLookup('', 'a@b.co').ok, false);
     assert.equal(validateApplicationLookup('APP-2026-1', 'not-an-email').ok, false);
     assert.equal(validateApplicationLookup('nope', 'a@b.co').ok, false);
+  });
+});
+
+describe('matricule helpers', () => {
+  it('normalizes case and strips spaces', () => {
+    assert.equal(normalizeMatricule('  unh/2026/swe/001 '), 'UNH/2026/SWE/001');
+    assert.equal(normalizeMatricule('unh 2026 001'), 'UNH2026001');
+  });
+
+  it('accepts common UNHIMAS shapes', () => {
+    assert.equal(isPlausibleMatricule('UNH202612345'), true);
+    assert.equal(isPlausibleMatricule('UNH/2026/SWE/001'), true);
+    assert.equal(isPlausibleMatricule('UNH-2026-001'), true);
+  });
+
+  it('rejects too-short or empty values', () => {
+    assert.equal(isPlausibleMatricule(''), false);
+    assert.equal(isPlausibleMatricule('AB'), false);
+  });
+});
+
+describe('validateResultsLookup', () => {
+  it('returns normalized matricule on success', () => {
+    const r = validateResultsLookup(' unh/2026/swe/001 ');
+    assert.equal(r.ok, true);
+    assert.equal(r.matricule, 'UNH/2026/SWE/001');
+  });
+
+  it('rejects invalid matricules', () => {
+    assert.equal(validateResultsLookup('').ok, false);
+    assert.equal(validateResultsLookup('??').ok, false);
   });
 });
 
