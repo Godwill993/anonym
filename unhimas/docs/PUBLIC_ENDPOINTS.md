@@ -7,7 +7,7 @@ This note inventories those routes and the protections currently in code.
 
 | Route / entry | Purpose | Primary controls |
 |---------------|---------|------------------|
-| `/apply` | Online admission application | Honeypot (`website`), min form time (~2.5s), field validation + sanitize, silent bot response |
+| `/apply` | Online admission application | Honeypot (`website`), min form time (~2.5s), field validation + sanitize, silent bot response, **optional Turnstile** |
 | Application status page | Lookup by application number + email | Number/email validation & normalize, dual-factor RPC, **8s client throttle** |
 | Public results verification | Lookup published grades by matricule | Matricule validation & normalize, read-only RPC, **8s client throttle** |
 | `/login` | Authenticated access | Supabase Auth; inactive profiles blocked in app |
@@ -20,6 +20,24 @@ Implemented in `src/lib/publicFormGuard.js` (unit-tested):
 - Application lookup validate/normalize
 - Results matricule validate/normalize
 - Public lookup throttle (`sessionStorage`, default 8s)
+
+Turnstile (optional) in `src/lib/turnstile.js` + `TurnstileWidget`:
+
+- Enabled only when `VITE_TURNSTILE_SITE_KEY` is set
+- When disabled, `/apply` behaviour is unchanged
+
+## Enabling Turnstile
+
+1. Create a Cloudflare Turnstile widget (managed / non-interactive recommended).
+2. Set in the frontend environment:
+
+```env
+VITE_TURNSTILE_SITE_KEY=your_site_key
+```
+
+3. Redeploy the web app.
+
+**Server-side verification (recommended under spam pressure):** add an Edge Function that posts the token to Cloudflare’s siteverify API using `TURNSTILE_SECRET_KEY`, and reject application inserts without a valid token. The current client gate is a UX/bot hurdle, not cryptographic proof by itself.
 
 ## Server expectations
 
@@ -34,8 +52,7 @@ Implemented in `src/lib/publicFormGuard.js` (unit-tested):
 
 1. **Live RLS inventory** — run `supabase/scripts/rls_inventory.sql` on production.
 2. **Edge rate limits / WAF** — client throttle is bypassable; use Cloudflare or Supabase limits under load.
-3. **CAPTCHA** — recommended for `/apply` when spam increases (Turnstile/hCaptcha).
-4. **CAPTCHA/env** — reserve `VITE_TURNSTILE_SITE_KEY` (optional; not wired yet).
+3. **Turnstile secret verification** — wire Edge Function when spam warrants it.
 
 ## Observability
 
