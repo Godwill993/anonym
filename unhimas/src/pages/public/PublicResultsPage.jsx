@@ -12,8 +12,22 @@ import {
 import { lookupPublishedResults } from '../../services/results';
 import { useTranslation } from '../../i18n';
 import FaqAccordion from '../../components/common/FaqAccordion';
-import { validateResultsLookup } from '../../lib/publicFormGuard';
+import {
+  validateResultsLookup,
+  checkPublicLookupThrottle,
+  recordPublicLookupAttempt,
+} from '../../lib/publicFormGuard';
 import logo from '../../assets/unhimas_logo.jpg';
+
+const THROTTLE_KEY = 'unhimas:public-lookup:results';
+
+function browserStore() {
+  try {
+    return typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function PublicResultsPage() {
   const { language, toggleLanguage } = useTranslation();
@@ -41,6 +55,21 @@ export default function PublicResultsPage() {
       );
       return;
     }
+
+    const store = browserStore();
+    const gate = checkPublicLookupThrottle(store, THROTTLE_KEY);
+    if (!gate.allowed) {
+      setLookupKey('');
+      const secs = Math.ceil((gate.retryAfterMs || 0) / 1000);
+      setLocalError(
+        language === 'fr'
+          ? `Veuillez patienter quelques secondes avant une nouvelle recherche${secs > 0 ? ` (${secs}s)` : ''}.`
+          : `Please wait a few seconds before searching again${secs > 0 ? ` (${secs}s)` : ''}.`,
+      );
+      return;
+    }
+
+    recordPublicLookupAttempt(store, THROTTLE_KEY);
     setLookupKey(validated.matricule);
   };
 
