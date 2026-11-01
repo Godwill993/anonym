@@ -5,6 +5,8 @@ import {
   amountsMatch,
   validatePaymentCompletion,
   validatePaymentInitiation,
+  normalizeCameroonPhone,
+  isPlausibleCameroonMobile,
 } from './paymentStatusLogic.js';
 
 describe('canCompletePayment', () => {
@@ -58,17 +60,55 @@ describe('validatePaymentCompletion', () => {
   });
 });
 
+describe('Cameroon phone helpers', () => {
+  it('strips country code and non-digits', () => {
+    assert.equal(normalizeCameroonPhone('+237 6 70 00 00 00'), '670000000');
+    assert.equal(normalizeCameroonPhone('237670000000'), '670000000');
+    assert.equal(normalizeCameroonPhone('670000000'), '670000000');
+  });
+
+  it('accepts 9-digit mobiles starting with 6', () => {
+    assert.equal(isPlausibleCameroonMobile('670000000'), true);
+    assert.equal(isPlausibleCameroonMobile('+237670000000'), true);
+    assert.equal(isPlausibleCameroonMobile('770000000'), false);
+    assert.equal(isPlausibleCameroonMobile('67000'), false);
+  });
+});
+
 describe('validatePaymentInitiation', () => {
-  it('accepts a normal MoMo attempt', () => {
+  it('accepts a normal MoMo attempt with phone', () => {
     const r = validatePaymentInitiation({
       invoiceId: 'inv-1',
       studentId: 'stu-1',
       amount: 15000,
       method: 'mtn_momo',
+      phoneNumber: '+237 670 00 00 00',
     });
     assert.equal(r.ok, true);
     assert.equal(r.amount, 15000);
     assert.equal(r.method, 'mtn_momo');
+    assert.equal(r.phoneNumber, '670000000');
+  });
+
+  it('requires phone for MoMo methods', () => {
+    const r = validatePaymentInitiation({
+      invoiceId: 'inv-1',
+      studentId: 'stu-1',
+      amount: 15000,
+      method: 'orange_money',
+    });
+    assert.equal(r.ok, false);
+  });
+
+  it('does not require phone for cash', () => {
+    const r = validatePaymentInitiation({
+      invoiceId: 'inv-1',
+      studentId: 'stu-1',
+      amount: 5000,
+      method: 'cash',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.phoneNumber, null);
   });
 
   it('rejects missing invoice or student', () => {
