@@ -22,6 +22,14 @@ function statusClass(status) {
   return map[status] || 'badge-muted';
 }
 
+function studentLabel(p) {
+  const s = p.students;
+  if (!s) return '—';
+  const name = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+  if (name && s.matricule) return `${name} (${s.matricule})`;
+  return name || s.matricule || '—';
+}
+
 export default function AdminPaymentsPage() {
   const { translateText } = useTranslation();
   const { profile } = useAuth();
@@ -107,6 +115,7 @@ export default function AdminPaymentsPage() {
               <thead>
                 <tr>
                   <th>{translateText('Reference')}</th>
+                  <th>{translateText('Student')}</th>
                   <th>{translateText('Invoice')}</th>
                   <th>{translateText('Amount')}</th>
                   <th>{translateText('Method')}</th>
@@ -131,6 +140,7 @@ export default function AdminPaymentsPage() {
                         </div>
                       )}
                     </td>
+                    <td style={{ fontSize: '0.875rem' }}>{studentLabel(p)}</td>
                     <td>{p.student_invoices?.invoice_number || '—'}</td>
                     <td style={{ fontWeight: 700 }}>{formatXAF(p.amount)}</td>
                     <td>{methodLabel(p.method)}</td>
