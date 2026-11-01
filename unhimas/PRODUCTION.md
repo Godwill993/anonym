@@ -34,9 +34,10 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 # Optional: POST endpoint for email/SMS (Resend, SendGrid, Make, Edge Function)
 VITE_NOTIFY_WEBHOOK_URL=
+# Optional later: VITE_SENTRY_DSN=  VITE_TURNSTILE_SITE_KEY=
 ```
 
-Never expose the service-role key in the frontend.
+Never expose the service-role key in the frontend. See `.env.example`.
 
 ## 3. Feature flags (`system_settings`)
 
@@ -81,22 +82,33 @@ npx supabase functions deploy send-push-notification
 | Secrets | `PUSH_WEBHOOK_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
 | Caller | Database trigger / `pg_net` only — not browser clients |
 
-## 7. Backups
+## 7. Public endpoints
+
+See **`docs/PUBLIC_ENDPOINTS.md`** for the full control matrix (`/apply`, application status, public results).
+
+Summary:
+
+- Honeypot + min form time on applications
+- Validated dual-factor status lookup + client throttle
+- Validated matricule results lookup + client throttle
+
+## 8. Backups
 
 - Enable Supabase daily backups (Pro) or `pg_dump` schedule.
 - Quarterly restore drill documented by IT.
 
-## 8. Security
+## 9. Security
 
 - Maximum of **3** active administrators (database-enforced via triggers).
 - Admin count is visible on the Staff / Administrators page.
 - Public `/apply` uses honeypot field `website`.
-- Add Cloudflare Turnstile/CAPTCHA when traffic warrants it.
+- Add Cloudflare Turnstile/CAPTCHA when traffic warrants it (`VITE_TURNSTILE_SITE_KEY` reserved).
 - Restrict Supabase dashboard access; rotate keys after staff changes.
 - Global React Error Boundary is in place (prevents blank-page crashes).
 - Zoom Edge Function enforces role + session ownership (redeploy required).
 
-## 9. Monitoring
+## 10. Monitoring
 
-- Uptime on `/login` and `/apply`.
-- Optional Sentry: add `@sentry/react` and `VITE_SENTRY_DSN`.
+- Uptime on `/login`, `/apply`, and the public results portal.
+- Render errors: `ErrorBoundary` → `src/lib/observability.js` (`reportError`).
+- Optional Sentry: install `@sentry/react`, set `VITE_SENTRY_DSN`, or assign `window.__UNHIMAS_REPORT_ERROR__`.
