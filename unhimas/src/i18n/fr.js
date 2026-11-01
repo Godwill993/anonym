@@ -149,6 +149,7 @@ export const fr = {
     'Enter your application number and email to check status.': 'Saisissez votre numéro de candidature et votre e-mail pour vérifier le statut.',
     'Application number': 'Numéro de candidature',
     'Application number is required': 'Le numéro de candidature est obligatoire',
+    'Enter a valid application number (e.g. APP-2026-01000)': 'Saisissez un numéro de candidature valide (ex. APP-2026-01000)',
     'Searching…': 'Recherche…',
     'Check status': 'Vérifier le statut',
     'No application found for that number and email.': 'Aucune candidature trouvée pour ce numéro et cet e-mail.',
