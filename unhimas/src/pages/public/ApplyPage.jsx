@@ -9,7 +9,7 @@ import {
   isSubmitTooFast,
   validateAdmissionPayload,
 } from '../../lib/publicFormGuard';
-import { requireTurnstileToken } from '../../lib/turnstile';
+import { requireTurnstileToken, verifyTurnstileWithServer } from '../../lib/turnstile';
 import TurnstileWidget from '../../components/common/TurnstileWidget';
 
 const empty = {
@@ -35,6 +35,7 @@ export default function ApplyPage() {
   const [result, setResult] = useState(null);
   const [localError, setLocalError] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [verifyingCaptcha, setVerifyingCaptcha] = useState(false);
   const openedAt = useMemo(() => Date.now(), []);
 
   const { data: departments = [] } = useQuery({
@@ -72,7 +73,7 @@ export default function ApplyPage() {
     setTurnstileToken('');
   }, []);
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
 
@@ -89,20 +90,31 @@ export default function ApplyPage() {
       return;
     }
 
-    const captcha = requireTurnstileToken(turnstileToken);
-    if (!captcha.ok) {
-      setLocalError(translateText(captcha.message));
+    const captchaLocal = requireTurnstileToken(turnstileToken);
+    if (!captchaLocal.ok) {
+      setLocalError(translateText(captchaLocal.message));
       return;
+    }
+
+    setVerifyingCaptcha(true);
+    try {
+      const captchaServer = await verifyTurnstileWithServer(turnstileToken);
+      if (!captchaServer.ok) {
+        setLocalError(translateText(captchaServer.message));
+        return;
+      }
+    } finally {
+      setVerifyingCaptcha(false);
     }
 
     mutation.mutate({
       ...form,
       department_id: form.department_id || null,
       academic_year_id: form.academic_year_id || null,
-      // Token is client-side gate only unless a server verifier is added later
-      turnstile_token: turnstileToken || undefined,
     });
   };
+
+  const busy = mutation.isPending || verifyingCaptcha;
 
   return (
     <div className="auth-page" style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
@@ -244,8 +256,8 @@ export default function ApplyPage() {
                 {localError || mutation.error?.message || translateText('Submission failed')}
               </p>
             )}
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={mutation.isPending}>
-              {mutation.isPending ? translateText('Submitting…') : translateText('Submit application')}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
+              {busy ? translateText('Submitting…') : translateText('Submit application')}
             </button>
             <p style={{ textAlign: 'center', marginTop: 12 }}>
               <Link to="/login">{translateText('Already have an account? Sign in')}</Link>
