@@ -34,7 +34,8 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 # Optional: POST endpoint for email/SMS (Resend, SendGrid, Make, Edge Function)
 VITE_NOTIFY_WEBHOOK_URL=
-# Optional later: VITE_SENTRY_DSN=  VITE_TURNSTILE_SITE_KEY=
+# Optional CAPTCHA: VITE_TURNSTILE_SITE_KEY=
+# Optional monitoring: VITE_SENTRY_DSN=
 ```
 
 Never expose the service-role key in the frontend. See `.env.example`.
@@ -63,6 +64,7 @@ Redeploy after pulling security updates:
 ```bash
 npx supabase functions deploy zoom-meeting
 npx supabase functions deploy send-push-notification
+npx supabase functions deploy verify-turnstile   # only if using Turnstile
 ```
 
 ### `zoom-meeting`
@@ -82,13 +84,27 @@ npx supabase functions deploy send-push-notification
 | Secrets | `PUSH_WEBHOOK_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
 | Caller | Database trigger / `pg_net` only — not browser clients |
 
+### `verify-turnstile`
+
+| Check | Requirement |
+|-------|-------------|
+| Auth | Invokable with anon key (public apply form) |
+| Secret | `TURNSTILE_SECRET_KEY` (Cloudflare) |
+| Frontend | `VITE_TURNSTILE_SITE_KEY` must match the same widget |
+
+```bash
+npx supabase secrets set TURNSTILE_SECRET_KEY=your_secret_key
+npx supabase functions deploy verify-turnstile
+```
+
 ## 7. Public endpoints
 
-See **`docs/PUBLIC_ENDPOINTS.md`** for the full control matrix (`/apply`, application status, public results).
+See **`docs/PUBLIC_ENDPOINTS.md`** for the full control matrix.
 
 Summary:
 
 - Honeypot + min form time on applications
+- Optional Turnstile widget + **server-side** verification
 - Validated dual-factor status lookup + client throttle
 - Validated matricule results lookup + client throttle
 
@@ -102,7 +118,7 @@ Summary:
 - Maximum of **3** active administrators (database-enforced via triggers).
 - Admin count is visible on the Staff / Administrators page.
 - Public `/apply` uses honeypot field `website`.
-- Add Cloudflare Turnstile/CAPTCHA when traffic warrants it (`VITE_TURNSTILE_SITE_KEY` reserved).
+- Optional Cloudflare Turnstile (`VITE_TURNSTILE_SITE_KEY` + `verify-turnstile`).
 - Restrict Supabase dashboard access; rotate keys after staff changes.
 - Global React Error Boundary is in place (prevents blank-page crashes).
 - Zoom Edge Function enforces role + session ownership (redeploy required).
