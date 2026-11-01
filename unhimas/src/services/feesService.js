@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { notifyInvoiceIssued, notifyPaymentReceived } from './notificationService';
+import { canCompletePayment } from '../lib/paymentStatusLogic';
 
 /** Format XAF amounts for display */
 export function formatXAF(amount) {
@@ -303,7 +304,29 @@ export async function initiatePayment({
   return data;
 }
 
+/**
+ * Admin (or trusted client) path to complete a payment.
+ * Mirrors payment-webhook rules: only pending → completed.
+ */
 export async function markPaymentCompleted(paymentId, { providerReference, recordedBy } = {}) {
+  if (!paymentId) throw new Error('Payment id is required');
+
+  const { data: existing, error: findErr } = await supabase
+    .from('payments')
+    .select('id, status, payment_reference, amount')
+    .eq('id', paymentId)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (!existing) throw new Error('Payment not found');
+
+  const gate = canCompletePayment(existing.status);
+  if (!gate.ok) {
+    if (gate.reason === 'already_completed') {
+      throw new Error('This payment is already completed');
+    }
+    throw new Error(`Cannot complete a payment with status "${existing.status}"`);
+  }
+
   const { data, error } = await supabase
     .from('payments')
     .update({
@@ -313,9 +336,13 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
       paid_at: new Date().toISOString(),
     })
     .eq('id', paymentId)
+    .eq('status', 'pending') // optimistic concurrency — same as webhook
     .select('*, students:student_id ( email, first_name, last_name )')
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) {
+    throw new Error('Payment status changed concurrently; refresh and try again');
+  }
 
   const email = data?.students?.email;
   if (email) {
