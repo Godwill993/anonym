@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { notifyInvoiceIssued, notifyPaymentReceived } from './notificationService';
-import { canCompletePayment } from '../lib/paymentStatusLogic';
+import {
+  canCompletePayment,
+  validatePaymentInitiation,
+} from '../lib/paymentStatusLogic';
 
 /** Format XAF amounts for display */
 export function formatXAF(amount) {
@@ -270,6 +273,16 @@ export async function initiatePayment({
   notes,
   completeImmediately = false,
 }) {
+  const validated = validatePaymentInitiation({
+    invoiceId,
+    studentId,
+    amount,
+    method,
+  });
+  if (!validated.ok) {
+    throw new Error(validated.message);
+  }
+
   // Defense-in-depth: never allow client-side forced completion unless the
   // deployment explicitly opts in via environment variable.
   const envAllowsAutoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
@@ -285,13 +298,13 @@ export async function initiatePayment({
 
   const payload = {
     payment_reference: paymentReference,
-    invoice_id: invoiceId,
-    student_id: studentId,
-    amount: Number(amount),
-    method: method || 'other',
+    invoice_id: validated.invoiceId,
+    student_id: validated.studentId,
+    amount: validated.amount,
+    method: validated.method,
     status: shouldComplete ? 'completed' : 'pending',
-    phone_number: phoneNumber || null,
-    notes: notes || null,
+    phone_number: phoneNumber ? String(phoneNumber).trim() || null : null,
+    notes: notes ? String(notes).trim() || null : null,
     paid_at: shouldComplete ? new Date().toISOString() : null,
   };
 
