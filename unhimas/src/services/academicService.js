@@ -1,6 +1,100 @@
 import { supabase } from '../lib/supabase';
 
 // ============================================================
+// PROGRAMMES (HND / B.Tech / M.Tech / B.Sc / M.Sc)
+// ============================================================
+
+export async function getProgrammes({ activeOnly = false } = {}) {
+  let query = supabase
+    .from('programmes')
+    .select('*')
+    .order('sort_order')
+    .order('name');
+  if (activeOnly) query = query.eq('is_active', true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getProgramme(id) {
+  const { data, error } = await supabase
+    .from('programmes')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function createProgramme(payload) {
+  const row = {
+    code: String(payload.code || '').toUpperCase().trim(),
+    name: payload.name?.trim(),
+    award: payload.award,
+    track: payload.track,
+    duration_years: Number(payload.duration_years),
+    description: payload.description?.trim() || null,
+    is_active: payload.is_active !== false,
+    sort_order: Number(payload.sort_order) || 0,
+  };
+  const { data, error } = await supabase
+    .from('programmes')
+    .insert([row])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateProgramme(id, updates) {
+  const row = { ...updates };
+  if (row.code) row.code = String(row.code).toUpperCase().trim();
+  if (row.name) row.name = row.name.trim();
+  if (row.duration_years != null) row.duration_years = Number(row.duration_years);
+  if (row.sort_order != null) row.sort_order = Number(row.sort_order);
+  const { data, error } = await supabase
+    .from('programmes')
+    .update(row)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getProgrammeProgressions() {
+  const { data, error } = await supabase
+    .from('programme_progressions')
+    .select(`
+      *,
+      from_programme:from_programme_id(id, code, name, award, track, duration_years),
+      to_programme:to_programme_id(id, code, name, award, track, duration_years)
+    `)
+    .eq('is_active', true)
+    .order('created_at');
+  if (error) throw error;
+  return data || [];
+}
+
+/** Effective duration in years for a programme in a given department (HND Biomedical = 3). */
+export async function getEffectiveProgrammeDuration(programmeId, departmentId = null) {
+  const { data, error } = await supabase.rpc('effective_programme_duration_years', {
+    p_programme_id: programmeId,
+    p_department_id: departmentId || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getEffectiveHndDuration(departmentId) {
+  const { data, error } = await supabase.rpc('effective_hnd_duration_years', {
+    p_department_id: departmentId,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================
 // DEPARTMENTS
 // ============================================================
 
@@ -18,10 +112,29 @@ export async function getDepartments() {
   return data || [];
 }
 
-export async function createDepartment({ name, abbreviation, description }) {
+export async function createDepartment({
+  name,
+  abbreviation,
+  description,
+  is_biomedical = false,
+  hnd_duration_years = null,
+}) {
+  const row = {
+    name,
+    abbreviation,
+    description: description || null,
+    is_biomedical: Boolean(is_biomedical),
+    hnd_duration_years:
+      hnd_duration_years === '' || hnd_duration_years == null
+        ? null
+        : Number(hnd_duration_years),
+  };
+  if (row.is_biomedical && row.hnd_duration_years == null) {
+    row.hnd_duration_years = 3;
+  }
   const { data, error } = await supabase
     .from('departments')
-    .insert([{ name, abbreviation, description }])
+    .insert([row])
     .select()
     .single();
   if (error) throw error;
@@ -132,8 +245,9 @@ export async function getBatches(departmentId = null) {
     .from('batches')
     .select(`
       *,
-      departments:department_id(id, name, abbreviation),
+      departments:department_id(id, name, abbreviation, is_biomedical, hnd_duration_years),
       academic_years:academic_year_id(id, name),
+      programmes:programme_id(id, code, name, award, track, duration_years),
       students:students(count)
     `)
     .order('created_at', { ascending: false });
@@ -147,10 +261,28 @@ export async function getBatches(departmentId = null) {
   return data || [];
 }
 
-export async function createBatch({ department_id, academic_year_id, name, level_name, batch_number }) {
+export async function createBatch({
+  department_id,
+  academic_year_id,
+  programme_id,
+  name,
+  level_name,
+  batch_number,
+  year_of_study,
+}) {
+  const row = {
+    department_id,
+    academic_year_id,
+    programme_id: programme_id || null,
+    name,
+    level_name: level_name || null,
+    batch_number: batch_number != null ? Number(batch_number) : 1,
+    year_of_study:
+      year_of_study === '' || year_of_study == null ? null : Number(year_of_study),
+  };
   const { data, error } = await supabase
     .from('batches')
-    .insert([{ department_id, academic_year_id, name, level_name, batch_number }])
+    .insert([row])
     .select()
     .single();
   if (error) throw error;
@@ -258,7 +390,6 @@ export async function assignBatchCourse({ batch_id, course_id, semester_id, lect
     `)
     .single();
 
-  // Unique (batch_id, course_id, semester_id): claim / reassign lecturer on existing row
   if (error) {
     if (error.code === '23505') {
       const { data: updated, error: updateError } = await supabase
@@ -382,14 +513,6 @@ export async function deleteClassSessionAdmin(id) {
 // TIMETABLE → CLASS SESSION GENERATION
 // ============================================================
 
-/**
- * Generate concrete class_sessions from timetable_slots for a date range.
- * Skips slots that already have a session on the same day (within 5 minutes).
- * Requires migration 20261022000000 (RPC generate_sessions_from_timetable).
- * @param {{ from: string, to: string, batchCourseId?: string|null }} opts
- *   from/to as YYYY-MM-DD
- * @returns {Promise<number>} number of sessions created
- */
 export async function generateSessionsFromTimetable({ from, to, batchCourseId = null }) {
   if (!from || !to) throw new Error('Start and end dates are required.');
   if (to < from) throw new Error('End date must be on or after the start date.');
