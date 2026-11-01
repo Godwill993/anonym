@@ -85,6 +85,48 @@ export function validateApplicationLookup(applicationNumber, email) {
 }
 
 /**
+ * Normalize student matricule for public result lookup.
+ * Trims, uppercases, and collapses internal whitespace.
+ * @param {string} value
+ */
+export function normalizeMatricule(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+}
+
+/**
+ * Plausible matricule shapes used by UNHIMAS.
+ * Examples: UNH202612345, UNH/2026/SWE/001, UNH-2026-001
+ * @param {string} value
+ */
+export function isPlausibleMatricule(value) {
+  const m = normalizeMatricule(value);
+  if (m.length < 5 || m.length > 40) return false;
+  // Letters/digits with optional separators / -
+  return /^[A-Z0-9][A-Z0-9\/-]{3,}$/.test(m);
+}
+
+/**
+ * Validate public results verification lookup.
+ * @returns {{ ok: true, matricule: string } | { ok: false, message: string }}
+ */
+export function validateResultsLookup(matricule) {
+  const normalized = normalizeMatricule(matricule);
+  if (!normalized) {
+    return { ok: false, message: 'Enter a student matricule.' };
+  }
+  if (!isPlausibleMatricule(normalized)) {
+    return {
+      ok: false,
+      message: 'Enter a valid student matricule (e.g. UNH202612345 or UNH/2026/SWE/001)',
+    };
+  }
+  return { ok: true, matricule: normalized };
+}
+
+/**
  * Validate required admission application fields (client + service).
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
