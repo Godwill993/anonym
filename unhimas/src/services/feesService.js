@@ -263,6 +263,7 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
  * Students may only create pending payments (DB RLS also enforces this).
  * completeImmediately is only honoured when the explicit env flag is set
  * (normally used for admin cash / test environments).
+ * MTN / Orange require a plausible Cameroon mobile number.
  */
 export async function initiatePayment({
   invoiceId,
@@ -278,6 +279,7 @@ export async function initiatePayment({
     studentId,
     amount,
     method,
+    phoneNumber,
   });
   if (!validated.ok) {
     throw new Error(validated.message);
@@ -303,7 +305,7 @@ export async function initiatePayment({
     amount: validated.amount,
     method: validated.method,
     status: shouldComplete ? 'completed' : 'pending',
-    phone_number: phoneNumber ? String(phoneNumber).trim() || null : null,
+    phone_number: validated.phoneNumber,
     notes: notes ? String(notes).trim() || null : null,
     paid_at: shouldComplete ? new Date().toISOString() : null,
   };
