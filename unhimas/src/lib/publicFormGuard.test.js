@@ -12,8 +12,19 @@ import {
   normalizeMatricule,
   isPlausibleMatricule,
   validateResultsLookup,
+  checkPublicLookupThrottle,
+  recordPublicLookupAttempt,
   MIN_FORM_MS,
+  PUBLIC_LOOKUP_COOLDOWN_MS,
 } from './publicFormGuard.js';
+
+function memoryStore(seed = {}) {
+  const map = new Map(Object.entries(seed));
+  return {
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+  };
+}
 
 describe('isHoneypotTriggered', () => {
   it('returns false when honeypot is empty', () => {
@@ -110,6 +121,29 @@ describe('validateResultsLookup', () => {
   it('rejects invalid matricules', () => {
     assert.equal(validateResultsLookup('').ok, false);
     assert.equal(validateResultsLookup('??').ok, false);
+  });
+});
+
+describe('public lookup throttle', () => {
+  it('allows first attempt and blocks within cooldown', () => {
+    const store = memoryStore();
+    const key = 'test-key';
+    const t0 = 1_000_000;
+    assert.equal(checkPublicLookupThrottle(store, key, t0).allowed, true);
+    recordPublicLookupAttempt(store, key, t0);
+    const blocked = checkPublicLookupThrottle(store, key, t0 + 1000);
+    assert.equal(blocked.allowed, false);
+    assert.ok(blocked.retryAfterMs > 0);
+    const allowed = checkPublicLookupThrottle(
+      store,
+      key,
+      t0 + PUBLIC_LOOKUP_COOLDOWN_MS,
+    );
+    assert.equal(allowed.allowed, true);
+  });
+
+  it('allows when store is missing', () => {
+    assert.equal(checkPublicLookupThrottle(null, 'k').allowed, true);
   });
 });
 
