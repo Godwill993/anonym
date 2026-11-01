@@ -4,6 +4,7 @@ import {
   canCompletePayment,
   amountsMatch,
   validatePaymentCompletion,
+  validatePaymentInitiation,
 } from './paymentStatusLogic.js';
 
 describe('canCompletePayment', () => {
@@ -54,5 +55,60 @@ describe('validatePaymentCompletion', () => {
     );
     assert.equal(r.ok, false);
     assert.equal(r.reason, 'amount_mismatch');
+  });
+});
+
+describe('validatePaymentInitiation', () => {
+  it('accepts a normal MoMo attempt', () => {
+    const r = validatePaymentInitiation({
+      invoiceId: 'inv-1',
+      studentId: 'stu-1',
+      amount: 15000,
+      method: 'mtn_momo',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.amount, 15000);
+    assert.equal(r.method, 'mtn_momo');
+  });
+
+  it('rejects missing invoice or student', () => {
+    assert.equal(
+      validatePaymentInitiation({ studentId: 's', amount: 1 }).ok,
+      false,
+    );
+    assert.equal(
+      validatePaymentInitiation({ invoiceId: 'i', amount: 1 }).ok,
+      false,
+    );
+  });
+
+  it('rejects non-positive amounts', () => {
+    assert.equal(
+      validatePaymentInitiation({
+        invoiceId: 'i',
+        studentId: 's',
+        amount: 0,
+      }).ok,
+      false,
+    );
+    assert.equal(
+      validatePaymentInitiation({
+        invoiceId: 'i',
+        studentId: 's',
+        amount: -5,
+      }).ok,
+      false,
+    );
+  });
+
+  it('normalizes unknown methods to other', () => {
+    const r = validatePaymentInitiation({
+      invoiceId: 'i',
+      studentId: 's',
+      amount: 100,
+      method: 'crypto',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.method, 'other');
   });
 });
