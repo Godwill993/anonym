@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MdSearch, MdSchool } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 import { lookupApplication } from '../../services/admissionsService';
+import { isValidEmail } from '../../lib/publicFormGuard';
 
 export default function ApplicationStatusPage() {
   const { translateText } = useTranslation();
@@ -16,9 +17,22 @@ export default function ApplicationStatusPage() {
     e.preventDefault();
     setError('');
     setResult(null);
+
+    const appNumber = number.trim();
+    const appEmail = email.trim();
+
+    if (!appNumber) {
+      setError(translateText('Application number is required'));
+      return;
+    }
+    if (!isValidEmail(appEmail)) {
+      setError(translateText('A valid email address is required'));
+      return;
+    }
+
     setLoading(true);
     try {
-      const row = await lookupApplication(number.trim(), email.trim());
+      const row = await lookupApplication(appNumber, appEmail);
       if (!row) {
         setError(translateText('No application found for that number and email.'));
       } else {
@@ -44,7 +58,7 @@ export default function ApplicationStatusPage() {
           </p>
         </div>
 
-        <form className="form-stack" onSubmit={onSubmit}>
+        <form className="form-stack" onSubmit={onSubmit} noValidate>
           <div className="form-group">
             <label>{translateText('Application number')}</label>
             <input
@@ -53,6 +67,7 @@ export default function ApplicationStatusPage() {
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               placeholder="APP-2026-01000"
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -63,6 +78,7 @@ export default function ApplicationStatusPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
           </div>
           {error && (
