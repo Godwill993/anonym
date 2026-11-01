@@ -9,6 +9,9 @@ export const MIN_FORM_MS = 2500;
 /** Client-side cooldown between successful public submissions (ms). */
 export const SUBMIT_COOLDOWN_MS = 30_000;
 
+/** Default minimum gap between public lookup attempts (ms). */
+export const PUBLIC_LOOKUP_COOLDOWN_MS = 8_000;
+
 /**
  * Honeypot fields must remain empty. Any non-empty value ⇒ treat as bot.
  * @param {Record<string, unknown>} payload
@@ -31,6 +34,53 @@ export function isHoneypotTriggered(payload, fields = ['website']) {
 export function isSubmitTooFast(openedAt, now = Date.now(), minMs = MIN_FORM_MS) {
   if (!Number.isFinite(openedAt) || openedAt <= 0) return false;
   return now - openedAt < minMs;
+}
+
+/**
+ * Sliding-window throttle for public lookups.
+ * Storage is injected so the helper stays pure/testable.
+ *
+ * @param {{ getItem: (k: string) => string|null, setItem: (k: string, v: string) => void }} store
+ * @param {string} key - e.g. 'unhimas:public-lookup:results'
+ * @param {number} [now]
+ * @param {number} [cooldownMs]
+ * @returns {{ allowed: true } | { allowed: false, retryAfterMs: number }}
+ */
+export function checkPublicLookupThrottle(
+  store,
+  key,
+  now = Date.now(),
+  cooldownMs = PUBLIC_LOOKUP_COOLDOWN_MS,
+) {
+  if (!store || typeof store.getItem !== 'function') {
+    return { allowed: true };
+  }
+  let last = 0;
+  try {
+    last = Number(store.getItem(key) || 0);
+  } catch {
+    last = 0;
+  }
+  if (Number.isFinite(last) && last > 0 && now - last < cooldownMs) {
+    return { allowed: false, retryAfterMs: cooldownMs - (now - last) };
+  }
+  return { allowed: true };
+}
+
+/**
+ * Record that a public lookup was attempted (call after validation passes).
+ */
+export function recordPublicLookupAttempt(
+  store,
+  key,
+  now = Date.now(),
+) {
+  if (!store || typeof store.setItem !== 'function') return;
+  try {
+    store.setItem(key, String(now));
+  } catch {
+    // private mode / quota — ignore
+  }
 }
 
 /**
@@ -60,7 +110,6 @@ export function normalizeApplicationNumber(value) {
 export function isPlausibleApplicationNumber(value) {
   const n = normalizeApplicationNumber(value);
   if (n.length < 6 || n.length > 40) return false;
-  // APP-2026-01000 or APP-01000 or APP-2026-1
   return /^APP-[A-Z0-9-]{3,}$/.test(n);
 }
 
@@ -104,7 +153,6 @@ export function normalizeMatricule(value) {
 export function isPlausibleMatricule(value) {
   const m = normalizeMatricule(value);
   if (m.length < 5 || m.length > 40) return false;
-  // Letters/digits with optional separators / -
   return /^[A-Z0-9][A-Z0-9\/-]{3,}$/.test(m);
 }
 
