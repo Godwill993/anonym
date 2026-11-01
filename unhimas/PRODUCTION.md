@@ -55,12 +55,38 @@ Never expose the service-role key in the frontend.
 
 Set `VITE_NOTIFY_WEBHOOK_URL` to a function that accepts JSON and sends mail. Events: `admission.submitted`, `admission.decision`, `fees.invoice`, `fees.payment`.
 
-## 6. Backups
+## 6. Edge Functions
+
+Redeploy after pulling security updates:
+
+```bash
+npx supabase functions deploy zoom-meeting
+npx supabase functions deploy send-push-notification
+```
+
+### `zoom-meeting`
+
+| Check | Requirement |
+|-------|-------------|
+| Auth | Valid Supabase JWT |
+| Authorization | Active **admin** or **lecturer** only; lecturers may only manage **their own** sessions |
+| Secrets | `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`, `ZOOM_USER_EMAIL` |
+| Optional | `ALLOWED_ORIGINS` (comma-separated browser origins) |
+
+### `send-push-notification`
+
+| Check | Requirement |
+|-------|-------------|
+| Auth | Header `x-push-hook-secret` must match `PUSH_WEBHOOK_SECRET` |
+| Secrets | `PUSH_WEBHOOK_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
+| Caller | Database trigger / `pg_net` only — not browser clients |
+
+## 7. Backups
 
 - Enable Supabase daily backups (Pro) or `pg_dump` schedule.
 - Quarterly restore drill documented by IT.
 
-## 7. Security
+## 8. Security
 
 - Maximum of **3** active administrators (database-enforced via triggers).
 - Admin count is visible on the Staff / Administrators page.
@@ -68,8 +94,9 @@ Set `VITE_NOTIFY_WEBHOOK_URL` to a function that accepts JSON and sends mail. Ev
 - Add Cloudflare Turnstile/CAPTCHA when traffic warrants it.
 - Restrict Supabase dashboard access; rotate keys after staff changes.
 - Global React Error Boundary is in place (prevents blank-page crashes).
+- Zoom Edge Function enforces role + session ownership (redeploy required).
 
-## 8. Monitoring
+## 9. Monitoring
 
 - Uptime on `/login` and `/apply`.
 - Optional Sentry: add `@sentry/react` and `VITE_SENTRY_DSN`.
