@@ -4,6 +4,11 @@
  * Secure proxy to the Zoom API using Server-to-Server OAuth.
  * Credentials live ONLY here (Edge Function secrets), never in the frontend.
  *
+ * Authorization:
+ *   - Valid Supabase JWT required
+ *   - Caller must be an active admin or lecturer
+ *   - Lecturers may only act on sessions where they are the assigned lecturer
+ *
  * Required secrets:
  *   ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, ZOOM_USER_EMAIL
  */
@@ -18,11 +23,24 @@ const ZOOM_USER_EMAIL = Deno.env.get('ZOOM_USER_EMAIL') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+/** Optional allow-list of browser origins (comma-separated). Empty = reflect request Origin. */
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function resolveCorsOrigin(origin?: string | null): string {
+  if (!origin) return '*';
+  if (ALLOWED_ORIGINS.length === 0) return origin;
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
 function corsHeaders(origin?: string | null) {
   return {
-    'Access-Control-Allow-Origin': origin ?? '*',
+    'Access-Control-Allow-Origin': resolveCorsOrigin(origin),
     'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+    'Vary': 'Origin',
   };
 }
 
@@ -69,6 +87,88 @@ async function getZoomAccessToken(): Promise<string> {
   return access_token as string;
 }
 
+type CallerContext = {
+  userId: string;
+  role: string;
+  lecturerId: string | null;
+};
+
+/**
+ * Resolve the caller's profile role and, for lecturers, their lecturer row id.
+ * Uses the service-role client after the JWT has already been validated.
+ */
+async function resolveCaller(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+): Promise<CallerContext | { error: string; status: number }> {
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, role, is_active')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error('[zoom-meeting] profile lookup failed', profileError.message);
+    return { error: 'Unable to verify account', status: 500 };
+  }
+  if (!profile || !profile.is_active) {
+    return { error: 'Forbidden — inactive or missing profile', status: 403 };
+  }
+  if (profile.role !== 'admin' && profile.role !== 'lecturer') {
+    return { error: 'Forbidden — only administrators and lecturers may manage Zoom meetings', status: 403 };
+  }
+
+  let lecturerId: string | null = null;
+  if (profile.role === 'lecturer') {
+    const { data: lecturer, error: lecError } = await supabase
+      .from('lecturers')
+      .select('id')
+      .eq('profile_id', userId)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (lecError) {
+      console.error('[zoom-meeting] lecturer lookup failed', lecError.message);
+      return { error: 'Unable to verify lecturer record', status: 500 };
+    }
+    if (!lecturer) {
+      return { error: 'Forbidden — lecturer profile is not linked', status: 403 };
+    }
+    lecturerId = lecturer.id as string;
+  }
+
+  return { userId, role: profile.role as string, lecturerId };
+}
+
+/** Ensure the session exists and the caller is allowed to manage it. */
+async function assertSessionAccess(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  sessionId: string,
+  caller: CallerContext,
+): Promise<{ ok: true } | { error: string; status: number }> {
+  const { data: session, error } = await supabase
+    .from('class_sessions')
+    .select('id, lecturer_id')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[zoom-meeting] session lookup failed', error.message);
+    return { error: 'Unable to load class session', status: 500 };
+  }
+  if (!session) {
+    return { error: 'Class session not found', status: 404 };
+  }
+  if (caller.role === 'admin') {
+    return { ok: true };
+  }
+  if (caller.role === 'lecturer' && session.lecturer_id === caller.lecturerId) {
+    return { ok: true };
+  }
+  return { error: 'Forbidden — you may only manage Zoom meetings for your own sessions', status: 403 };
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get('Origin');
 
@@ -106,6 +206,12 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Unauthorized — invalid session' }, 401, origin);
   }
 
+  const callerOrError = await resolveCaller(supabase, user.id);
+  if ('error' in callerOrError) {
+    return jsonResponse({ error: callerOrError.error }, callerOrError.status, origin);
+  }
+  const caller = callerOrError;
+
   try {
     const body = await req.json();
 
@@ -121,6 +227,11 @@ Deno.serve(async (req) => {
           400,
           origin,
         );
+      }
+
+      const access = await assertSessionAccess(supabase, session_id, caller);
+      if (!('ok' in access)) {
+        return jsonResponse({ error: access.error }, access.status, origin);
       }
 
       const token = await getZoomAccessToken();
@@ -168,6 +279,11 @@ Deno.serve(async (req) => {
         400,
         origin,
       );
+    }
+
+    const access = await assertSessionAccess(supabase, session_id, caller);
+    if (!('ok' in access)) {
+      return jsonResponse({ error: access.error }, access.status, origin);
     }
 
     const durationRaw = Number(duration_minutes);
@@ -230,7 +346,6 @@ Deno.serve(async (req) => {
       .eq('id', session_id);
 
     if (dbErr) {
-      // Surface schema issues clearly (migration not applied)
       if (dbErr.message?.includes('zoom_') || dbErr.code === '42703') {
         throw new Error(
           `Database is missing Zoom columns. Run migration 20261026_add_zoom_to_class_sessions.sql. (${dbErr.message})`,
@@ -239,6 +354,7 @@ Deno.serve(async (req) => {
       throw dbErr;
     }
 
+    // start_url is the host URL — only return it to admin/lecturer callers (already enforced).
     return jsonResponse(
       {
         meeting_id: meeting.id,
