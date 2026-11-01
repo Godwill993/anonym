@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { MdErrorOutline, MdRefresh } from 'react-icons/md';
+import { reportError } from '../../lib/observability';
 
 /**
  * Global Error Boundary for UNHIMAS.
@@ -22,15 +23,15 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log for developers / future monitoring (Sentry, etc.)
-    console.error('[UNHIMAS ErrorBoundary]', error, errorInfo);
+    reportError(error, {
+      source: 'ErrorBoundary',
+      componentStack: errorInfo?.componentStack || null,
+    });
     this.setState({ errorInfo });
   }
 
   handleReload = () => {
-    // Prefer a soft reset when possible
     this.setState({ hasError: false, error: null, errorInfo: null });
-    // Force a full reload as a reliable recovery path
     window.location.reload();
   };
 
