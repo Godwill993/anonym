@@ -8,7 +8,7 @@ import {
   MdTableChart,
   MdFolderZip,
 } from 'react-icons/md';
-import { getResourceKind } from './ResourcePreviewModal';
+import { getResourceKind } from '../../utils/resourceUtils';
 
 const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
 const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';

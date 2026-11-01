@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MdHowToReg, MdAccessTime, MdCheckCircle, MdAssignmentReturn } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
@@ -119,7 +119,7 @@ export default function AdminAttendancePage() {
     onError: (err) => toast.error(err.message || 'Review failed'),
   });
 
-  const statusBadge = (status) => {
+  const statusBadge = useCallback((status) => {
     const map = {
       draft: ['badge-gray', 'Draft'],
       submitted: ['badge-amber', 'Awaiting Approval'],
@@ -128,7 +128,7 @@ export default function AdminAttendancePage() {
     };
     const [cls, label] = map[status] || ['badge-gray', status || '—'];
     return <span className={`badge ${cls}`}>{translateText(label)}</span>;
-  };
+  }, [translateText]);
 
   const sessionColumns = useMemo(
     () => [
@@ -200,7 +200,7 @@ export default function AdminAttendancePage() {
         },
       },
     ],
-    [translateText, reviewMutation.isPending],
+    [translateText, reviewMutation, statusBadge],
   );
 
   return (

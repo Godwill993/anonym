@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  MdAdd, MdSchool, MdSearch, MdClose, MdEdit, MdDelete, MdToggleOn, MdToggleOff,
+  MdAdd, MdSchool, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff,
   MdEmail, MdPhone, MdPersonAdd, MdCheckCircle, MdFileDownload, MdChevronLeft, MdChevronRight,
-  MdSwapHoriz, MdArchive,
+  MdSwapHoriz,
 } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
@@ -15,7 +15,7 @@ import { useTranslation } from '../../i18n';
 import { usePermissions } from '../../hooks/usePermissions';
 import { exportToCsv } from '../../utils/exportUtils';
 import { getStudents, createStudent, updateStudent, deleteSchoolAccount, archiveStudent } from '../../services/peopleService';
-import { getBatches, getDepartments } from '../../services/academicService';
+import { getBatches } from '../../services/academicService';
 
 export default function StudentsPage() {
   const { language, translateText } = useTranslation();
@@ -24,7 +24,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const pageSize = 20;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);

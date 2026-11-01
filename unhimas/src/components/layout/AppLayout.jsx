@@ -10,10 +10,15 @@ export default function AppLayout({ children, pageTitle }) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [prevPath, setPrevPath] = useState(location.pathname);
+
+  if (prevPath !== location.pathname) {
+    setPrevPath(location.pathname);
+    setMobileOpen(false);
+  }
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setMobileOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {

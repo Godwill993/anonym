@@ -5,6 +5,7 @@ import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import { toast } from '../../components/common/Toast';
+import { useTranslation } from '../../i18n';
 import {
   getCourses,
   createCourse,
@@ -13,6 +14,7 @@ import {
 } from '../../services/academicService';
 
 export default function CoursesPage() {
+  const { translateText } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -40,20 +42,20 @@ export default function CoursesPage() {
     mutationFn: createCourse,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
-      toast.success('Course created successfully');
+      toast.success(translateText('Course created successfully'));
       handleCloseModal();
     },
-    onError: (err) => toast.error(err.message || 'Failed to create course'),
+    onError: (err) => toast.error(err.message || translateText('Failed to create course')),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }) => updateCourse(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
-      toast.success('Course updated successfully');
+      toast.success(translateText('Course updated successfully'));
       handleCloseModal();
     },
-    onError: (err) => toast.error(err.message || 'Failed to update course'),
+    onError: (err) => toast.error(err.message || translateText('Failed to update course')),
   });
 
   const handleOpenAdd = () => {
@@ -86,7 +88,7 @@ export default function CoursesPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.code.trim() || !formData.name.trim() || !formData.department_id) {
-      toast.error('Department, code, and name are required');
+      toast.error(translateText('Department, code, and name are required'));
       return;
     }
     if (editingCourse) {
@@ -101,8 +103,9 @@ export default function CoursesPage() {
   };
 
   const filtered = courses.filter((c) => {
-    const s = search.toLowerCase();
+    const s = search.trim().toLowerCase();
     const matchSearch =
+      !s ||
       c.code?.toLowerCase().includes(s) ||
       c.name?.toLowerCase().includes(s);
     const matchDept = deptFilter ? c.department_id === deptFilter : true;
@@ -110,15 +113,15 @@ export default function CoursesPage() {
   });
 
   return (
-    <AppLayout pageTitle="Courses">
+    <AppLayout pageTitle={translateText('Courses')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Courses</h1>
-          <p className="page-subtitle">Curriculum catalogue by department and credit load</p>
+          <h1 className="page-title">{translateText('Courses')}</h1>
+          <p className="page-subtitle">{translateText('Curriculum catalogue by department and credit load')}</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Add Course
+            <MdAdd /> {translateText('Add Course')}
           </button>
         </div>
       </div>
@@ -140,7 +143,7 @@ export default function CoursesPage() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search by code or name..."
+              placeholder={translateText('Search by code or name...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -151,7 +154,7 @@ export default function CoursesPage() {
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
             >
-              <option value="">All Departments</option>
+              <option value="">{translateText('All Departments')}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name} ({d.abbreviation})
@@ -165,19 +168,19 @@ export default function CoursesPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Credits</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>{translateText('Code')}</th>
+                <th>{translateText('Name')}</th>
+                <th>{translateText('Department')}</th>
+                <th>{translateText('Credits')}</th>
+                <th>{translateText('Status')}</th>
+                <th style={{ textAlign: 'right' }}>{translateText('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading courses...
+                    {translateText('Loading courses...')}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
@@ -185,8 +188,8 @@ export default function CoursesPage() {
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdBook className="empty-state-icon" />
-                      <div className="empty-state-title">No Courses Found</div>
-                      <div className="empty-state-text">Add courses to build your curriculum catalogue.</div>
+                      <div className="empty-state-title">{translateText('No Courses Found')}</div>
+                      <div className="empty-state-text">{translateText('Add courses to build your curriculum catalogue.')}</div>
                     </div>
                   </td>
                 </tr>
@@ -198,31 +201,27 @@ export default function CoursesPage() {
                         {c.code}
                       </code>
                     </td>
-                    <td>
-                      <strong>{c.name}</strong>
-                    </td>
-                    <td>{c.departments?.name} ({c.departments?.abbreviation})</td>
-                    <td>
-                      <span className="badge badge-blue">{c.credit_units} Credits</span>
-                    </td>
+                    <td><strong>{c.name}</strong></td>
+                    <td>{c.departments?.name ? `${c.departments.name} (${c.departments.abbreviation})` : '—'}</td>
+                    <td>{c.credit_units ?? 3}</td>
                     <td>
                       <span className={`badge ${c.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {c.is_active ? 'Active' : 'Archived'}
+                        {c.is_active ? translateText('Active') : translateText('Inactive')}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <RowActionsMenu
-                        ariaLabel="Course actions"
+                        label={translateText('Actions')}
                         items={[
                           {
                             id: 'edit',
-                            label: 'Edit',
+                            label: translateText('Edit'),
                             icon: <MdEdit />,
                             onClick: () => handleOpenEdit(c),
                           },
                           {
                             id: 'toggle',
-                            label: c.is_active ? 'Deactivate' : 'Activate',
+                            label: c.is_active ? translateText('Deactivate') : translateText('Activate'),
                             icon: c.is_active ? <MdToggleOn /> : <MdToggleOff />,
                             onClick: () => handleToggleStatus(c),
                           },
@@ -240,25 +239,25 @@ export default function CoursesPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingCourse ? 'Edit Course' : 'Add Course'}
+        title={editingCourse ? translateText('Edit Course') : translateText('Add Course')}
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Department *</label>
+            <label className="form-label">{translateText('Department')} *</label>
             <select
               className="form-input"
               value={formData.department_id}
               onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
               required
             >
-              <option value="">Select department</option>
+              <option value="">{translateText('Select department')}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Code *</label>
+            <label className="form-label">{translateText('Code')} *</label>
             <input
               className="form-input"
               value={formData.code}
@@ -267,7 +266,7 @@ export default function CoursesPage() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Name *</label>
+            <label className="form-label">{translateText('Name')} *</label>
             <input
               className="form-input"
               value={formData.name}
@@ -276,7 +275,7 @@ export default function CoursesPage() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Credit units</label>
+            <label className="form-label">{translateText('Credit units')}</label>
             <input
               type="number"
               min={1}
@@ -286,9 +285,11 @@ export default function CoursesPage() {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-            <button type="button" className="btn btn-outline" onClick={handleCloseModal}>Cancel</button>
+            <button type="button" className="btn btn-outline" onClick={handleCloseModal}>
+              {translateText('Cancel')}
+            </button>
             <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
-              {editingCourse ? 'Save Changes' : 'Add Course'}
+              {editingCourse ? translateText('Save Changes') : translateText('Add Course')}
             </button>
           </div>
         </form>

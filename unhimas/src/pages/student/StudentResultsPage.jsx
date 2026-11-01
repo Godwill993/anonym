@@ -9,13 +9,11 @@ import { supabase } from '../../lib/supabase';
 import { getMyStudentProfile, getMyResults } from '../../services/studentService';
 import { checkFeeClearance } from '../../services/feeClearance';
 import { formatXAF } from '../../services/feesService';
+import { gradeBadgeClass } from '../../lib/grading';
 
 function GradeCell({ grade, gp }) {
-  const colors = {
-    A: 'badge-green', B: 'badge-blue', C: 'badge-amber', D: 'badge-amber', F: 'badge-red',
-  };
   return (
-    <span className={`badge ${colors[grade] || 'badge-gray'}`}>
+    <span className={`badge ${gradeBadgeClass(grade)}`}>
       {grade} ({gp})
     </span>
   );

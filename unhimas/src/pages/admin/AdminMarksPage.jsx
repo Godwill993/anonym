@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { MdGrade, MdCheckCircle, MdVisibility, MdFilterList, MdPublish } from 'react-icons/md';
+import { MdCheckCircle, MdVisibility, MdFilterList, MdPublish } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import DataTable from '../../components/common/DataTable';
 import { toast } from '../../components/common/Toast';
@@ -217,7 +217,7 @@ export default function AdminMarksPage() {
         ),
       },
     ],
-    [translateText, canPublishResults, canPublishRow, publishMutation.isPending]
+    [translateText, canPublishResults, canPublishRow, publishMutation]
   );
 
   return (
@@ -264,6 +264,7 @@ export default function AdminMarksPage() {
       <DataTable
         columns={columns}
         data={filteredSubmissions}
+        loading={isLoading}
         searchPlaceholder="Search by course code, batch, or lecturer..."
         emptyTitle="No Marksheets Created"
         emptySubtitle="Marksheets are initiated when lecturers enter assessments for allocated courses."

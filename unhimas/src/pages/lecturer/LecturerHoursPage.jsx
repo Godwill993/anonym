@@ -2,11 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { MdAccessTime } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import { getMyLecturerProfile, getMyShifts } from '../../services/lecturerService';
 
 function calcDuration(clockIn, clockOut) {
   if (!clockIn || !clockOut) return '—';
-  const hrs = (new Date(clockOut) - new Date(clockIn)) / 3600000;
+  const diff = new Date(clockOut) - new Date(clockIn);
+  if (isNaN(diff) || diff < 0) return '—';
+  const hrs = diff / 3600000;
   const h = Math.floor(hrs);
   const m = Math.round((hrs - h) * 60);
   return `${h}h ${m}m`;
@@ -14,6 +17,7 @@ function calcDuration(clockIn, clockOut) {
 
 export default function LecturerHoursPage() {
   const { session } = useAuth();
+  const { language, translateText } = useTranslation();
 
   const { data: lecturerProfile } = useQuery({
     queryKey: ['my-lecturer-profile'],
@@ -31,9 +35,14 @@ export default function LecturerHoursPage() {
   // Monthly summary
   const monthlySummary = {};
   shifts.forEach((s) => {
-    if (s.status !== 'closed' || !s.clock_out) return;
-    const month = new Date(s.clock_in).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-    const hrs = (new Date(s.clock_out) - new Date(s.clock_in)) / 3600000;
+    if (s.status !== 'closed' || !s.clock_out || !s.clock_in) return;
+    const diff = new Date(s.clock_out) - new Date(s.clock_in);
+    if (isNaN(diff) || diff <= 0) return;
+    const month = new Date(s.clock_in).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
+      month: 'long',
+      year: 'numeric',
+    });
+    const hrs = diff / 3600000;
     if (!monthlySummary[month]) monthlySummary[month] = 0;
     monthlySummary[month] += hrs;
   });
@@ -41,11 +50,11 @@ export default function LecturerHoursPage() {
   const totalHours = Object.values(monthlySummary).reduce((a, b) => a + b, 0);
 
   return (
-    <AppLayout pageTitle="My Hours">
+    <AppLayout pageTitle={translateText('My Hours')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">My Teaching Hours</h1>
-          <p className="page-subtitle">Your recorded campus hours</p>
+          <h1 className="page-title">{translateText('My Teaching Hours')}</h1>
+          <p className="page-subtitle">{translateText('Your recorded campus hours')}</p>
         </div>
         <div className="page-header-actions">
           <div
@@ -59,7 +68,7 @@ export default function LecturerHoursPage() {
               color: 'var(--color-primary)',
             }}
           >
-            Total: {totalHours.toFixed(1)}h
+            {translateText('Total')}: {totalHours.toFixed(1)}h
           </div>
         </div>
       </div>
@@ -82,7 +91,7 @@ export default function LecturerHoursPage() {
       {/* Full shift history */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Shift History</span>
+          <span className="card-title">{translateText('Shift History')}</span>
         </div>
         {isLoading ? (
           <div style={{ padding: '1.5rem' }}>
@@ -96,32 +105,47 @@ export default function LecturerHoursPage() {
         ) : shifts.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon"><MdAccessTime /></div>
-            <div className="empty-state-title">No shifts recorded</div>
-            <p className="empty-state-text">Your campus clock-in history will appear here.</p>
+            <div className="empty-state-title">{translateText('No shifts recorded')}</div>
+            <p className="empty-state-text">{translateText('Your campus clock-in history will appear here.')}</p>
           </div>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Clock In</th>
-                  <th>Clock Out</th>
-                  <th>Duration</th>
-                  <th>Status</th>
+                  <th>{translateText('Date')}</th>
+                  <th>{translateText('Clock In')}</th>
+                  <th>{translateText('Clock Out')}</th>
+                  <th>{translateText('Duration')}</th>
+                  <th>{translateText('Status')}</th>
                 </tr>
               </thead>
               <tbody>
                 {shifts.map((s) => (
                   <tr key={s.id}>
-                    <td>{new Date(s.clock_in).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                    <td>{new Date(s.clock_in).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td>{s.clock_out ? new Date(s.clock_out).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : <span className="badge badge-green">Active</span>}</td>
+                    <td>
+                      {new Date(s.clock_in).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td>
+                      {new Date(s.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td>
+                      {s.clock_out ? (
+                        new Date(s.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      ) : (
+                        <span className="badge badge-green">{translateText('Active')}</span>
+                      )}
+                    </td>
                     <td>{calcDuration(s.clock_in, s.clock_out)}</td>
                     <td>
-                      {s.status === 'open' && <span className="badge badge-green">Clocked In</span>}
-                      {s.status === 'closed' && <span className="badge badge-gray">Completed</span>}
-                      {s.status === 'corrected' && <span className="badge badge-amber">Corrected</span>}
+                      {s.status === 'open' && <span className="badge badge-green">{translateText('Clocked In')}</span>}
+                      {s.status === 'closed' && <span className="badge badge-gray">{translateText('Completed')}</span>}
+                      {s.status === 'corrected' && <span className="badge badge-amber">{translateText('Corrected')}</span>}
                     </td>
                   </tr>
                 ))}

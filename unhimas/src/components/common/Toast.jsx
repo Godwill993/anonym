@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { MdCheckCircle, MdError, MdInfo, MdWarning } from 'react-icons/md';
+import { MdCheckCircle, MdError, MdInfo, MdWarning, MdClose } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 
 let showToastFn = null;
+let toastSeq = 0;
 
 export function toast(message, type = 'success', duration = 3500) {
   if (showToastFn) {
-    showToastFn({ id: Date.now(), message, type, duration });
+    const safeMsg = typeof message === 'string' ? message : message?.message || String(message || '');
+    showToastFn({ id: `${Date.now()}_${++toastSeq}`, message: safeMsg, type, duration });
   }
 }
 
@@ -22,14 +24,20 @@ export default function ToastContainer() {
   useEffect(() => {
     showToastFn = (newToast) => {
       setToasts((prev) => [...prev, newToast]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
-      }, newToast.duration);
+      if (newToast.duration > 0) {
+        setTimeout(() => {
+          setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+        }, newToast.duration);
+      }
     };
     return () => {
       showToastFn = null;
     };
   }, []);
+
+  const dismissToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   if (toasts.length === 0) return null;
 
@@ -47,8 +55,16 @@ export default function ToastContainer() {
             className={`toast ${t.type}`}
             role={t.type === 'error' ? 'alert' : 'status'}
           >
-            <Icon style={{ fontSize: '1.25rem', flexShrink: 0 }} aria-hidden="true" />
-            <span>{translateText(t.message)}</span>
+            <Icon className="toast-icon" aria-hidden="true" />
+            <div className="toast-message">{translateText(t.message)}</div>
+            <button
+              type="button"
+              className="toast-dismiss-btn"
+              onClick={() => dismissToast(t.id)}
+              aria-label={translateText('Dismiss notification')}
+            >
+              <MdClose aria-hidden="true" />
+            </button>
           </div>
         );
       })}

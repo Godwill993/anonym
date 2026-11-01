@@ -4,11 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import {
   MdGrade,
   MdSave,
-  MdSend,
   MdPublish,
   MdWarning,
   MdInfo,
-  MdClose,
   MdCheckCircle,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';

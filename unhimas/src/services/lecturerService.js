@@ -5,7 +5,7 @@ function parseSessionDateTime(value) {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   const str = String(value).trim();
   const localMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (localMatch && !/[zZ]|[+\-]\d{2}:?\d{2}$/.test(str)) {
+  if (localMatch && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(str)) {
     const [, y, mo, d, h, mi, s] = localMatch;
     const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s || 0), 0);
     return Number.isNaN(dt.getTime()) ? null : dt;
@@ -96,7 +96,11 @@ export async function getOrCreateMarkSubmission(batchCourseId, lecturerId) {
     if (error) throw error;
     submission = data;
   }
-  try { await supabase.rpc('ensure_marks_for_submission', { p_submission_id: submission.id }); } catch (_) {}
+  try {
+    await supabase.rpc('ensure_marks_for_submission', { p_submission_id: submission.id });
+  } catch (err) {
+    console.debug('ensure_marks_for_submission fallback notice:', err);
+  }
   return submission;
 }
 

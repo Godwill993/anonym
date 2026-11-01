@@ -21,7 +21,6 @@ export async function sendNotification({ type, to, subject, body, meta = {} }) {
 
   if (!WEBHOOK) {
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.info('[notify:dev]', payload);
     }
     return { delivered: false, reason: 'no_webhook' };

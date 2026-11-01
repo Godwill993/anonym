@@ -46,17 +46,11 @@ export function computeGrade(totalScore, scale = DEFAULT_SCALE) {
  * UI helper: badge class for a letter grade.
  */
 export function gradeBadgeClass(grade) {
-  switch (String(grade || '').toUpperCase()) {
-    case 'A':
-      return 'badge-green';
-    case 'B':
-      return 'badge-blue';
-    case 'C':
-    case 'D':
-      return 'badge-amber';
-    default:
-      return 'badge-red';
-  }
+  const g = String(grade || '').trim().toUpperCase();
+  if (g.startsWith('A')) return 'badge-green';
+  if (g.startsWith('B')) return 'badge-blue';
+  if (g.startsWith('C') || g.startsWith('D')) return 'badge-amber';
+  return 'badge-red';
 }
 
 export { DEFAULT_SCALE };

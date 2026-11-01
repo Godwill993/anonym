@@ -230,7 +230,7 @@ export default function LecturerSessionsPage() {
       if (s.zoom_meeting_id) {
         try {
           await deleteZoomMeeting({ zoomMeetingId: s.zoom_meeting_id, sessionId: s.id });
-        } catch (_) {
+        } catch {
           // Continue with session delete even if Zoom cleanup fails
         }
       }

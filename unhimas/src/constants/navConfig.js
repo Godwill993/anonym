@@ -49,6 +49,7 @@ export const NAV_CONFIG = {
           capability: 'manage_people',
           children: [
             { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
+            { key: 'staff', label: 'Staff Accounts', path: '/admin/staff', icon: MdPersonPin, capability: 'manage_people' },
             { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
           ],
         },
@@ -64,6 +65,18 @@ export const NAV_CONFIG = {
         },
         { key: 'marks', label: 'Marks', path: '/admin/mark-approval', icon: MdGrade, capability: 'approve_marks' },
         { key: 'results', label: 'Results', path: '/admin/results', icon: MdBarChart },
+        {
+          key: 'reports',
+          label: 'Reports',
+          path: '/admin/reports/results',
+          icon: MdBarChart,
+          children: [
+            { key: 'results-report', label: 'Results Report', path: '/admin/reports/results', icon: MdGrade },
+            { key: 'attendance-report', label: 'Attendance Report', path: '/admin/reports/attendance', icon: MdHowToReg },
+            { key: 'course-perf', label: 'Course Performance', path: '/admin/reports/course-performance', icon: MdBarChart },
+            { key: 'lecturer-hours', label: 'Lecturer Hours', path: '/admin/reports/lecturer-hours', icon: MdSchedule },
+          ],
+        },
         { key: 'settings', label: 'Settings', path: '/admin/settings', icon: MdSettings, capability: 'manage_settings' },
       ],
     },

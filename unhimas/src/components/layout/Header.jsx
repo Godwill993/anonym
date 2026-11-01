@@ -8,8 +8,11 @@ import {
   MdAccountCircle,
   MdSettings,
   MdLogout,
+  MdDarkMode,
+  MdLightMode,
 } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../i18n/index';
 import { supabase } from '../../lib/supabase';
 import GlobalSearchModal from './GlobalSearchModal';
@@ -28,6 +31,7 @@ const ROLE_PROFILE_PATHS = {
 
 export default function Header({ onMenuClick, pageTitle, mobileNavOpen = false }) {
   const { profile, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, translateText } = useTranslation();
   const { data: unreadNotificationCount = 0, isError: unreadNotificationsError } = useQuery({
     queryKey: ['unread-notification-count', profile?.id],
@@ -232,6 +236,17 @@ export default function Header({ onMenuClick, pageTitle, mobileNavOpen = false }
             }
           >
             {language === 'en' ? 'FR' : 'EN'}
+          </button>
+
+          <button
+            type="button"
+            className="lang-btn"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px' }}
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? translateText('Switch to light theme') : translateText('Switch to dark theme')}
+            title={theme === 'dark' ? translateText('Switch to light theme') : translateText('Switch to dark theme')}
+          >
+            {theme === 'dark' ? <MdLightMode size={15} aria-hidden="true" /> : <MdDarkMode size={15} aria-hidden="true" />}
           </button>
 
           <div className="user-menu-wrapper" ref={userMenuRef}>

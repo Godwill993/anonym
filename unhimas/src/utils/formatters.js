@@ -52,18 +52,10 @@ export function formatHours(hours) {
  * @returns {string}
  */
 export function getGradeBadgeClass(grade) {
-  switch (grade?.toUpperCase()) {
-    case 'A':
-      return 'badge-green';
-    case 'B':
-      return 'badge-blue';
-    case 'C':
-      return 'badge-amber';
-    case 'D':
-      return 'badge-amber';
-    case 'F':
-      return 'badge-red';
-    default:
-      return 'badge-gray';
-  }
+  const g = String(grade || '').trim().toUpperCase();
+  if (g.startsWith('A')) return 'badge-green';
+  if (g.startsWith('B')) return 'badge-blue';
+  if (g.startsWith('C') || g.startsWith('D')) return 'badge-amber';
+  if (g.startsWith('F')) return 'badge-red';
+  return 'badge-gray';
 }

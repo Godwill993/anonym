@@ -223,4 +223,4 @@ export function HoursAreaChart({ data = [], emptyLabel = 'No hours recorded' }) 
   );
 }
 
-export { ChartCard, COLORS };
+export { ChartCard };

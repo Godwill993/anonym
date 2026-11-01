@@ -1,13 +1,179 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MdSettings, MdSave, MdGrade, MdCheckCircle } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
+import { gradeBadgeClass } from '../../lib/grading';
 import {
   getSystemSettings,
   updateSystemSettings,
   getGradingScale,
 } from '../../services/operationsService';
+
+function SettingsForm({ settings, onSave, isPending }) {
+  const [formData, setFormData] = useState(() => ({
+    school_name: settings?.school_name || 'UNHIMAS',
+    school_abbreviation: settings?.school_abbreviation || 'UNH',
+    attendance_max: Number(settings?.attendance_max) || 5,
+    coursework_max: Number(settings?.coursework_max) || 25,
+    exam_max: Number(settings?.exam_max) || 70,
+    attendance_threshold: Number(settings?.attendance_threshold) || 75,
+    timezone: settings?.timezone || 'Africa/Douala',
+  }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const total =
+      Number(formData.attendance_max) +
+      Number(formData.coursework_max) +
+      Number(formData.exam_max);
+
+    if (total !== 100) {
+      toast.warning(`Total mark allocation must equal 100% (currently ${total}%)`);
+    }
+
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+        <div className="form-group">
+          <label className="form-label">University Name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={formData.school_name}
+            onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Abbreviation</label>
+          <input
+            type="text"
+            className="form-input"
+            value={formData.school_abbreviation}
+            onChange={(e) =>
+              setFormData({ ...formData, school_abbreviation: e.target.value })
+            }
+            required
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Timezone</label>
+        <input
+          type="text"
+          className="form-input"
+          value={formData.timezone}
+          onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+          required
+        />
+        <div className="form-hint">
+          Used for lecturer clock-in shift timestamps and class attendance
+        </div>
+      </div>
+
+      <div
+        style={{
+          margin: '1.5rem 0 1rem',
+          paddingBottom: '0.5rem',
+          borderBottom: '1px solid var(--color-border)',
+          fontWeight: 700,
+          fontSize: '0.9rem',
+        }}
+      >
+        Bilingual Cameroon Assessment Breakdown (Max 100%)
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+        <div className="form-group">
+          <label className="form-label">Attendance Score (%)</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            max="20"
+            className="form-input"
+            value={formData.attendance_max}
+            onChange={(e) =>
+              setFormData({ ...formData, attendance_max: Number(e.target.value) })
+            }
+            required
+          />
+          <div className="form-hint">Default: 5%</div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Coursework CA (%)</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            max="50"
+            className="form-input"
+            value={formData.coursework_max}
+            onChange={(e) =>
+              setFormData({ ...formData, coursework_max: Number(e.target.value) })
+            }
+            required
+          />
+          <div className="form-hint">Default: 25%</div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Final Exam (%)</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            className="form-input"
+            value={formData.exam_max}
+            onChange={(e) =>
+              setFormData({ ...formData, exam_max: Number(e.target.value) })
+            }
+            required
+          />
+          <div className="form-hint">Default: 70%</div>
+        </div>
+      </div>
+
+      <div className="form-group" style={{ marginTop: '0.5rem' }}>
+        <label className="form-label">Exam Eligibility Attendance Threshold (%)</label>
+        <input
+          type="number"
+          step="1"
+          min="50"
+          max="100"
+          className="form-input"
+          value={formData.attendance_threshold}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              attendance_threshold: Number(e.target.value),
+            })
+          }
+          required
+        />
+        <div className="form-hint">
+          Students with overall attendance below this threshold (
+          {formData.attendance_threshold}%) receive alerts before exams.
+        </div>
+      </div>
+
+      <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={isPending}
+        >
+          <MdSave /> Save System Settings
+        </button>
+      </div>
+    </form>
+  );
+}
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -22,30 +188,6 @@ export default function SettingsPage() {
     queryFn: getGradingScale,
   });
 
-  const [formData, setFormData] = useState({
-    school_name: 'UNHIMAS',
-    school_abbreviation: 'UNH',
-    attendance_max: 5,
-    coursework_max: 25,
-    exam_max: 70,
-    attendance_threshold: 75,
-    timezone: 'Africa/Douala',
-  });
-
-  useEffect(() => {
-    if (settings) {
-      setFormData({
-        school_name: settings.school_name || 'UNHIMAS',
-        school_abbreviation: settings.school_abbreviation || 'UNH',
-        attendance_max: Number(settings.attendance_max) || 5,
-        coursework_max: Number(settings.coursework_max) || 25,
-        exam_max: Number(settings.exam_max) || 70,
-        attendance_threshold: Number(settings.attendance_threshold) || 75,
-        timezone: settings.timezone || 'Africa/Douala',
-      });
-    }
-  }, [settings]);
-
   const updateMutation = useMutation({
     mutationFn: (updates) => updateSystemSettings(settings?.id, updates),
     onSuccess: () => {
@@ -56,20 +198,6 @@ export default function SettingsPage() {
       toast.error(err.message || 'Failed to update settings');
     },
   });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const total =
-      Number(formData.attendance_max) +
-      Number(formData.coursework_max) +
-      Number(formData.exam_max);
-
-    if (total !== 100) {
-      toast.warning(`Total mark allocation must equal 100% (currently ${total}%)`);
-    }
-
-    updateMutation.mutate(formData);
-  };
 
   const defaultScale =
     gradingScale.length > 0
@@ -104,142 +232,12 @@ export default function SettingsPage() {
             {settingsLoading ? (
               <div>Loading system settings...</div>
             ) : (
-              <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">University Name</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.school_name}
-                      onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Abbreviation</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.school_abbreviation}
-                      onChange={(e) =>
-                        setFormData({ ...formData, school_abbreviation: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Timezone</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.timezone}
-                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                    required
-                  />
-                  <div className="form-hint">
-                    Used for lecturer clock-in shift timestamps and class attendance
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    margin: '1.5rem 0 1rem',
-                    paddingBottom: '0.5rem',
-                    borderBottom: '1px solid var(--color-border)',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  Bilingual Cameroon Assessment Breakdown (Max 100%)
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Attendance Score (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="20"
-                      className="form-input"
-                      value={formData.attendance_max}
-                      onChange={(e) =>
-                        setFormData({ ...formData, attendance_max: Number(e.target.value) })
-                      }
-                      required
-                    />
-                    <div className="form-hint">Default: 5%</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Coursework CA (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="50"
-                      className="form-input"
-                      value={formData.coursework_max}
-                      onChange={(e) =>
-                        setFormData({ ...formData, coursework_max: Number(e.target.value) })
-                      }
-                      required
-                    />
-                    <div className="form-hint">Default: 25%</div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Final Exam (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      className="form-input"
-                      value={formData.exam_max}
-                      onChange={(e) =>
-                        setFormData({ ...formData, exam_max: Number(e.target.value) })
-                      }
-                      required
-                    />
-                    <div className="form-hint">Default: 70%</div>
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                  <label className="form-label">Exam Eligibility Attendance Threshold (%)</label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="50"
-                    max="100"
-                    className="form-input"
-                    value={formData.attendance_threshold}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        attendance_threshold: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                  <div className="form-hint">
-                    Students with overall attendance below this threshold (
-                    {formData.attendance_threshold}%) receive alerts before exams.
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={updateMutation.isPending}
-                  >
-                    <MdSave /> Save System Settings
-                  </button>
-                </div>
-              </form>
+              <SettingsForm
+                key={settings?.id || 'new'}
+                settings={settings}
+                onSave={(data) => updateMutation.mutate(data)}
+                isPending={updateMutation.isPending}
+              />
             )}
           </div>
         </div>
@@ -271,13 +269,7 @@ export default function SettingsPage() {
                       </td>
                       <td>
                         <span
-                          className={`badge ${
-                            scale.grade === 'A' || scale.grade === 'B'
-                              ? 'badge-green'
-                              : scale.grade === 'C' || scale.grade === 'D'
-                                ? 'badge-blue'
-                                : 'badge-red'
-                          }`}
+                          className={`badge ${gradeBadgeClass(scale.grade)}`}
                           style={{ fontSize: '0.85rem' }}
                         >
                           {scale.grade}

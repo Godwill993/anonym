@@ -1,23 +1,8 @@
 import { useEffect, useState } from 'react';
-import { MdClose, MdDownload, MdInsertDriveFile, MdImage, MdPictureAsPdf } from 'react-icons/md';
+import { MdDownload, MdInsertDriveFile, MdImage, MdPictureAsPdf } from 'react-icons/md';
 import Modal from './Modal';
 import { useTranslation } from '../../i18n';
-
-function isImageMime(mime, name = '') {
-  if (mime && mime.startsWith('image/')) return true;
-  return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name || '');
-}
-
-function isPdfMime(mime, name = '') {
-  if (mime === 'application/pdf') return true;
-  return /\.pdf$/i.test(name || '');
-}
-
-export function getResourceKind(mime, name = '') {
-  if (isImageMime(mime, name)) return 'image';
-  if (isPdfMime(mime, name)) return 'pdf';
-  return 'other';
-}
+import { isImageMime, isPdfMime, getResourceKind } from '../../utils/resourceUtils';
 
 export function ResourceKindIcon({ mime, name, size = 22 }) {
   const kind = getResourceKind(mime, name);
@@ -26,12 +11,7 @@ export function ResourceKindIcon({ mime, name, size = 22 }) {
   return <MdInsertDriveFile size={size} color="var(--color-primary)" />;
 }
 
-/**
- * Preview an existing stored resource using a signed URL loader.
- * getSignedUrl: async () => string (or { url })
- */
-export default function ResourcePreviewModal({
-  isOpen,
+function ResourcePreviewContent({
   onClose,
   title,
   mimeType,
@@ -41,21 +21,14 @@ export default function ResourcePreviewModal({
 }) {
   const { translateText: tx } = useTranslation();
   const [url, setUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(getSignedUrl));
   const [error, setError] = useState(null);
   const kind = getResourceKind(mimeType, fileName || title);
 
   useEffect(() => {
     let cancelled = false;
-    if (!isOpen || !getSignedUrl) {
-      setUrl(null);
-      setError(null);
-      setLoading(false);
-      return undefined;
-    }
-    setLoading(true);
-    setError(null);
-    setUrl(null);
+    if (!getSignedUrl) return undefined;
+
     (async () => {
       try {
         const result = await getSignedUrl();
@@ -68,14 +41,15 @@ export default function ResourcePreviewModal({
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [isOpen, getSignedUrl, tx]);
+  }, [getSignedUrl, tx]);
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen={true}
       onClose={onClose}
       title={title || tx('Resource preview')}
       maxWidth={kind === 'image' || kind === 'pdf' ? '900px' : '520px'}
@@ -147,6 +121,15 @@ export default function ResourcePreviewModal({
   );
 }
 
+/**
+ * Preview an existing stored resource using a signed URL loader.
+ * getSignedUrl: async () => string (or { url })
+ */
+export default function ResourcePreviewModal({ isOpen, ...props }) {
+  if (!isOpen) return null;
+  return <ResourcePreviewContent {...props} />;
+}
+
 /** Local file selected in an upload form (object URL for images). */
 export function LocalFilePreview({ file }) {
   const { translateText: tx } = useTranslation();
@@ -154,12 +137,14 @@ export function LocalFilePreview({ file }) {
 
   useEffect(() => {
     if (!file || !isImageMime(file.type, file.name)) {
-      setObjectUrl(null);
       return undefined;
     }
     const url = URL.createObjectURL(file);
     setObjectUrl(url);
-    return () => URL.revokeObjectURL(url);
+    return () => {
+      URL.revokeObjectURL(url);
+      setObjectUrl(null);
+    };
   }, [file]);
 
   if (!file) return null;
@@ -210,6 +195,3 @@ export function LocalFilePreview({ file }) {
     </div>
   );
 }
-
-// silence unused import if tree-shaken oddly
-void MdClose;
