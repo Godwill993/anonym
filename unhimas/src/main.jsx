@@ -7,16 +7,19 @@ import './styles/ux.css';
 import App from './App.jsx';
 import { I18nProvider } from './i18n/index.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 import { captureLandingUtm } from './utils/utm';
 
 captureLandingUtm();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ThemeProvider>
-      <I18nProvider>
-        <App />
-      </I18nProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <I18nProvider>
+          <App />
+        </I18nProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
