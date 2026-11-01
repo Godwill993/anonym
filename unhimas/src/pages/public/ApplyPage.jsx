@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MdSchool, MdCheckCircle } from 'react-icons/md';
@@ -9,6 +9,8 @@ import {
   isSubmitTooFast,
   validateAdmissionPayload,
 } from '../../lib/publicFormGuard';
+import { requireTurnstileToken } from '../../lib/turnstile';
+import TurnstileWidget from '../../components/common/TurnstileWidget';
 
 const empty = {
   first_name: '',
@@ -32,6 +34,7 @@ export default function ApplyPage() {
   const [form, setForm] = useState(empty);
   const [result, setResult] = useState(null);
   const [localError, setLocalError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
   const openedAt = useMemo(() => Date.now(), []);
 
   const { data: departments = [] } = useQuery({
@@ -48,17 +51,26 @@ export default function ApplyPage() {
     mutationFn: submitApplication,
     onSuccess: (data) => {
       if (data?._spam) {
-        // Silent path for bots — show generic success without a real number
         setResult({ application_number: data.application_number });
         setForm(empty);
+        setTurnstileToken('');
         return;
       }
       setResult(data);
       setForm(empty);
+      setTurnstileToken('');
     },
   });
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const onTurnstileToken = useCallback((token) => {
+    setTurnstileToken(token || '');
+  }, []);
+
+  const onTurnstileExpire = useCallback(() => {
+    setTurnstileToken('');
+  }, []);
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -77,10 +89,18 @@ export default function ApplyPage() {
       return;
     }
 
+    const captcha = requireTurnstileToken(turnstileToken);
+    if (!captcha.ok) {
+      setLocalError(translateText(captcha.message));
+      return;
+    }
+
     mutation.mutate({
       ...form,
       department_id: form.department_id || null,
       academic_year_id: form.academic_year_id || null,
+      // Token is client-side gate only unless a server verifier is added later
+      turnstile_token: turnstileToken || undefined,
     });
   };
 
@@ -117,7 +137,6 @@ export default function ApplyPage() {
           </div>
         ) : (
           <form className="form-stack" onSubmit={onSubmit} noValidate>
-            {/* Honeypot — hidden from humans */}
             <div
               aria-hidden="true"
               style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}
@@ -213,6 +232,13 @@ export default function ApplyPage() {
                 placeholder="GCE A-Level, Baccalauréat…"
               />
             </div>
+
+            <TurnstileWidget
+              onToken={onTurnstileToken}
+              onExpire={onTurnstileExpire}
+              onError={onTurnstileExpire}
+            />
+
             {(localError || mutation.isError) && (
               <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.875rem' }}>
                 {localError || mutation.error?.message || translateText('Submission failed')}
