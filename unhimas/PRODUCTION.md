@@ -51,7 +51,14 @@ Never expose the service-role key in the frontend. See `.env.example`.
 
 - Student portal records payment as **pending** by default.
 - Admin **Payments** page: Mark completed after MoMo confirmation.
-- Wire a real MTN/Orange webhook later to call the same status update.
+- **Automated path:** Edge Function `payment-webhook` (see `docs/PAYMENT_WEBHOOK.md`).
+
+```bash
+npx supabase secrets set PAYMENT_WEBHOOK_SECRET='long-random-secret'
+npx supabase functions deploy payment-webhook
+```
+
+Call with header `x-payment-hook-secret` and body `{ "payment_reference": "...", "provider_reference": "..." }`.
 
 ## 5. Email
 
@@ -65,6 +72,7 @@ Redeploy after pulling security updates:
 npx supabase functions deploy zoom-meeting
 npx supabase functions deploy send-push-notification
 npx supabase functions deploy verify-turnstile   # only if using Turnstile
+npx supabase functions deploy payment-webhook   # MoMo / automation callbacks
 ```
 
 ### `zoom-meeting`
@@ -92,10 +100,13 @@ npx supabase functions deploy verify-turnstile   # only if using Turnstile
 | Secret | `TURNSTILE_SECRET_KEY` (Cloudflare) |
 | Frontend | `VITE_TURNSTILE_SITE_KEY` must match the same widget |
 
-```bash
-npx supabase secrets set TURNSTILE_SECRET_KEY=your_secret_key
-npx supabase functions deploy verify-turnstile
-```
+### `payment-webhook`
+
+| Check | Requirement |
+|-------|-------------|
+| Auth | Header `x-payment-hook-secret` = `PAYMENT_WEBHOOK_SECRET` |
+| Effect | `pending` → `completed` only; optional amount check |
+| Docs | `docs/PAYMENT_WEBHOOK.md` |
 
 ## 7. Public endpoints
 
@@ -119,6 +130,7 @@ Summary:
 - Admin count is visible on the Staff / Administrators page.
 - Public `/apply` uses honeypot field `website`.
 - Optional Cloudflare Turnstile (`VITE_TURNSTILE_SITE_KEY` + `verify-turnstile`).
+- Payment completion via webhook requires shared secret (not in frontend).
 - Restrict Supabase dashboard access; rotate keys after staff changes.
 - Global React Error Boundary is in place (prevents blank-page crashes).
 - Zoom Edge Function enforces role + session ownership (redeploy required).
