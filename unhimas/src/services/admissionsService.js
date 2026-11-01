@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabase';
 import { notifyApplicationSubmitted, notifyAdmissionDecision } from './notificationService';
+import {
+  isHoneypotTriggered,
+  sanitizeAdmissionPayload,
+  validateAdmissionPayload,
+} from '../lib/publicFormGuard';
 
 export const ADMISSION_STATUSES = [
   'submitted',
@@ -53,9 +58,17 @@ export async function lookupApplication(applicationNumber, email) {
 
 /** Public / unauthenticated submit */
 export async function submitApplication(payload) {
-  if (payload.website) {
+  // Silent success for bots — do not reveal detection
+  if (isHoneypotTriggered(payload)) {
     return { application_number: 'APP-SPAM', status: 'submitted', _spam: true };
   }
+
+  const validation = validateAdmissionPayload(payload);
+  if (!validation.ok) {
+    throw new Error(validation.message);
+  }
+
+  const clean = sanitizeAdmissionPayload(payload);
 
   let applicationNumber;
   try {
@@ -68,19 +81,7 @@ export async function submitApplication(payload) {
   const row = {
     application_number: applicationNumber,
     status: 'submitted',
-    first_name: payload.first_name?.trim(),
-    middle_name: payload.middle_name?.trim() || null,
-    last_name: payload.last_name?.trim(),
-    email: payload.email?.trim()?.toLowerCase(),
-    phone: payload.phone?.trim() || null,
-    date_of_birth: payload.date_of_birth || null,
-    gender: payload.gender || null,
-    nationality: payload.nationality || 'Cameroonian',
-    department_id: payload.department_id || null,
-    preferred_level: payload.preferred_level || null,
-    academic_year_id: payload.academic_year_id || null,
-    previous_school: payload.previous_school?.trim() || null,
-    previous_qualification: payload.previous_qualification?.trim() || null,
+    ...clean,
   };
 
   const { data, error } = await supabase
