@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MdSchool, MdCheckCircle } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 import { getDepartments, getAcademicYears } from '../../services/academicService';
 import { submitApplication } from '../../services/admissionsService';
+import {
+  isSubmitTooFast,
+  validateAdmissionPayload,
+} from '../../lib/publicFormGuard';
 
 const empty = {
   first_name: '',
@@ -27,6 +31,8 @@ export default function ApplyPage() {
   const { translateText } = useTranslation();
   const [form, setForm] = useState(empty);
   const [result, setResult] = useState(null);
+  const [localError, setLocalError] = useState('');
+  const openedAt = useMemo(() => Date.now(), []);
 
   const { data: departments = [] } = useQuery({
     queryKey: ['public-departments'],
@@ -41,7 +47,12 @@ export default function ApplyPage() {
   const mutation = useMutation({
     mutationFn: submitApplication,
     onSuccess: (data) => {
-      if (data?._spam) return;
+      if (data?._spam) {
+        // Silent path for bots — show generic success without a real number
+        setResult({ application_number: data.application_number });
+        setForm(empty);
+        return;
+      }
       setResult(data);
       setForm(empty);
     },
@@ -51,6 +62,21 @@ export default function ApplyPage() {
 
   const onSubmit = (e) => {
     e.preventDefault();
+    setLocalError('');
+
+    if (isSubmitTooFast(openedAt)) {
+      setLocalError(
+        translateText('Please take a moment to review your details before submitting.'),
+      );
+      return;
+    }
+
+    const validation = validateAdmissionPayload(form);
+    if (!validation.ok) {
+      setLocalError(translateText(validation.message));
+      return;
+    }
+
     mutation.mutate({
       ...form,
       department_id: form.department_id || null,
@@ -90,9 +116,12 @@ export default function ApplyPage() {
             </div>
           </div>
         ) : (
-          <form className="form-stack" onSubmit={onSubmit}>
+          <form className="form-stack" onSubmit={onSubmit} noValidate>
             {/* Honeypot — hidden from humans */}
-            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+            <div
+              aria-hidden="true"
+              style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}
+            >
               <label htmlFor="website">Website</label>
               <input
                 id="website"
@@ -177,11 +206,16 @@ export default function ApplyPage() {
             </div>
             <div className="form-group">
               <label>{translateText('Previous qualification')}</label>
-              <input className="form-control" value={form.previous_qualification} onChange={set('previous_qualification')} placeholder="GCE A-Level, Baccalauréat…" />
+              <input
+                className="form-control"
+                value={form.previous_qualification}
+                onChange={set('previous_qualification')}
+                placeholder="GCE A-Level, Baccalauréat…"
+              />
             </div>
-            {mutation.isError && (
+            {(localError || mutation.isError) && (
               <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.875rem' }}>
-                {mutation.error?.message || translateText('Submission failed')}
+                {localError || mutation.error?.message || translateText('Submission failed')}
               </p>
             )}
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={mutation.isPending}>
