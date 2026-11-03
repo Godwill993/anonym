@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdAdd,
@@ -33,7 +34,14 @@ import {
 export default function BatchesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deptFromUrl = searchParams.get('department') || '';
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState(deptFromUrl);
+
+  useEffect(() => {
+    const d = searchParams.get('department') || '';
+    setSelectedDeptFilter(d);
+  }, [searchParams]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
   const [programmeBatch, setProgrammeBatch] = useState(null);
@@ -82,65 +90,59 @@ export default function BatchesPage() {
     mutationFn: createBatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      toast.success('Batch created successfully');
+      toast.success('Batch created');
       setIsModalOpen(false);
     },
     onError: (err) => toast.error(err.message || 'Failed to create batch'),
   });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }) => updateBatch(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      toast.success('Batch updated successfully');
+      toast.success('Batch updated');
       setIsModalOpen(false);
       setEditingBatch(null);
     },
     onError: (err) => toast.error(err.message || 'Failed to update batch'),
   });
-  const assignCourseMutation = useMutation({
-    mutationFn: assignBatchCourse,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
-      toast.success('Course added to programme');
-      setAddCourseOpen(false);
-      setCourseForm({ course_id: '', semester_id: '' });
-    },
-    onError: (err) => toast.error(err.message || 'Failed to add course'),
-  });
-  const deleteCourseMutation = useMutation({
-    mutationFn: deleteBatchCourse,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
-      toast.success('Course removed from programme');
-    },
-    onError: (err) => toast.error(err.message || 'Failed to remove course'),
-  });
+
   const completeMutation = useMutation({
     mutationFn: ({ batchId, result }) => markBatchProgrammeCompleted(batchId, result),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-      toast.success('Programme marked completed for batch students');
+      toast.success('Programme completion recorded');
       setCompleteBatch(null);
     },
-    onError: (err) => toast.error(err.message || 'Failed to mark batch completed'),
+    onError: (err) => toast.error(err.message || 'Failed to complete programme'),
   });
 
-  const selectedProgramme = programmes.find((p) => p.id === formData.programme_id);
+  const assignCourseMutation = useMutation({
+    mutationFn: (payload) => assignBatchCourse(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses', programmeBatch?.id] });
+      toast.success('Course assigned');
+      setAddCourseOpen(false);
+      setCourseForm({ course_id: '', semester_id: '' });
+    },
+    onError: (err) => toast.error(err.message || 'Failed to assign course'),
+  });
 
-  const isFinalYear = (batch) => {
-    const dur = batch.programmes?.duration_years;
-    if (!batch.year_of_study || !dur) return false;
-    return batch.year_of_study >= Math.ceil(Number(dur));
-  };
+  const removeCourseMutation = useMutation({
+    mutationFn: (id) => deleteBatchCourse(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses', programmeBatch?.id] });
+      toast.success('Course removed');
+    },
+    onError: (err) => toast.error(err.message || 'Failed to remove course'),
+  });
 
-  const handleOpenAdd = () => {
+  const openAdd = () => {
     setEditingBatch(null);
-    const defaultProg = programmes.find((p) => p.code === 'HND') || programmes[0];
     setFormData({
       department_id: departments[0]?.id || '',
-      academic_year_id: academicYears.find((y) => y.is_current)?.id || academicYears[0]?.id || '',
-      programme_id: defaultProg?.id || '',
+      academic_year_id: academicYears[0]?.id || '',
+      programme_id: '',
       year_of_study: 1,
       name: '',
       level_name: '',
@@ -149,13 +151,13 @@ export default function BatchesPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (batch) => {
+  const openEdit = (batch) => {
     setEditingBatch(batch);
     setFormData({
       department_id: batch.department_id || '',
       academic_year_id: batch.academic_year_id || '',
       programme_id: batch.programme_id || '',
-      year_of_study: batch.year_of_study ?? 1,
+      year_of_study: batch.year_of_study || 1,
       name: batch.name || '',
       level_name: batch.level_name || '',
       batch_number: batch.batch_number || 1,
@@ -169,22 +171,10 @@ export default function BatchesPage() {
       toast.error('Name, department, and academic year are required');
       return;
     }
-    if (!formData.programme_id) {
-      toast.error('Programme is required (HND / B.Tech / M.Tech)');
-      return;
-    }
-    if (!formData.year_of_study || formData.year_of_study < 1) {
-      toast.error('Year of study is required');
-      return;
-    }
-    const maxYear = selectedProgramme ? Number(selectedProgramme.duration_years) || 99 : 99;
-    if (selectedProgramme && formData.year_of_study > maxYear) {
-      toast.error(`Year of study cannot exceed ${maxYear} for ${selectedProgramme.code}`);
-      return;
-    }
     const payload = {
       ...formData,
-      year_of_study: Number(formData.year_of_study),
+      programme_id: formData.programme_id || null,
+      year_of_study: Number(formData.year_of_study) || 1,
       batch_number: Number(formData.batch_number) || 1,
     };
     if (editingBatch) {
@@ -194,121 +184,137 @@ export default function BatchesPage() {
     }
   };
 
-  const filtered = batches.filter((b) => {
-    const s = search.toLowerCase();
+  const filtered = (batches || []).filter((b) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
     return (
-      b.name?.toLowerCase().includes(s) ||
-      b.code?.toLowerCase().includes(s) ||
-      b.level_name?.toLowerCase().includes(s) ||
-      b.programmes?.code?.toLowerCase().includes(s)
+      (b.name || '').toLowerCase().includes(q) ||
+      (b.level_name || '').toLowerCase().includes(q) ||
+      (b.departments?.name || '').toLowerCase().includes(q) ||
+      (b.programmes?.name || '').toLowerCase().includes(q)
     );
   });
 
   return (
-    <AppLayout pageTitle="Batches / Cohorts">
+    <AppLayout>
       <div className="page-header">
-        <div className="page-header-left">
-          <h1 className="page-title">Batches / Cohorts</h1>
+        <div>
+          <h1 className="page-title">Batches</h1>
           <p className="page-subtitle">
             Student cohorts by department, programme (HND / B.Tech / M.Tech), year of study, and school year
           </p>
         </div>
-        <div className="page-header-actions">
-          <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Add Batch
-          </button>
-        </div>
+        <button type="button" className="btn btn-primary" onClick={openAdd}>
+          <MdAdd /> Add Batch
+        </button>
       </div>
 
-      <div className="card">
-        <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
-            <MdSearch style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', fontSize: '1.1rem' }} />
-            <input type="text" className="form-input" style={{ paddingLeft: '2.25rem' }} placeholder="Search by name, code, programme…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+            <label className="form-label">Search</label>
+            <input
+              className="form-input"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search batch, level, department…"
+            />
           </div>
-          <div style={{ minWidth: '180px' }}>
-            <select className="form-input" value={selectedDeptFilter} onChange={(e) => setSelectedDeptFilter(e.target.value)}>
-              <option value="">All Departments</option>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: 200 }}>
+            <label className="form-label">Department</label>
+            <select
+              className="form-input"
+              value={selectedDeptFilter}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedDeptFilter(value);
+                if (value) {
+                  setSearchParams({ department: value });
+                } else {
+                  setSearchParams({});
+                }
+              }}
+            >
+              <option value="">All departments</option>
               {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name} ({d.abbreviation})</option>
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
           </div>
         </div>
+      </div>
 
-        <div className="table-wrapper">
+      <div className="card">
+        <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Code</th>
                 <th>Department</th>
                 <th>Programme</th>
                 <th>Year</th>
-                <th>School year</th>
+                <th>Academic year</th>
                 <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>Loading batches...</td></tr>
+                <tr><td colSpan={7}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="empty-state">
-                      <MdGroups className="empty-state-icon" />
-                      <div className="empty-state-title">No Batches Found</div>
-                      <div className="empty-state-text">Create cohorts with a programme and year of study.</div>
-                    </div>
-                  </td>
-                </tr>
+                <tr><td colSpan={7}>No batches found</td></tr>
               ) : (
                 filtered.map((batch) => (
                   <tr key={batch.id}>
-                    <td><strong>{batch.name}</strong></td>
-                    <td><code>{batch.code}</code></td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <MdGroups style={{ color: 'var(--color-primary)' }} />
+                        <strong>{batch.name}</strong>
+                      </div>
+                    </td>
                     <td>{batch.departments?.name || '—'}</td>
-                    <td>
-                      {batch.programmes ? (
-                        <><code>{batch.programmes.code}</code><div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{batch.programmes.name}</div></>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {batch.year_of_study != null ? (
-                        <span>
-                          Year {batch.year_of_study}
-                          {batch.programmes?.duration_years != null && <> of {batch.programmes.duration_years}</>}
-                          {isFinalYear(batch) && (
-                            <span className="badge badge-amber" style={{ marginLeft: 6 }}>Final year</span>
-                          )}
-                        </span>
-                      ) : '—'}
-                    </td>
+                    <td>{batch.programmes?.name || '—'}</td>
+                    <td>{batch.year_of_study || batch.level_name || '—'}</td>
                     <td>{batch.academic_years?.name || '—'}</td>
                     <td>
-                      <span className={`badge ${batch.is_active ? 'badge-green' : 'badge-gray'}`}>
-                        {batch.is_active ? 'Active' : 'Inactive'}
+                      <span className={`badge ${batch.is_active !== false ? 'badge-success' : 'badge-danger'}`}>
+                        {batch.is_active !== false ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td>
                       <RowActionsMenu
                         ariaLabel="Batch actions"
                         items={[
-                          { id: 'programme', label: 'Programme / courses', icon: <MdMenuBook />, onClick: () => setProgrammeBatch(batch) },
-                          { id: 'edit', label: 'Edit', icon: <MdEdit />, onClick: () => handleOpenEdit(batch) },
+                          {
+                            id: 'edit',
+                            label: 'Edit',
+                            icon: <MdEdit />,
+                            onClick: () => openEdit(batch),
+                          },
+                          {
+                            id: 'programme',
+                            label: 'Manage courses',
+                            icon: <MdMenuBook />,
+                            onClick: () => setProgrammeBatch(batch),
+                          },
                           {
                             id: 'complete',
                             label: 'Mark programme completed',
                             icon: <MdCheckCircle />,
-                            onClick: () => { setCompleteBatch(batch); setCompleteResult('pass'); },
-                            hidden: !isFinalYear(batch),
+                            onClick: () => {
+                              setCompleteBatch(batch);
+                              setCompleteResult('pass');
+                            },
                           },
                           {
                             id: 'toggle',
-                            label: batch.is_active ? 'Deactivate' : 'Activate',
-                            icon: batch.is_active ? <MdToggleOn /> : <MdToggleOff />,
-                            onClick: () => updateMutation.mutate({ id: batch.id, updates: { is_active: !batch.is_active } }),
+                            label: batch.is_active !== false ? 'Deactivate' : 'Activate',
+                            icon: batch.is_active !== false ? <MdToggleOn /> : <MdToggleOff />,
+                            onClick: () =>
+                              updateMutation.mutate({
+                                id: batch.id,
+                                updates: { is_active: !batch.is_active },
+                              }),
                           },
                         ]}
                       />
@@ -321,206 +327,225 @@ export default function BatchesPage() {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingBatch ? 'Edit Batch' : 'Add Batch'}>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input className="form-input" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Department *</label>
-            <select className="form-input" value={formData.department_id} onChange={(e) => setFormData({ ...formData, department_id: e.target.value })} required>
-              <option value="">Select department</option>
-              {departments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Programme *</label>
-            <select
-              className="form-input"
-              value={formData.programme_id}
-              onChange={(e) => {
-                const pid = e.target.value;
-                setFormData({ ...formData, programme_id: pid, year_of_study: 1 });
-              }}
-              required
-            >
-              <option value="">Select programme</option>
-              {programmes.map((pr) => (
-                <option key={pr.id} value={pr.id}>
-                  {pr.code} — {pr.name} ({pr.duration_years} yr{Number(pr.duration_years) === 1 ? '' : 's'})
-                </option>
-              ))}
-            </select>
-            <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
-              HND (2 yrs), B.Tech (1 yr), M.Tech (2 yrs) — system programmes
-            </p>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Year of study *</label>
-            <input
-              type="number"
-              min={1}
-              max={selectedProgramme ? Number(selectedProgramme.duration_years) || 6 : 6}
-              className="form-input"
-              value={formData.year_of_study}
-              onChange={(e) => setFormData({ ...formData, year_of_study: Number(e.target.value) || 1 })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">School year *</label>
-            <select className="form-input" value={formData.academic_year_id} onChange={(e) => setFormData({ ...formData, academic_year_id: e.target.value })} required>
-              <option value="">Select year</option>
-              {academicYears.map((y) => (<option key={y.id} value={y.id}>{y.name}{y.is_current ? ' (current)' : ''}</option>))}
-            </select>
-          </div>
-          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+      {isModalOpen && (
+        <Modal
+          title={editingBatch ? 'Edit Batch' : 'Add Batch'}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingBatch(null);
+          }}
+        >
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Level name</label>
-              <input className="form-input" value={formData.level_name} onChange={(e) => setFormData({ ...formData, level_name: e.target.value })} />
+              <label className="form-label">Name *</label>
+              <input
+                className="form-input"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
             </div>
             <div className="form-group">
-              <label className="form-label">Batch number</label>
-              <input type="number" min={1} className="form-input" value={formData.batch_number} onChange={(e) => setFormData({ ...formData, batch_number: Number(e.target.value) })} />
+              <label className="form-label">Department *</label>
+              <select
+                className="form-input"
+                value={formData.department_id}
+                onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                required
+              >
+                <option value="">Select department</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
             </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
-              {editingBatch ? 'Save Changes' : 'Add Batch'}
+            <div className="form-group">
+              <label className="form-label">Academic year *</label>
+              <select
+                className="form-input"
+                value={formData.academic_year_id}
+                onChange={(e) => setFormData({ ...formData, academic_year_id: e.target.value })}
+                required
+              >
+                <option value="">Select year</option>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={y.id}>{y.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Programme</label>
+              <select
+                className="form-input"
+                value={formData.programme_id}
+                onChange={(e) => setFormData({ ...formData, programme_id: e.target.value })}
+              >
+                <option value="">Select programme</option>
+                {programmes.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Year of study</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="form-input"
+                  value={formData.year_of_study}
+                  onChange={(e) => setFormData({ ...formData, year_of_study: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Level name</label>
+                <input
+                  className="form-input"
+                  value={formData.level_name}
+                  onChange={(e) => setFormData({ ...formData, level_name: e.target.value })}
+                  placeholder="Level 1"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Batch number</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="form-input"
+                  value={formData.batch_number}
+                  onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
+                {editingBatch ? 'Save changes' : 'Create batch'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {programmeBatch && (
+        <Modal title={`Courses — ${programmeBatch.name}`} onClose={() => setProgrammeBatch(null)}>
+          <div style={{ marginBottom: 12 }}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setAddCourseOpen(true)}>
+              <MdAdd /> Assign course
             </button>
           </div>
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={Boolean(programmeBatch)}
-        onClose={() => setProgrammeBatch(null)}
-        title={programmeBatch ? `Programme — ${programmeBatch.name}` : 'Programme'}
-        maxWidth="720px"
-        footer={
-          <>
-            <button type="button" className="btn btn-outline" onClick={() => setProgrammeBatch(null)}>Close</button>
-            <button type="button" className="btn btn-primary" onClick={() => setAddCourseOpen(true)}><MdAdd /> Add course</button>
-          </>
-        }
-      >
-        {programmeBatch && (
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: 0 }}>
-            {programmeBatch.programmes && <><code>{programmeBatch.programmes.code}</code> · </>}
-            {programmeBatch.year_of_study != null && <>Year {programmeBatch.year_of_study}</>}
-          </p>
-        )}
-        {programmeLoading ? (
-          <p style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading courses...</p>
-        ) : batchCourses.length === 0 ? (
-          <div className="empty-state" style={{ padding: '1.5rem' }}>
-            <MdMenuBook className="empty-state-icon" />
-            <div className="empty-state-title">No courses in programme</div>
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Course</th>
-                  <th>Semester</th>
-                  <th>Lecturer</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batchCourses.map((bc) => (
-                  <tr key={bc.id}>
-                    <td><code>{bc.courses?.code}</code> <strong>{bc.courses?.name}</strong></td>
-                    <td>{bc.semesters?.name || '—'}</td>
-                    <td>{bc.lecturers ? `${bc.lecturers.first_name} ${bc.lecturers.last_name}` : <span className="badge badge-amber">Unassigned</span>}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button type="button" className="btn-icon" title="Remove" onClick={() => deleteCourseMutation.mutate(bc.id)} disabled={deleteCourseMutation.isPending}>
-                        <MdDelete style={{ color: 'var(--color-secondary)' }} />
-                      </button>
-                    </td>
+          {programmeLoading ? (
+            <p>Loading…</p>
+          ) : batchCourses.length === 0 ? (
+            <p style={{ color: 'var(--color-text-muted)' }}>No courses assigned to this batch.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Course</th>
+                    <th>Semester</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Modal>
+                </thead>
+                <tbody>
+                  {batchCourses.map((bc) => (
+                    <tr key={bc.id}>
+                      <td><code>{bc.courses?.code || '—'}</code></td>
+                      <td>{bc.courses?.name || '—'}</td>
+                      <td>{bc.semesters?.name || '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          onClick={() => removeCourseMutation.mutate(bc.id)}
+                        >
+                          <MdDelete />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Modal>
+      )}
 
-      <Modal isOpen={addCourseOpen} onClose={() => setAddCourseOpen(false)} title="Add course to programme">
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          if (!courseForm.course_id || !courseForm.semester_id || !programmeBatch?.id) {
-            toast.error('Course and semester are required');
-            return;
-          }
-          assignCourseMutation.mutate({
-            batch_id: programmeBatch.id,
-            course_id: courseForm.course_id,
-            semester_id: courseForm.semester_id,
-            is_compulsory: true,
-          });
-        }}>
+      {addCourseOpen && programmeBatch && (
+        <Modal title="Assign course" onClose={() => setAddCourseOpen(false)}>
           <div className="form-group">
-            <label className="form-label">Course *</label>
-            <select className="form-input" value={courseForm.course_id} onChange={(e) => setCourseForm({ ...courseForm, course_id: e.target.value })} required>
-              <option value="">Choose course...</option>
-              {courses.map((c) => (<option key={c.id} value={c.id}>{c.code} — {c.name}</option>))}
+            <label className="form-label">Course</label>
+            <select
+              className="form-input"
+              value={courseForm.course_id}
+              onChange={(e) => setCourseForm({ ...courseForm, course_id: e.target.value })}
+            >
+              <option value="">Select…</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+              ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Semester *</label>
-            <select className="form-input" value={courseForm.semester_id} onChange={(e) => setCourseForm({ ...courseForm, semester_id: e.target.value })} required>
-              <option value="">Choose semester...</option>
-              {semesters.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+            <label className="form-label">Semester</label>
+            <select
+              className="form-input"
+              value={courseForm.semester_id}
+              onChange={(e) => setCourseForm({ ...courseForm, semester_id: e.target.value })}
+            >
+              <option value="">Select…</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
             </select>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setAddCourseOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={assignCourseMutation.isPending}>Add course</button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setAddCourseOpen(false)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!courseForm.course_id || assignCourseMutation.isPending}
+              onClick={() =>
+                assignCourseMutation.mutate({
+                  batch_id: programmeBatch.id,
+                  course_id: courseForm.course_id,
+                  semester_id: courseForm.semester_id || null,
+                })
+              }
+            >
+              Assign
+            </button>
           </div>
-        </form>
-      </Modal>
+        </Modal>
+      )}
 
-      <Modal
-        isOpen={Boolean(completeBatch)}
-        onClose={() => setCompleteBatch(null)}
-        title="Mark programme completed"
-        footer={
-          <>
-            <button type="button" className="btn btn-outline" onClick={() => setCompleteBatch(null)}>Cancel</button>
+      {completeBatch && (
+        <Modal title="Mark programme completed" onClose={() => setCompleteBatch(null)}>
+          <p style={{ marginBottom: 12 }}>
+            {completeBatch.name} — choose result for all active students in this batch.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Result</label>
+            <select className="form-input" value={completeResult} onChange={(e) => setCompleteResult(e.target.value)}>
+              <option value="pass">Pass</option>
+              <option value="fail_or_exit">Fail / exit</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setCompleteBatch(null)}>Cancel</button>
             <button
               type="button"
               className="btn btn-primary"
               disabled={completeMutation.isPending}
               onClick={() => completeMutation.mutate({ batchId: completeBatch.id, result: completeResult })}
             >
-              <MdCheckCircle /> {completeMutation.isPending ? 'Saving…' : 'Confirm completion'}
+              Confirm
             </button>
-          </>
-        }
-      >
-        {completeBatch && (
-          <>
-            <p>
-              Mark all active students in <strong>{completeBatch.name}</strong> as having completed{' '}
-              {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : 'their programme'}.
-            </p>
-            <div className="form-group">
-              <label className="form-label">Result</label>
-              <select className="form-input" value={completeResult} onChange={(e) => setCompleteResult(e.target.value)}>
-                <option value="pass">Pass (eligible for next programme)</option>
-                <option value="fail_or_exit">Fail / exit</option>
-              </select>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Only use this for final-year batches (e.g. HND Year 2, B.Tech Year 1, M.Tech Year 2).
-            </p>
-          </>
-        )}
-      </Modal>
+          </div>
+        </Modal>
+      )}
     </AppLayout>
   );
 }
