@@ -317,7 +317,6 @@ export async function updateBatch(id, updates) {
   const next = { ...updates };
   if (next.year_of_study != null) next.year_of_study = Number(next.year_of_study);
 
-  // When programme / year / core fields are part of the update, enforce integrity.
   const touchesStructure =
     next.programme_id !== undefined ||
     next.year_of_study !== undefined ||
@@ -359,7 +358,6 @@ export async function updateBatch(id, updates) {
     next.code = trimmed ? trimmed.toUpperCase().slice(0, 32) : next.code;
   }
 
-  // Strip client-only helper fields so they are not sent to PostgREST
   delete next.departmentAbbr;
   delete next.programmeCode;
   delete next.programme;
@@ -487,15 +485,75 @@ export async function generateSessionsFromTimetable({ from, to, batchCourseId = 
 
 // ============================================================
 // PROGRAMME COMPLETION
+// Requires migration: unhimas/supabase/migrations/20261103000000_programme_completion.sql
+// (is_final_year_batch, get_batch_programme_info, mark_*_programme_completed).
+// Apply that migration on Supabase before relying on these RPCs in production.
 // ============================================================
 
+/**
+ * Local mirror of is_final_year_batch when only duration_years is known.
+ * Prefer isFinalYearBatch() / getBatchProgrammeInfo() so Biomedical HND (3 yrs)
+ * and other effective durations match the database.
+ */
+export function computeIsFinalYear({ year_of_study, duration_years } = {}) {
+  const year = Number(year_of_study);
+  const dur = Number(duration_years);
+  if (!Number.isFinite(year) || year < 1) return false;
+  if (!Number.isFinite(dur) || dur <= 0) return false;
+  return year >= Math.ceil(dur);
+}
+
+/** RPC: true when batch year_of_study is the final year (uses effective duration). */
+export async function isFinalYearBatch(batchId) {
+  if (!batchId) return false;
+  const { data, error } = await supabase.rpc('is_final_year_batch', { p_batch_id: batchId });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * RPC: programme + year + is_final_year for one batch.
+ * Returns a single object (first row) or null.
+ */
 export async function getBatchProgrammeInfo(batchId) {
   const { data, error } = await supabase.rpc('get_batch_programme_info', { p_batch_id: batchId });
   if (error) throw error;
-  return data;
+  if (Array.isArray(data)) return data[0] || null;
+  return data || null;
+}
+
+/**
+ * Resolve final-year for UI: try server RPC, fall back to local duration.
+ * Does not throw when the migration is missing — returns { isFinalYear, source }.
+ */
+export async function resolveBatchFinalYear(batch) {
+  if (!batch?.id) {
+    return { isFinalYear: false, source: 'none', info: null };
+  }
+  try {
+    const info = await getBatchProgrammeInfo(batch.id);
+    if (info && typeof info.is_final_year === 'boolean') {
+      return { isFinalYear: info.is_final_year, source: 'rpc', info };
+    }
+  } catch (err) {
+    console.debug(
+      'get_batch_programme_info unavailable; using local final-year check:',
+      err?.message || err,
+    );
+  }
+  const duration = batch.programmes?.duration_years ?? batch.duration_years ?? null;
+  return {
+    isFinalYear: computeIsFinalYear({
+      year_of_study: batch.year_of_study,
+      duration_years: duration,
+    }),
+    source: 'local',
+    info: null,
+  };
 }
 
 export async function markStudentProgrammeCompleted(studentId, result = 'pass', notes = null) {
+  // Requires migration 20261103000000_programme_completion.sql on Supabase.
   const { data, error } = await supabase.rpc('mark_student_programme_completed', {
     p_student_id: studentId,
     p_result: result,
@@ -506,6 +564,8 @@ export async function markStudentProgrammeCompleted(studentId, result = 'pass', 
 }
 
 export async function markBatchProgrammeCompleted(batchId, result = 'pass', notes = null) {
+  // Server enforces is_final_year_batch; UI should hide the action when not final year.
+  // Requires migration 20261103000000_programme_completion.sql on Supabase.
   const { data, error } = await supabase.rpc('mark_batch_programme_completed', {
     p_batch_id: batchId,
     p_result: result,
