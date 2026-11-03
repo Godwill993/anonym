@@ -270,3 +270,92 @@
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* ---- Row actions menu (three dots) ---- */
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.row-actions-trigger {
+  padding: 0.35rem;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted, #64748b);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.row-actions-trigger:hover,
+.row-actions-trigger.is-open {
+  background: var(--color-bg, #f8fafc);
+  border-color: var(--color-border, #e2e8f0);
+  color: var(--color-text, #0f172a);
+}
+.row-actions-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 0.35rem;
+  margin: 0;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.row-actions-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text, #0f172a);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.row-actions-item:hover:not(:disabled) {
+  background: var(--color-bg, #f1f5f9);
+}
+.row-actions-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.row-actions-item.is-danger {
+  color: #b91c1c;
+}
+.row-actions-item.is-danger:hover:not(:disabled) {
+  background: #fef2f2;
+}
+.row-actions-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.05rem;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+[data-theme='dark'] .row-actions-menu {
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+[data-theme='dark'] .row-actions-item.is-danger {
+  color: #fca5a5;
+}
+[data-theme='dark'] .row-actions-item.is-danger:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.12);
+}
