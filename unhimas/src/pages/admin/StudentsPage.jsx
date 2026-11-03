@@ -206,7 +206,7 @@ export default function StudentsPage() {
         s.is_active === false ? 'Inactive' : (s.programme_status || 'Active'),
       ]),
     ];
-    const csv = rows.map((r) => r.map((c) => `\"${String(c).replace(/\"/g, '\"\"')}\"`).join(',')).join('\\n');
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -218,28 +218,28 @@ export default function StudentsPage() {
 
   return (
     <AppLayout>
-      <div className=\"page-header\">
+      <div className="page-header">
         <div>
-          <h1 className=\"page-title\">{translateText('Students')}</h1>
-          <p className=\"page-subtitle\">{translateText('Student records, batches, programmes, and account status')}</p>
+          <h1 className="page-title">{translateText('Students')}</h1>
+          <p className="page-subtitle">{translateText('Student records, batches, programmes, and account status')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type=\"button\" className=\"btn btn-secondary\" onClick={exportCsv}>
+          <button type="button" className="btn btn-secondary" onClick={exportCsv}>
             <MdFileDownload /> {translateText('Export CSV')}
           </button>
           {canManagePeople && (
-            <button type=\"button\" className=\"btn btn-primary\" onClick={openCreate}>
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
               <MdAdd /> {translateText('Add Student')}
             </button>
           )}
         </div>
       </div>
 
-      <div className=\"card\" style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem' }}>
+      <div className="card" style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem' }}>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <input
-              className=\"form-input\"
+              className="form-input"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -251,7 +251,7 @@ export default function StudentsPage() {
           </div>
           <div style={{ minWidth: 180 }}>
             <select
-              className=\"form-input\"
+              className="form-input"
               value={batchFilter}
               onChange={(e) => {
                 setBatchFilter(e.target.value);
@@ -259,7 +259,7 @@ export default function StudentsPage() {
               }}
               aria-label={translateText('Batch')}
             >
-              <option value=\"\">{translateText('All batches')}</option>
+              <option value="">{translateText('All batches')}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
@@ -268,9 +268,9 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      <div className=\"card\">
-        <div className=\"table-wrap\">
-          <table className=\"data-table\">
+      <div className="card">
+        <div className="table-wrap">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>{translateText('Matricule')}</th>
@@ -354,13 +354,13 @@ export default function StudentsPage() {
 
         {pageCount > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-            <button type=\"button\" className=\"btn btn-secondary\" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <button type="button" className="btn btn-secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               <MdChevronLeft />
             </button>
             <span style={{ alignSelf: 'center' }}>
               {page + 1} / {pageCount}
             </span>
-            <button type=\"button\" className=\"btn btn-secondary\" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>
+            <button type="button" className="btn btn-secondary" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>
               <MdChevronRight />
             </button>
           </div>
@@ -370,38 +370,38 @@ export default function StudentsPage() {
       {modalOpen && (
         <Modal title={editing ? translateText('Edit Student') : translateText('Add Student')} onClose={closeModal}>
           <form onSubmit={handleSubmit}>
-            <div className=\"form-group\">
-              <label className=\"form-label\">{translateText('Matricule')} *</label>
-              <input className=\"form-input\" value={formData.matricule} onChange={(e) => setFormData({ ...formData, matricule: e.target.value.toUpperCase() })} required />
+            <div className="form-group">
+              <label className="form-label">{translateText('Matricule')} *</label>
+              <input className="form-input" value={formData.matricule} onChange={(e) => setFormData({ ...formData, matricule: e.target.value.toUpperCase() })} required />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('First Name')} *</label>
-                <input className=\"form-input\" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} required />
+              <div className="form-group">
+                <label className="form-label">{translateText('First Name')} *</label>
+                <input className="form-input" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} required />
               </div>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Middle name')}</label>
-                <input className=\"form-input\" value={formData.middle_name} onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">{translateText('Middle name')}</label>
+                <input className="form-input" value={formData.middle_name} onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })} />
               </div>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Last Name')} *</label>
-                <input className=\"form-input\" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} required />
+              <div className="form-group">
+                <label className="form-label">{translateText('Last Name')} *</label>
+                <input className="form-input" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} required />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Email')}</label>
-                <input type=\"email\" className=\"form-input\" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">{translateText('Email')}</label>
+                <input type="email" className="form-input" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Phone')}</label>
-                <input className=\"form-input\" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">{translateText('Phone')}</label>
+                <input className="form-input" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
             </div>
-            <div className=\"form-group\">
-              <label className=\"form-label\">{translateText('Batch / cohort')} *</label>
-              <select className=\"form-input\" value={formData.batch_id} onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })} required>
-                <option value=\"\">{translateText('Select…')}</option>
+            <div className="form-group">
+              <label className="form-label">{translateText('Batch / cohort')} *</label>
+              <select className="form-input" value={formData.batch_id} onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })} required>
+                <option value="">{translateText('Select…')}</option>
                 {batches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -409,30 +409,30 @@ export default function StudentsPage() {
                   </option>
                 ))}
               </select>
-              <p className=\"form-hint\">{translateText('Programme is inherited from the selected batch.')}</p>
+              <p className="form-hint">{translateText('Programme is inherited from the selected batch.')}</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Gender')}</label>
-                <select className=\"form-input\" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
-                  <option value=\"\">{translateText('Select…')}</option>
-                  <option value=\"female\">{translateText('Female')}</option>
-                  <option value=\"male\">{translateText('Male')}</option>
-                  <option value=\"other\">{translateText('Other')}</option>
+              <div className="form-group">
+                <label className="form-label">{translateText('Gender')}</label>
+                <select className="form-input" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
+                  <option value="">{translateText('Select…')}</option>
+                  <option value="female">{translateText('Female')}</option>
+                  <option value="male">{translateText('Male')}</option>
+                  <option value="other">{translateText('Other')}</option>
                 </select>
               </div>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Date of birth')}</label>
-                <input type=\"date\" className=\"form-input\" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">{translateText('Date of birth')}</label>
+                <input type="date" className="form-input" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} />
               </div>
-              <div className=\"form-group\">
-                <label className=\"form-label\">{translateText('Nationality')}</label>
-                <input className=\"form-input\" value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">{translateText('Nationality')}</label>
+                <input className="form-input" value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button type=\"button\" className=\"btn btn-secondary\" onClick={closeModal}>{translateText('Cancel')}</button>
-              <button type=\"submit\" className=\"btn btn-primary\" disabled={createMutation.isPending || updateMutation.isPending}>
+              <button type="button" className="btn btn-secondary" onClick={closeModal}>{translateText('Cancel')}</button>
+              <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
                 {editing ? translateText('Save changes') : translateText('Create student')}
               </button>
             </div>
