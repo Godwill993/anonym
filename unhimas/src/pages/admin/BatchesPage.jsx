@@ -139,10 +139,14 @@ export default function BatchesPage() {
 
   const openAdd = () => {
     setEditingBatch(null);
+    const defaultProg =
+      programmes.find((p) => p.code === 'HND') || programmes[0] || null;
+    const currentYear =
+      academicYears.find((y) => y.is_current) || academicYears[0] || null;
     setFormData({
       department_id: departments[0]?.id || '',
-      academic_year_id: academicYears[0]?.id || '',
-      programme_id: '',
+      academic_year_id: currentYear?.id || '',
+      programme_id: defaultProg?.id || '',
       year_of_study: 1,
       name: '',
       level_name: '',
@@ -165,17 +169,37 @@ export default function BatchesPage() {
     setIsModalOpen(true);
   };
 
+  const selectedProgramme = programmes.find((p) => p.id === formData.programme_id) || null;
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.department_id || !formData.academic_year_id) {
-      toast.error('Name, department, and academic year are required');
+      toast.error('Name, department, and school year are required');
       return;
     }
+    if (!formData.programme_id) {
+      toast.error('Programme is required (HND, B.Tech, or M.Tech). Students inherit it from this batch.');
+      return;
+    }
+    const year = Number(formData.year_of_study);
+    if (!Number.isFinite(year) || year < 1) {
+      toast.error('Year of study is required and must be at least 1');
+      return;
+    }
+    const maxYears = selectedProgramme?.duration_years != null ? Number(selectedProgramme.duration_years) : null;
+    if (maxYears != null && year > maxYears) {
+      toast.error(`Year of study cannot exceed ${maxYears} for ${selectedProgramme.code || 'this programme'}`);
+      return;
+    }
+    const dept = departments.find((d) => d.id === formData.department_id);
     const payload = {
       ...formData,
-      programme_id: formData.programme_id || null,
-      year_of_study: Number(formData.year_of_study) || 1,
+      programme_id: formData.programme_id,
+      year_of_study: year,
       batch_number: Number(formData.batch_number) || 1,
+      departmentAbbr: dept?.abbreviation || null,
+      programmeCode: selectedProgramme?.code || null,
+      programme: selectedProgramme,
     };
     if (editingBatch) {
       updateMutation.mutate({ id: editingBatch.id, updates: payload });
@@ -274,7 +298,22 @@ export default function BatchesPage() {
                     </td>
                     <td>{batch.departments?.name || '—'}</td>
                     <td>{batch.programmes?.name || '—'}</td>
-                    <td>{batch.year_of_study || batch.level_name || '—'}</td>
+                    <td>
+                      {batch.year_of_study != null ? (
+                        <span>
+                          Year {batch.year_of_study}
+                          {batch.programmes?.duration_years != null && (
+                            <> of {batch.programmes.duration_years}</>
+                          )}
+                          {batch.programmes?.duration_years != null &&
+                            Number(batch.year_of_study) >= Number(batch.programmes.duration_years) && (
+                            <span className="badge badge-amber" style={{ marginLeft: 6 }}>Final year</span>
+                          )}
+                        </span>
+                      ) : (
+                        batch.level_name || '—'
+                      )}
+                    </td>
                     <td>{batch.academic_years?.name || '—'}</td>
                     <td>
                       <span className={`badge ${batch.is_active !== false ? 'badge-success' : 'badge-danger'}`}>
@@ -374,27 +413,39 @@ export default function BatchesPage() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Programme</label>
+              <label className="form-label">Programme *</label>
               <select
                 className="form-input"
                 value={formData.programme_id}
-                onChange={(e) => setFormData({ ...formData, programme_id: e.target.value })}
+                onChange={(e) => {
+                  const pid = e.target.value;
+                  setFormData({ ...formData, programme_id: pid, year_of_study: 1 });
+                }}
+                required
               >
                 <option value="">Select programme</option>
                 {programmes.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.code} — {p.name}
+                    {p.duration_years != null ? ` (${p.duration_years} yr${Number(p.duration_years) === 1 ? '' : 's'})` : ''}
+                  </option>
                 ))}
               </select>
+              <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
+                Required. HND (2 yrs), B.Tech (1 yr), M.Tech (2 yrs). Students inherit this programme from the batch.
+              </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Year of study</label>
+                <label className="form-label">Year of study *</label>
                 <input
                   type="number"
                   min={1}
+                  max={selectedProgramme?.duration_years != null ? Number(selectedProgramme.duration_years) : 6}
                   className="form-input"
                   value={formData.year_of_study}
                   onChange={(e) => setFormData({ ...formData, year_of_study: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
@@ -512,6 +563,7 @@ export default function BatchesPage() {
                   batch_id: programmeBatch.id,
                   course_id: courseForm.course_id,
                   semester_id: courseForm.semester_id,
+                  is_compulsory: true,
                 })
               }
             >
@@ -523,14 +575,13 @@ export default function BatchesPage() {
 
       {completeBatch && (
         <Modal title="Mark programme completed" onClose={() => setCompleteBatch(null)}>
-          <p style={{ marginBottom: 12 }}>Batch: <strong>{completeBatch.name}</strong></p>
+          <p>
+            Mark all active students in <strong>{completeBatch.name}</strong> as having completed{' '}
+            {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : 'their programme'}.
+          </p>
           <div className="form-group">
             <label className="form-label">Result</label>
-            <select
-              className="form-input"
-              value={completeResult}
-              onChange={(e) => setCompleteResult(e.target.value)}
-            >
+            <select className="form-input" value={completeResult} onChange={(e) => setCompleteResult(e.target.value)}>
               <option value="pass">Pass</option>
               <option value="fail_or_exit">Fail / exit</option>
             </select>
