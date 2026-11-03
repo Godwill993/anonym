@@ -1,4 +1,4 @@
-import { useState, useMemo, useId } from 'react';
+import { useState, useMemo, useId, useEffect } from 'react';
 import {
   MdSearch,
   MdClose,
@@ -12,6 +12,75 @@ import {
 import { useTranslation } from '../../i18n';
 import { exportToCsv } from '../../utils/exportUtils';
 
+/** Collect plain text from nested row values for client-side search. */
+function collectSearchText(value, depth = 0, out = []) {
+  if (value == null || depth > 4) return out;
+  const t = typeof value;
+  if (t === 'string' || t === 'number' || t === 'boolean') {
+    const s = String(value).trim();
+    if (s) out.push(s);
+    return out;
+  }
+  if (t !== 'object') return out;
+  // Skip React elements
+  if (value.$$typeof || value._owner) return out;
+  if (Array.isArray(value)) {
+    for (const item of value) collectSearchText(item, depth + 1, out);
+    return out;
+  }
+  for (const v of Object.values(value)) {
+    collectSearchText(v, depth + 1, out);
+  }
+  return out;
+}
+
+function getByPath(obj, path) {
+  if (!obj || !path) return undefined;
+  if (!path.includes('.')) return obj[path];
+  return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+}
+
+function rowMatchesSearch(item, term, searchField, columns) {
+  if (!term) return true;
+
+  if (typeof searchField === 'function') {
+    try {
+      return Boolean(searchField(item, term));
+    } catch {
+      return false;
+    }
+  }
+
+  if (Array.isArray(searchField) && searchField.length > 0) {
+    return searchField.some((key) => {
+      const val = getByPath(item, key);
+      return collectSearchText(val).some((s) => s.toLowerCase().includes(term));
+    });
+  }
+
+  // Prefer column-defined searchable values when available
+  if (columns?.length) {
+    const fromCols = columns.some((col) => {
+      if (col.searchable === false) return false;
+      if (typeof col.searchValue === 'function') {
+        try {
+          const v = col.searchValue(item);
+          return collectSearchText(v).some((s) => s.toLowerCase().includes(term));
+        } catch {
+          return false;
+        }
+      }
+      const key = col.accessor || col.key;
+      if (!key) return false;
+      return collectSearchText(getByPath(item, key)).some((s) => s.toLowerCase().includes(term));
+    });
+    if (fromCols) return true;
+  }
+
+  // Fallback: deep-scan the whole row object
+  return collectSearchText(item).some((s) => s.toLowerCase().includes(term));
+}
+
 export default function DataTable({
   columns = [],
   data = [],
@@ -21,9 +90,11 @@ export default function DataTable({
   emptySubtitle = 'There are no items to display yet.',
   pageSize = 10,
   actionButton = null,
+  filterControls = null,
   exportable = false,
   exportFileName = 'export',
   enableSorting = true,
+  enableSearch = true,
 }) {
   const { language, translateText } = useTranslation();
   const [search, setSearch] = useState('');
@@ -34,28 +105,11 @@ export default function DataTable({
   const regionId = useId();
 
   const filteredData = useMemo(() => {
-    if (!search.trim()) return data;
-    const term = search.toLowerCase();
-    return data.filter((item) => {
-      if (searchField && typeof searchField === 'function') {
-        return searchField(item, term);
-      }
-      return Object.values(item).some((val) => {
-        if (val === null || val === undefined) return false;
-        if (typeof val === 'string') return val.toLowerCase().includes(term);
-        if (typeof val === 'number') return String(val).includes(term);
-        if (typeof val === 'object') {
-          return Object.values(val).some(
-            (nested) =>
-              nested &&
-              typeof nested === 'string' &&
-              nested.toLowerCase().includes(term),
-          );
-        }
-        return false;
-      });
-    });
-  }, [data, search, searchField]);
+    const list = Array.isArray(data) ? data : [];
+    const term = search.trim().toLowerCase();
+    if (!term) return list;
+    return list.filter((item) => rowMatchesSearch(item, term, searchField, columns));
+  }, [data, search, searchField, columns]);
 
   const sortedData = useMemo(() => {
     if (!sortConfig.key) return filteredData;
@@ -63,13 +117,8 @@ export default function DataTable({
     const col = columns.find((c) => (c.accessor || c.key) === key);
 
     return [...filteredData].sort((a, b) => {
-      let valA = a[key];
-      let valB = b[key];
-
-      if (col && typeof col.sortValue === 'function') {
-        valA = col.sortValue(a);
-        valB = col.sortValue(b);
-      }
+      let valA = col && typeof col.sortValue === 'function' ? col.sortValue(a) : getByPath(a, key);
+      let valB = col && typeof col.sortValue === 'function' ? col.sortValue(b) : getByPath(b, key);
 
       if (valA === valB) return 0;
       if (valA === null || valA === undefined) return 1;
@@ -78,13 +127,19 @@ export default function DataTable({
       const comparison =
         typeof valA === 'number' && typeof valB === 'number'
           ? valA - valB
-          : String(valA).localeCompare(String(valB), undefined, { numeric: true });
+          : String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
 
       return direction === 'asc' ? comparison : -comparison;
     });
   }, [filteredData, sortConfig, columns]);
 
-  const totalPages = Math.ceil(sortedData.length / perPage) || 1;
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / perPage) || 1);
+
+  // Keep current page in range when filters/search shrink the result set
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
+
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * perPage;
     return sortedData.slice(start, start + perPage);
@@ -126,66 +181,83 @@ export default function DataTable({
     exportToCsv(exportFileName, exportHeaders, sortedData);
   };
 
+  const showingFrom = sortedData.length === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  const showingTo = Math.min(currentPage * perPage, sortedData.length);
+
   return (
-    <div className="card">
-      <div className="card-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-        <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 220px' }}>
-          <label htmlFor={searchId} className="sr-only">
-            {translateText(searchPlaceholder)}
-          </label>
-          <MdSearch
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: '0.75rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--color-text-muted)',
-              fontSize: '1.15rem',
-              pointerEvents: 'none',
-            }}
-          />
-          <input
-            id={searchId}
-            type="search"
-            className="form-input"
-            style={{
-              paddingLeft: '2.25rem',
-              paddingRight: search ? '2rem' : '0.875rem',
-              height: '38px',
-            }}
-            placeholder={translateText(searchPlaceholder)}
-            value={search}
-            onChange={handleSearchChange}
-            aria-label={translateText(searchPlaceholder)}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
+    <div className="card data-table-card">
+      <div className="card-header data-table-toolbar" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
+        {enableSearch && (
+          <div className="data-table-search" style={{ position: 'relative', minWidth: '220px', flex: '1 1 220px', maxWidth: '420px' }}>
+            <label htmlFor={searchId} className="sr-only">
+              {translateText(searchPlaceholder)}
+            </label>
+            <MdSearch
+              aria-hidden="true"
               style={{
                 position: 'absolute',
-                right: '0.6rem',
+                left: '0.75rem',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
                 color: 'var(--color-text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '2px',
-                borderRadius: '50%',
+                fontSize: '1.15rem',
+                pointerEvents: 'none',
+                zIndex: 1,
               }}
-              title={translateText('Clear search')}
-              aria-label={translateText('Clear search')}
-            >
-              <MdClose size={16} aria-hidden="true" />
-            </button>
-          )}
-        </div>
+            />
+            <input
+              id={searchId}
+              type="search"
+              className="form-input"
+              style={{
+                paddingLeft: '2.25rem',
+                paddingRight: search ? '2.25rem' : '0.875rem',
+                minHeight: '38px',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+              placeholder={translateText(searchPlaceholder)}
+              value={search}
+              onChange={handleSearchChange}
+              aria-label={translateText(searchPlaceholder)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                style={{
+                  position: 'absolute',
+                  right: '0.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px',
+                  borderRadius: '50%',
+                  lineHeight: 0,
+                }}
+                title={translateText('Clear search')}
+                aria-label={translateText('Clear search')}
+              >
+                <MdClose size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {filterControls ? (
+          <div className="data-table-filters" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {filterControls}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
           {exportable && (
             <button
               type="button"
@@ -197,16 +269,11 @@ export default function DataTable({
               <MdFileDownload aria-hidden="true" /> {translateText('Export CSV')}
             </button>
           )}
-          {actionButton && <div>{actionButton}</div>}
+          {actionButton ? <div>{actionButton}</div> : null}
         </div>
       </div>
 
-      <div
-        className="table-wrapper"
-        role="region"
-        aria-labelledby={regionId}
-        id={regionId}
-      >
+      <div className="table-wrapper" role="region" aria-labelledby={regionId} id={regionId}>
         <table className="data-table">
           <caption className="sr-only">{translateText('Data table')}</caption>
           <thead>
@@ -255,9 +322,7 @@ export default function DataTable({
                           aria-hidden="true"
                           style={{
                             fontSize: '0.85rem',
-                            color: isSorted
-                              ? 'var(--color-secondary)'
-                              : 'var(--color-text-muted)',
+                            color: isSorted ? 'var(--color-secondary)' : 'var(--color-text-muted)',
                           }}
                         >
                           {isSorted ? (
@@ -282,7 +347,7 @@ export default function DataTable({
           <tbody>
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+                <td colSpan={Math.max(columns.length, 1)} style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
                   <div className="empty-state" style={{ padding: '0.5rem' }}>
                     <MdInbox
                       className="empty-state-icon"
@@ -299,7 +364,7 @@ export default function DataTable({
                           : emptySubtitle,
                       )}
                     </div>
-                    {search && (
+                    {search ? (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
@@ -308,16 +373,16 @@ export default function DataTable({
                       >
                         {translateText('Clear search')}
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </td>
               </tr>
             ) : (
               paginatedData.map((row, rowIdx) => (
-                <tr key={row.id || rowIdx}>
+                <tr key={row.id != null ? row.id : rowIdx}>
                   {columns.map((col, colIdx) => (
                     <td key={col.key || col.accessor || colIdx} style={col.style || {}}>
-                      {col.render ? col.render(row, rowIdx) : row[col.accessor]}
+                      {col.render ? col.render(row, rowIdx) : getByPath(row, col.accessor)}
                     </td>
                   ))}
                 </tr>
@@ -329,6 +394,7 @@ export default function DataTable({
 
       {sortedData.length > 0 && (
         <div
+          className="data-table-footer"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -344,14 +410,13 @@ export default function DataTable({
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <div aria-live="polite">
               {language === 'fr'
-                ? `Affichage de ${(currentPage - 1) * perPage + 1} à ${Math.min(
-                    currentPage * perPage,
-                    sortedData.length,
-                  )} sur ${sortedData.length} enregistrements`
-                : `Showing ${(currentPage - 1) * perPage + 1} to ${Math.min(
-                    currentPage * perPage,
-                    sortedData.length,
-                  )} of ${sortedData.length} records`}
+                ? `Affichage de ${showingFrom} à ${showingTo} sur ${sortedData.length} enregistrements`
+                : `Showing ${showingFrom} to ${showingTo} of ${sortedData.length} records`}
+              {search ? (
+                <span style={{ marginLeft: 6, opacity: 0.85 }}>
+                  {language === 'fr' ? '(filtrés)' : '(filtered)'}
+                </span>
+              ) : null}
             </div>
 
             {sortedData.length > 10 && (
@@ -388,7 +453,7 @@ export default function DataTable({
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                disabled={currentPage === 1}
+                disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 aria-label={translateText('Previous page')}
               >
@@ -410,7 +475,7 @@ export default function DataTable({
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 aria-label={translateText('Next page')}
               >
