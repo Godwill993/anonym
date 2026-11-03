@@ -14,7 +14,6 @@ function parseSessionDateTime(value) {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
-/** Throws if class session attendance is locked (submitted/approved). Missing column = allow (migration not applied yet). */
 async function assertSessionAttendanceEditable(sessionId) {
   if (!sessionId) throw new Error('Session required');
   const { data, error } = await supabase
@@ -23,7 +22,6 @@ async function assertSessionAttendanceEditable(sessionId) {
     .eq('id', sessionId)
     .maybeSingle();
   if (error) {
-    // Column missing or other — let DB decide; only hard-block known locked statuses
     if (error.code === '42703' || /attendance_status/i.test(error.message || '')) return;
     throw error;
   }
@@ -46,12 +44,20 @@ export async function getMyLecturerProfile() {
 }
 
 export async function getMyCourses(lecturerId) {
-  const { data, error } = await supabase.from('batch_courses').select(`id, is_compulsory, courses:course_id (id, code, name, credit_units), batches:batch_id (id, name, code, departments:department_id (name, abbreviation)), semesters:semester_id (id, name, number, is_current, academic_years:academic_year_id (id, name, is_current))`).eq('lecturer_id', lecturerId).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('batch_courses').select(`
+    id, is_compulsory,
+    courses:course_id (id, code, name, credit_units),
+    batches:batch_id (
+      id, name, code, year_of_study,
+      programmes:programme_id (id, code, name, award, duration_years),
+      departments:department_id (name, abbreviation)
+    ),
+    semesters:semester_id (id, name, number, is_current, academic_years:academic_year_id (id, name, is_current))
+  `).eq('lecturer_id', lecturerId).order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
 
-/** Today's sessions. Uses * so Zoom columns are optional until migration is applied. */
 export async function getTodaySessions(lecturerId) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -244,17 +250,12 @@ export async function markAllNotificationsRead(profileId) {
   if (error) throw error;
 }
 
-/** Permanently remove all notifications for this lecturer. */
 export async function clearAllNotifications(profileId) {
   if (!profileId) throw new Error('Profile required to clear notifications');
   const { error } = await supabase.from('notifications').delete().eq('recipient_id', profileId);
   if (error) throw error;
 }
 
-/**
- * Dashboard stats — resilient: missing views (e.g. lecturer_hours_monthly)
- * do not take down the whole dashboard.
- */
 export async function getLecturerDashboardStats(lecturerId, profileId) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
