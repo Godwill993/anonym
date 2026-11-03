@@ -6,14 +6,14 @@ import {
   MdMoreVert,
 } from 'react-icons/md';
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { toast } from '../../components/common/Toast';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import DataTable from '../../components/common/DataTable';
-import RowActions from '../../components/common/RowActions';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { useAuth } from '../../hooks/useAuth';
-import { translateText } from '../../i18n';
+import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import {
   getStudents,
   createStudent,
@@ -28,6 +28,7 @@ const PAGE_SIZE = 20;
 
 export default function StudentsPage() {
   const { profile } = useAuth();
+  const { translateText } = useTranslation();
   const canManagePeople = profile?.role === 'admin' || profile?.role === 'registrar';
   const queryClient = useQueryClient();
 
@@ -37,81 +38,108 @@ export default function StudentsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState({
-    matricule: '', first_name: '', middle_name: '', last_name: '', email: '', phone: '', batch_id: '', admission_date: '',
+    matricule: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    batch_id: '',
+    gender: '',
+    date_of_birth: '',
+    nationality: 'Cameroonian',
   });
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(null);
 
   const { data: students = [], isLoading } = useQuery({
-    queryKey: ['admin-students', batchFilter, search],
-    queryFn: () => getStudents({ batchId: batchFilter || null, search }),
+    queryKey: ['students'],
+    queryFn: getStudents,
   });
 
   const { data: batches = [] } = useQuery({
-    queryKey: ['admin-batches'],
-    queryFn: () => getBatches(),
+    queryKey: ['batches'],
+    queryFn: getBatches,
   });
 
   const createMutation = useMutation({
     mutationFn: createStudent,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       toast.success(translateText('Student created'));
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       closeModal();
     },
     onError: (err) => toast.error(err.message || translateText('Failed to create student')),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, updates }) => updateStudent(id, updates),
+    mutationFn: ({ id, payload }) => updateStudent(id, payload),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       toast.success(translateText('Student updated'));
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       closeModal();
     },
     onError: (err) => toast.error(err.message || translateText('Failed to update student')),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({ recordId }) => deleteSchoolAccount({ recordType: 'student', recordId }),
+    mutationFn: (stu) => deleteSchoolAccount({ role: 'student', id: stu.id, profileId: stu.profile_id }),
     onSuccess: () => {
-      toast.success(translateText('Student account deleted'));
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      toast.success(translateText('Student deleted'));
       setConfirmDelete(null);
     },
-    onError: (err) => toast.error(err.message || translateText('Failed to delete')),
+    onError: (err) => toast.error(err.message || translateText('Failed to delete student')),
   });
 
   const archiveMutation = useMutation({
-    mutationFn: (studentId) => archiveStudent(studentId),
+    mutationFn: (stu) => archiveStudent(stu.id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       toast.success(translateText('Student archived'));
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       setConfirmArchive(null);
     },
-    onError: (err) => toast.error(err.message || translateText('Failed to archive')),
+    onError: (err) => toast.error(err.message || translateText('Failed to archive student')),
   });
 
   const completeMutation = useMutation({
     mutationFn: ({ studentId, result }) => markStudentProgrammeCompleted(studentId, result),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       toast.success(translateText('Programme marked completed for student'));
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
     },
     onError: (err) => toast.error(err.message || translateText('Failed to mark programme completed')),
   });
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (students || []).filter((s) => {
+      if (batchFilter && s.batch_id !== batchFilter) return false;
+      if (!q) return true;
+      const blob = [s.matricule, s.first_name, s.last_name, s.email, s.middle_name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return blob.includes(q);
+    });
+  }, [students, search, batchFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   const openCreate = () => {
     setEditing(null);
     setFormData({
-      matricule: `UNH/${new Date().getFullYear()}/`,
+      matricule: '',
       first_name: '',
       middle_name: '',
       last_name: '',
       email: '',
       phone: '',
-      batch_id: batches[0]?.id || '',
-      admission_date: new Date().toISOString().split('T')[0],
+      batch_id: '',
+      gender: '',
+      date_of_birth: '',
+      nationality: 'Cameroonian',
     });
     setModalOpen(true);
   };
@@ -126,7 +154,9 @@ export default function StudentsPage() {
       email: stu.email || '',
       phone: stu.phone || '',
       batch_id: stu.batch_id || '',
-      admission_date: stu.admission_date || '',
+      gender: stu.gender || '',
+      date_of_birth: stu.date_of_birth || '',
+      nationality: stu.nationality || 'Cameroonian',
     });
     setModalOpen(true);
   };
@@ -138,7 +168,7 @@ export default function StudentsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.matricule.trim() || !formData.first_name.trim() || !formData.last_name.trim()) {
+    if (!formData.matricule?.trim() || !formData.first_name?.trim() || !formData.last_name?.trim()) {
       toast.error(translateText('Matricule, first name and last name are required'));
       return;
     }
@@ -146,53 +176,38 @@ export default function StudentsPage() {
       toast.error(translateText('Batch / cohort is required'));
       return;
     }
+    const payload = {
+      ...formData,
+      batch_id: formData.batch_id || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      middle_name: formData.middle_name || null,
+      gender: formData.gender || null,
+      date_of_birth: formData.date_of_birth || null,
+    };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, updates: formData });
+      updateMutation.mutate({ id: editing.id, payload });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(payload);
     }
   };
 
-  const filtered = useMemo(() => {
-    let list = students;
-    if (search.trim()) {
-      const s = search.trim().toLowerCase();
-      list = list.filter(
-        (stu) =>
-          (stu.matricule || '').toLowerCase().includes(s) ||
-          (stu.first_name || '').toLowerCase().includes(s) ||
-          (stu.last_name || '').toLowerCase().includes(s) ||
-          (stu.email || '').toLowerCase().includes(s)
-      );
-    }
-    return list;
-  }, [students, search]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
   const exportCsv = () => {
-    const headers = [
-      { label: 'Matricule', key: 'matricule' },
-      { label: 'First Name', key: 'first_name' },
-      { label: 'Last Name', key: 'last_name' },
-      { label: 'Batch', key: 'batch_name' },
-      { label: 'Programme', key: 'programme_code' },
-      { label: 'Email', key: 'email' },
+    const rows = [
+      ['Matricule', 'First Name', 'Last Name', 'Email', 'Phone', 'Batch', 'Programme', 'Status'],
+      ...filtered.map((s) => [
+        s.matricule || '',
+        s.first_name || '',
+        s.last_name || '',
+        s.email || '',
+        s.phone || '',
+        s.batches?.name || '',
+        s.programmes?.name || s.batches?.programmes?.name || '',
+        s.is_active === false ? 'Inactive' : (s.programme_status || 'Active'),
+      ]),
     ];
-    const rows = filtered.map((s) => ({
-      matricule: s.matricule,
-      first_name: s.first_name,
-      last_name: s.last_name,
-      batch_name: s.batches?.name || '',
-      programme_code: s.programmes?.code || s.batches?.programmes?.code || '',
-      email: s.email || '',
-    }));
-    const csv = [
-      headers.map((h) => h.label).join(','),
-      ...rows.map((r) => headers.map((h) => `"${(r[h.key] || '').toString().replace(/"/g, '""')}"`).join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -208,7 +223,7 @@ export default function StudentsPage() {
           <h1 className="page-title">{translateText('Students')}</h1>
           <p className="page-subtitle">{translateText('Student records, batches, programmes, and account status')}</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-secondary" onClick={exportCsv}>
             <MdFileDownload /> {translateText('Export CSV')}
           </button>
@@ -221,35 +236,40 @@ export default function StudentsPage() {
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: '1 1 220px' }}>
-            <MdSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+            <label className="form-label">{translateText('Search')}</label>
             <input
               className="form-input"
-              style={{ paddingLeft: 36 }}
-              placeholder={translateText('Search matricule, name, email…')}
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              placeholder={translateText('Search matricule, name, email…')}
             />
           </div>
-          <select
-            className="form-input"
-            style={{ flex: '0 0 200px' }}
-            value={batchFilter}
-            onChange={(e) => { setBatchFilter(e.target.value); setPage(0); }}
-          >
-            <option value="">{translateText('All batches')}</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} {b.programmes?.code ? `· ${b.programmes.code}` : ''}
-              </option>
-            ))}
-          </select>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: 180 }}>
+            <label className="form-label">{translateText('Batch')}</label>
+            <select
+              className="form-input"
+              value={batchFilter}
+              onChange={(e) => {
+                setBatchFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">{translateText('All batches')}</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       <div className="card">
-        <div className="table-responsive">
+        <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -269,26 +289,27 @@ export default function StudentsPage() {
                 <tr><td colSpan={7}>{translateText('No students found')}</td></tr>
               ) : (
                 pageItems.map((stu) => {
-                  const prog = stu.programmes || stu.batches?.programmes;
-                  const status = stu.programme_status || 'active';
+                  const progName = stu.programmes?.name || stu.batches?.programmes?.name || '—';
                   return (
                     <tr key={stu.id}>
-                      <td><code>{stu.matricule}</code></td>
-                      <td>{[stu.first_name, stu.middle_name, stu.last_name].filter(Boolean).join(' ')}</td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{stu.matricule}</td>
+                      <td>{[stu.first_name, stu.last_name].filter(Boolean).join(' ')}</td>
                       <td>{stu.batches?.name || '—'}</td>
-                      <td>{prog ? `${prog.code}` : '—'}</td>
+                      <td>{progName}</td>
                       <td>
-                        <span className={`badge badge-${status === 'completed' ? 'success' : status === 'withdrawn' ? 'warning' : 'info'}`}>
-                          {status === 'completed'
-                            ? (stu.programme_completion_result === 'fail_or_exit' ? 'Completed (fail/exit)' : 'Completed')
-                            : status === 'withdrawn' ? 'Withdrawn' : 'In programme'}
+                        <span className={`badge ${stu.is_active === false ? 'badge-danger' : 'badge-success'}`}>
+                          {stu.is_active === false
+                            ? translateText('Inactive')
+                            : (stu.programme_status === 'completed'
+                              ? translateText('Completed')
+                              : translateText('Active'))}
                         </span>
                       </td>
                       <td>{stu.email || '—'}</td>
                       {canManagePeople && (
                         <td>
-                          <RowActions
-                            actions={[
+                          <RowActionsMenu
+                            items={[
                               {
                                 label: translateText('Edit'),
                                 icon: <MdEdit />,
@@ -359,7 +380,7 @@ export default function StudentsPage() {
                 <input className="form-input" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label className="form-label">{translateText('Middle Name')}</label>
+                <label className="form-label">{translateText('Middle name')}</label>
                 <input className="form-input" value={formData.middle_name} onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })} />
               </div>
               <div className="form-group">
@@ -367,28 +388,7 @@ export default function StudentsPage() {
                 <input className="form-input" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} required />
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">{translateText('Batch / Cohort')} *</label>
-              <select
-                className="form-input"
-                value={formData.batch_id}
-                onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
-                required
-              >
-                <option value="">{translateText('Select batch')}</option>
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                    {b.programmes?.code ? ` · ${b.programmes.code}` : ''}
-                    {b.year_of_study != null ? ` · Y${b.year_of_study}` : ''}
-                  </option>
-                ))}
-              </select>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                {translateText('Programme is inherited from the selected batch')}
-              </p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">{translateText('Email')}</label>
                 <input type="email" className="form-input" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
@@ -399,37 +399,67 @@ export default function StudentsPage() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">{translateText('Admission date')}</label>
-              <input type="date" className="form-input" value={formData.admission_date} onChange={(e) => setFormData({ ...formData, admission_date: e.target.value })} />
+              <label className="form-label">{translateText('Batch / cohort')} *</label>
+              <select className="form-input" value={formData.batch_id} onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })} required>
+                <option value="">{translateText('Select…')}</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.programmes?.name ? ` — ${b.programmes.name}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="form-hint">{translateText('Programme is inherited from the selected batch.')}</p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">{translateText('Gender')}</label>
+                <select className="form-input" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
+                  <option value="">{translateText('Select…')}</option>
+                  <option value="female">{translateText('Female')}</option>
+                  <option value="male">{translateText('Male')}</option>
+                  <option value="other">{translateText('Other')}</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{translateText('Date of birth')}</label>
+                <input type="date" className="form-input" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{translateText('Nationality')}</label>
+                <input className="form-input" value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button type="button" className="btn btn-secondary" onClick={closeModal}>{translateText('Cancel')}</button>
               <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
                 {editing ? translateText('Save changes') : translateText('Create student')}
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                {translateText('Cancel')}
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      <ConfirmDialog
-        open={!!confirmDelete}
-        title={translateText('Delete student account?')}
-        message={translateText('This permanently removes the student record and linked login. Prefer Archive if marks exist.')}
-        onConfirm={() => deleteMutation.mutate({ recordId: confirmDelete.id })}
-        onCancel={() => setConfirmDelete(null)}
-        danger
-      />
-      <ConfirmDialog
-        open={!!confirmArchive}
-        title={translateText('Archive student?')}
-        message={translateText('Student will be deactivated but marks and transcripts are kept.')}
-        onConfirm={() => archiveMutation.mutate(confirmArchive.id)}
-        onCancel={() => setConfirmArchive(null)}
-        danger
-      />
+      {confirmDelete && (
+        <ConfirmDialog
+          title={translateText('Delete student')}
+          message={translateText('This will permanently remove the student record and linked account if any.')}
+          confirmLabel={translateText('Delete')}
+          onConfirm={() => deleteMutation.mutate(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+          danger
+        />
+      )}
+
+      {confirmArchive && (
+        <ConfirmDialog
+          title={translateText('Archive student')}
+          message={translateText('The student will be marked inactive.')}
+          confirmLabel={translateText('Archive')}
+          onConfirm={() => archiveMutation.mutate(confirmArchive)}
+          onCancel={() => setConfirmArchive(null)}
+        />
+      )}
     </AppLayout>
   );
 }
