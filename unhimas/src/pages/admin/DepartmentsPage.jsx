@@ -99,19 +99,17 @@ export default function DepartmentsPage() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="form-group" style={{ marginBottom: 0, maxWidth: 360 }}>
-          <label className="form-label">{tx('Search')}</label>
-          <div className="form-input-wrapper">
-            <MdSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-            <input
-              className="form-input"
-              style={{ paddingLeft: '2.25rem' }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={tx('Search by name or abbreviation…')}
-            />
-          </div>
+      <div className="card" style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem' }}>
+        <div style={{ position: 'relative', maxWidth: 360 }}>
+          <MdSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+          <input
+            className="form-input"
+            style={{ paddingLeft: '2.25rem' }}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tx('Search by name or abbreviation…')}
+            aria-label={tx('Search by name or abbreviation…')}
+          />
         </div>
       </div>
 
