@@ -29,6 +29,8 @@ import {
   assignBatchCourse,
   deleteBatchCourse,
   markBatchProgrammeCompleted,
+  computeIsFinalYear,
+  resolveBatchFinalYear,
 } from '../../services/academicService';
 
 export default function BatchesPage() {
@@ -305,8 +307,10 @@ export default function BatchesPage() {
                           {batch.programmes?.duration_years != null && (
                             <> of {batch.programmes.duration_years}</>
                           )}
-                          {batch.programmes?.duration_years != null &&
-                            Number(batch.year_of_study) >= Number(batch.programmes.duration_years) && (
+                          {computeIsFinalYear({
+                            year_of_study: batch.year_of_study,
+                            duration_years: batch.programmes?.duration_years,
+                          }) && (
                             <span className="badge badge-amber" style={{ marginLeft: 6 }}>Final year</span>
                           )}
                         </span>
@@ -340,10 +344,28 @@ export default function BatchesPage() {
                             id: 'complete',
                             label: 'Mark programme completed',
                             icon: <MdCheckCircle />,
-                            onClick: () => {
+                            onClick: async () => {
+                              try {
+                                const { isFinalYear, source } = await resolveBatchFinalYear(batch);
+                                if (!isFinalYear) {
+                                  toast.error(
+                                    source === 'rpc'
+                                      ? 'This batch is not in the final year of its programme (server check).'
+                                      : 'This batch is not in the final year of its programme.',
+                                  );
+                                  return;
+                                }
+                              } catch (err) {
+                                toast.error(err.message || 'Could not verify final year');
+                                return;
+                              }
                               setCompleteBatch(batch);
                               setCompleteResult('pass');
                             },
+                            hidden: !computeIsFinalYear({
+                              year_of_study: batch.year_of_study,
+                              duration_years: batch.programmes?.duration_years,
+                            }),
                           },
                           {
                             id: 'toggle',
@@ -578,6 +600,10 @@ export default function BatchesPage() {
           <p>
             Mark all active students in <strong>{completeBatch.name}</strong> as having completed{' '}
             {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : 'their programme'}.
+          </p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            Only final-year batches can be completed (server checks effective programme duration).
+            Requires migration <code>20261103000000_programme_completion.sql</code> on Supabase.
           </p>
           <div className="form-group">
             <label className="form-label">Result</label>
