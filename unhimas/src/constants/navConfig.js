@@ -15,6 +15,7 @@ import {
   MdDateRange,
   MdSchedule,
   MdDescription,
+  MdAdminPanelSettings,
 } from 'react-icons/md';
 
 /**
@@ -42,17 +43,18 @@ export const NAV_CONFIG = {
           ],
         },
         {
-          key: 'students',
-          label: 'Students',
+          key: 'people',
+          label: 'People',
           path: '/admin/students',
-          icon: MdSchool,
+          icon: MdGroups,
           capability: 'manage_people',
           children: [
+            { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
             { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
-            { key: 'staff', label: 'Staff Accounts', path: '/admin/staff', icon: MdPersonPin, capability: 'manage_people' },
-            { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
+            { key: 'administrators', label: 'Administrators', path: '/admin/administrators', icon: MdAdminPanelSettings, capability: 'manage_people' },
           ],
         },
+        { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
         {
           key: 'fees',
           label: 'Fees',

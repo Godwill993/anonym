@@ -159,6 +159,7 @@ function App() {
                       <Route path="students" element={<StudentsPage />} />
                       <Route path="lecturers" element={<LecturersPage />} />
                       <Route path="staff" element={<StaffPage />} />
+                      <Route path="administrators" element={<StaffPage />} />
                       <Route path="create-account" element={<CreateAccountPage />} />
                       <Route path="admissions" element={<AdminAdmissionsPage />} />
                       <Route path="mark-approval" element={<MarkApprovalPage />} />

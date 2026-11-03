@@ -19,6 +19,7 @@ export const fr = {
     Batches: 'Promotions',
     Courses: 'Cours',
     Students: 'Étudiants',
+    People: 'Personnes',
     Programme: 'Programme',
     'Select programme': 'Choisir le programme',
     'Select programme…': 'Choisir le programme…',

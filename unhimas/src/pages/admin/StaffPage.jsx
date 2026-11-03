@@ -11,11 +11,10 @@ export default function StaffPage() {
   const { translateText: tx } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
 
   const { data: staff = [], isLoading } = useQuery({
     queryKey: ['admin-staff-profiles'],
-    queryFn: () => getStaffProfiles({}),
+    queryFn: () => getStaffProfiles({ role: 'admin' }),
   });
 
   const toggleMutation = useMutation({
@@ -35,13 +34,12 @@ export default function StaffPage() {
   const filteredStaff = useMemo(() => {
     const term = search.toLowerCase().trim();
     return staff.filter((profile) => {
-      if (profile.role === 'frontdesk') return false;
-      if (roleFilter !== 'all' && profile.role !== roleFilter) return false;
+      if (profile.role !== 'admin') return false;
       if (!term) return true;
-      const hay = `${profile.full_name || ''} ${profile.login_id || ''} ${profile.phone || ''} ${profile.role || ''}`.toLowerCase();
+      const hay = `${profile.full_name || ''} ${profile.login_id || ''} ${profile.phone || ''}`.toLowerCase();
       return hay.includes(term);
     });
-  }, [staff, search, roleFilter]);
+  }, [staff, search]);
 
   const roleLabel = (role) => {
     if (role === 'admin') return tx('Administrator');
@@ -54,10 +52,10 @@ export default function StaffPage() {
     <AppLayout pageTitle={tx('Administrators')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">{tx('Administrators & Accounts')}</h1>
+          <h1 className="page-title">{tx('Administrators')}</h1>
           <p className="page-subtitle">
-            {tx('Manage system accounts. Up to')} {MAX_ADMINS}{' '}
-            {tx('active administrators are allowed. Front desk role has been removed — campus operations are handled by administrators.')}
+            {tx('Administrator accounts. Up to')} {MAX_ADMINS}{' '}
+            {tx('active administrators are allowed.')}
           </p>
         </div>
         <div
@@ -97,17 +95,6 @@ export default function StaffPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select
-            className="form-input"
-            style={{ maxWidth: 180 }}
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-          >
-            <option value="all">{tx('All roles')}</option>
-            <option value="admin">{tx('Administrator')}</option>
-            <option value="lecturer">{tx('Lecturer')}</option>
-            <option value="student">{tx('Student')}</option>
-          </select>
         </div>
 
         <div className="table-wrapper">
@@ -136,7 +123,7 @@ export default function StaffPage() {
                       <MdAdminPanelSettings className="empty-state-icon" />
                       <div className="empty-state-title">{tx('No accounts found')}</div>
                       <div className="empty-state-text">
-                        {tx('Staff and user profiles will appear here as they are authenticated.')}
+                        {tx('Administrator accounts will appear here.')}
                       </div>
                     </div>
                   </td>
