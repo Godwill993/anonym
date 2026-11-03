@@ -50,7 +50,31 @@ export default function StudentProfilePage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.25rem' }}>
                 <ProfileField icon={<MdSchool />} label="Department" value={studentProfile?.batches?.departments?.name} />
                 <ProfileField icon={<MdBook />} label="Batch" value={studentProfile?.batches?.name} />
-                <ProfileField icon={<MdPersonPin />} label="Academic year" value={studentProfile?.batches?.academic_years?.name} />
+                <ProfileField
+                  icon={<MdBook />}
+                  label="Programme"
+                  value={(() => {
+                    const prog = studentProfile?.programmes || studentProfile?.batches?.programmes;
+                    if (!prog) return null;
+                    const y = studentProfile?.batches?.year_of_study;
+                    return `${prog.code} — ${prog.name}${y != null ? ` (Year ${y}${prog.duration_years != null ? ` of ${prog.duration_years}` : ''})` : ''}`;
+                  })()}
+                />
+                <ProfileField icon={<MdPersonPin />} label="School year" value={studentProfile?.batches?.academic_years?.name} />
+                <ProfileField
+                  icon={<MdPersonPin />}
+                  label="Programme status"
+                  value={(() => {
+                    const s = studentProfile?.programme_status || 'active';
+                    if (s === 'completed') {
+                      return studentProfile?.programme_completion_result === 'fail_or_exit'
+                        ? 'Completed (fail / exit)'
+                        : 'Completed (pass)';
+                    }
+                    if (s === 'withdrawn') return 'Withdrawn';
+                    return 'In programme';
+                  })()}
+                />
                 <ProfileField icon={<MdEmail />} label="Email" value={studentProfile?.email || 'Not provided'} />
                 <ProfileField icon={<MdPhone />} label="Phone" value={studentProfile?.phone || 'Not provided'} />
                 <ProfileField icon={<MdAccountCircle />} label="Login ID" value={profile?.login_id || 'Not available'} />
