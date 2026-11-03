@@ -12,6 +12,7 @@ import {
   MdEventNote,
   MdArrowForward,
   MdAccountBalanceWallet,
+  MdSchool,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -174,6 +175,22 @@ export default function StudentDashboard() {
   const firstName = studentProfile?.first_name || translateText('Student');
   const dept = studentProfile?.batches?.departments?.name || '';
   const batchName = studentProfile?.batches?.name || '';
+  const prog = studentProfile?.programmes || studentProfile?.batches?.programmes;
+  const yearOfStudy = studentProfile?.batches?.year_of_study;
+  const progStatus = studentProfile?.programme_status || 'active';
+  const progLabel = prog
+    ? `${prog.code}${yearOfStudy != null ? ` · Year ${yearOfStudy}` : ''}${
+        prog.duration_years != null ? ` of ${prog.duration_years}` : ''
+      }`
+    : '';
+  const statusLabel =
+    progStatus === 'completed'
+      ? studentProfile?.programme_completion_result === 'fail_or_exit'
+        ? 'Programme completed (fail / exit)'
+        : 'Programme completed (pass)'
+      : progStatus === 'withdrawn'
+        ? 'Withdrawn from programme'
+        : null;
 
   const attendanceThreshold = stats?.attendanceThreshold ?? 75;
   const lowAttendance =
@@ -191,6 +208,7 @@ export default function StudentDashboard() {
             {formattedDate}
             {studentProfile?.matricule ? ` · ${studentProfile.matricule}` : ''}
             {batchName ? ` · ${batchName}` : ''}
+            {progLabel ? ` · ${progLabel}` : ''}
             {dept ? ` · ${dept}` : ''}
           </p>
         </div>
@@ -214,6 +232,21 @@ export default function StudentDashboard() {
             {stats.attendancePct}%).
           </span>
           <Link to="/student/attendance">{translateText('View')} →</Link>
+        </div>
+      )}
+
+      {statusLabel && (
+        <div className="alert-banner" role="status" style={{ marginBottom: '1rem', background: 'rgba(5, 150, 105, 0.08)' }}>
+          <MdSchool size={20} style={{ flexShrink: 0 }} />
+          <span>
+            {translateText(statusLabel)}
+            {prog ? (
+              <>
+                {' '}
+                — <code>{prog.code}</code> {prog.name}
+              </>
+            ) : null}
+          </span>
         </div>
       )}
 
@@ -343,7 +376,7 @@ export default function StudentDashboard() {
               </div>
             ) : (
               notifications.map((n) => (
-                <div key={n.id} className={`list-row ${!n.is_read ? 'list-row-unread' : ''}`}>
+                <div key={n.id} className={`list-row ${!n.is_read ? 'list-row-unread' : ''`}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: n.is_read ? 500 : 700, fontSize: '0.875rem' }}>{n.title}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 4 }}>{fmtDate(n.created_at)}</div>
