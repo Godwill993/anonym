@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MdMoreVert } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
@@ -17,6 +17,28 @@ export default function RowActionsMenu({ items = [], ariaLabel }) {
 
   const visible = (items || []).filter((item) => item && !item.hidden);
 
+  const placeMenu = () => {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 220;
+    const estimatedHeight = Math.min(320, 12 + visible.length * 40);
+    let left = Math.min(
+      window.innerWidth - menuWidth - 8,
+      Math.max(8, rect.right - menuWidth),
+    );
+    let top = rect.bottom + 4;
+    // Flip above if not enough space below
+    if (top + estimatedHeight > window.innerHeight - 8 && rect.top > estimatedHeight) {
+      top = rect.top - estimatedHeight - 4;
+    }
+    setPos({ top, left });
+  };
+
+  useLayoutEffect(() => {
+    if (open) placeMenu();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -34,36 +56,26 @@ export default function RowActionsMenu({ items = [], ariaLabel }) {
       if (e.key === 'Escape') setOpen(false);
     };
 
-    const onScroll = () => setOpen(false);
+    const onScrollOrResize = () => setOpen(false);
 
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
 
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
     };
   }, [open]);
 
   if (visible.length === 0) return null;
 
-  const placeMenu = () => {
-    const rect = btnRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const menuWidth = 220;
-    const left = Math.min(
-      window.innerWidth - menuWidth - 8,
-      Math.max(8, rect.right - menuWidth),
-    );
-    const top = rect.bottom + 4;
-    setPos({ top, left });
-  };
-
-  const toggle = () => {
+  const toggle = (e) => {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
     if (open) {
       setOpen(false);
       return;
@@ -82,7 +94,12 @@ export default function RowActionsMenu({ items = [], ariaLabel }) {
           className="row-actions-menu"
           role="menu"
           aria-label={label}
-          style={{ top: pos.top, left: pos.left }}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            zIndex: 1200,
+          }}
         >
           {visible.map((item, index) => (
             <button
@@ -91,7 +108,8 @@ export default function RowActionsMenu({ items = [], ariaLabel }) {
               role="menuitem"
               className={`row-actions-item${item.danger ? ' is-danger' : ''}`}
               disabled={item.disabled}
-              onClick={() => {
+              onClick={(ev) => {
+                ev.stopPropagation();
                 if (item.disabled) return;
                 setOpen(false);
                 item.onClick?.();
@@ -118,7 +136,7 @@ export default function RowActionsMenu({ items = [], ariaLabel }) {
         aria-controls={open ? menuId : undefined}
         onClick={toggle}
       >
-        <MdMoreVert />
+        <MdMoreVert aria-hidden="true" />
       </button>
       {menu}
     </div>
