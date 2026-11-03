@@ -56,8 +56,20 @@ export async function createStudent({
   email,
   phone,
   batch_id,
+  programme_id,
   admission_date,
 }) {
+  // If programme not given, inherit from the batch (Cameroon model: cohort belongs to a programme)
+  let resolvedProgrammeId = programme_id || null;
+  if (!resolvedProgrammeId && batch_id) {
+    const { data: batchRow } = await supabase
+      .from('batches')
+      .select('programme_id')
+      .eq('id', batch_id)
+      .maybeSingle();
+    resolvedProgrammeId = batchRow?.programme_id || null;
+  }
+
   const { data, error } = await supabase
     .from('students')
     .insert([
@@ -68,7 +80,8 @@ export async function createStudent({
         last_name: last_name.trim(),
         email: email?.trim() || null,
         phone: phone?.trim() || null,
-        batch_id,
+        batch_id: batch_id || null,
+        programme_id: resolvedProgrammeId,
         admission_date: admission_date || new Date().toISOString().split('T')[0],
       },
     ])
