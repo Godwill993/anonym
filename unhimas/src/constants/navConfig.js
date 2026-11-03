@@ -16,11 +16,20 @@ import {
   MdSchedule,
   MdDescription,
   MdAdminPanelSettings,
+  MdPersonAdd,
+  MdNotifications,
+  MdCampaign,
+  MdFolder,
+  MdHistory,
+  MdPerson,
+  MdEventNote,
+  MdAssignment,
+  MdMenuBook,
 } from 'react-icons/md';
 
 /**
- * Minimal, objective navigation — only what staff and students need daily.
- * Other routes remain valid in App.jsx; they are not sidebar noise.
+ * Role navigation — daily work first, then secondary pages that already exist in App.jsx.
+ * Capability keys match src/lib/permissions.js; RLS remains the security boundary.
  */
 export const NAV_CONFIG = {
   admin: [
@@ -39,7 +48,9 @@ export const NAV_CONFIG = {
             { key: 'years', label: 'Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
             { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
             { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
+            { key: 'batch-courses', label: 'Batch courses', path: '/admin/batch-courses', icon: MdMenuBook, capability: 'manage_academic_structure' },
             { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
+            { key: 'class-sessions', label: 'Class sessions', path: '/admin/class-sessions', icon: MdEventNote, capability: 'manage_academic_structure' },
           ],
         },
         {
@@ -52,6 +63,7 @@ export const NAV_CONFIG = {
             { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
             { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
             { key: 'administrators', label: 'Administrators', path: '/admin/administrators', icon: MdAdminPanelSettings, capability: 'manage_people' },
+            { key: 'create-account', label: 'Create account', path: '/admin/create-account', icon: MdPersonAdd, capability: 'create_accounts' },
           ],
         },
         { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
@@ -66,7 +78,20 @@ export const NAV_CONFIG = {
           ],
         },
         { key: 'marks', label: 'Marks', path: '/admin/mark-approval', icon: MdGrade, capability: 'approve_marks' },
+        { key: 'attendance', label: 'Attendance', path: '/admin/attendance', icon: MdHowToReg, capability: 'approve_attendance' },
         { key: 'results', label: 'Results', path: '/admin/results', icon: MdBarChart },
+        {
+          key: 'campus',
+          label: 'Campus',
+          path: '/admin/announcements',
+          icon: MdCampaign,
+          children: [
+            { key: 'announcements', label: 'Announcements', path: '/admin/announcements', icon: MdCampaign, capability: 'manage_announcements' },
+            { key: 'notifications', label: 'Notifications', path: '/admin/notifications', icon: MdNotifications },
+            { key: 'resources', label: 'Resources', path: '/admin/resources', icon: MdFolder, capability: 'manage_resources' },
+            { key: 'lecturer-attendance', label: 'Lecturer attendance', path: '/admin/lecturer-attendance', icon: MdAssignment, capability: 'clock_lecturers' },
+          ],
+        },
         {
           key: 'reports',
           label: 'Reports',
@@ -79,7 +104,17 @@ export const NAV_CONFIG = {
             { key: 'lecturer-hours', label: 'Lecturer Hours', path: '/admin/reports/lecturer-hours', icon: MdSchedule },
           ],
         },
-        { key: 'settings', label: 'Settings', path: '/admin/settings', icon: MdSettings, capability: 'manage_settings' },
+        {
+          key: 'system',
+          label: 'System',
+          path: '/admin/settings',
+          icon: MdSettings,
+          children: [
+            { key: 'settings', label: 'Settings', path: '/admin/settings', icon: MdSettings, capability: 'manage_settings' },
+            { key: 'audit-log', label: 'Audit log', path: '/admin/audit-log', icon: MdHistory, capability: 'view_audit_log' },
+            { key: 'profile', label: 'Profile', path: '/admin/profile', icon: MdPerson },
+          ],
+        },
       ],
     },
   ],
@@ -98,6 +133,10 @@ export const NAV_CONFIG = {
           capability: 'mark_attendance',
         },
         { key: 'marks', label: 'Marks', path: '/lecturer/marks', icon: MdGrade, capability: 'enter_marks' },
+        { key: 'hours', label: 'Hours', path: '/lecturer/hours', icon: MdSchedule },
+        { key: 'resources', label: 'Resources', path: '/lecturer/resources', icon: MdFolder },
+        { key: 'notifications', label: 'Notifications', path: '/lecturer/notifications', icon: MdNotifications },
+        { key: 'profile', label: 'Profile', path: '/lecturer/profile', icon: MdPerson },
       ],
     },
   ],
@@ -108,10 +147,16 @@ export const NAV_CONFIG = {
       items: [
         { key: 'dashboard', label: 'Dashboard', path: '/student', icon: MdDashboard },
         { key: 'courses', label: 'Courses', path: '/student/courses', icon: MdBook },
+        { key: 'attendance', label: 'Attendance', path: '/student/attendance', icon: MdHowToReg },
         { key: 'results', label: 'Results', path: '/student/results', icon: MdGrade, capability: 'view_own_results' },
+        { key: 'transcript', label: 'Transcript', path: '/student/transcript', icon: MdDescription, capability: 'view_own_transcript' },
         { key: 'fees', label: 'Fees', path: '/student/fees', icon: MdPayments, capability: 'view_own_fees' },
         { key: 'documents', label: 'Documents', path: '/student/documents', icon: MdDescription },
         { key: 'timetable', label: 'Timetable', path: '/student/timetable', icon: MdCalendarToday },
+        { key: 'announcements', label: 'Announcements', path: '/student/announcements', icon: MdCampaign },
+        { key: 'resources', label: 'Resources', path: '/student/resources', icon: MdFolder },
+        { key: 'notifications', label: 'Notifications', path: '/student/notifications', icon: MdNotifications },
+        { key: 'profile', label: 'Profile', path: '/student/profile', icon: MdPerson },
       ],
     },
   ],
