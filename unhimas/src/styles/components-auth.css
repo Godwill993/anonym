@@ -48,10 +48,19 @@
 }
 
 .auth-school-subtitle {
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.65);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.auth-card-header .auth-school-name {
+  margin-bottom: 0.15rem;
 }
 
 .auth-card-body {
@@ -94,6 +103,8 @@
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   font-family: inherit;
+  box-sizing: border-box;
+  min-height: 2.5rem;
 }
 
 .form-input:focus {
@@ -107,6 +118,10 @@
 
 .form-input.with-icon-right {
   padding-right: 2.5rem;
+}
+
+select.form-input {
+  appearance: auto;
 }
 
 .input-icon-right {
@@ -149,7 +164,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   padding: 0.625rem 1.25rem;
   border-radius: var(--radius-sm);
   font-family: inherit;
@@ -287,4 +302,79 @@
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.2);
   color: #059669;
+}
+
+/* ---- Public / wider auth forms ---- */
+.auth-card-wide {
+  max-width: 560px;
+}
+
+.form-row {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0;
+}
+
+.form-row-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.form-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.form-row > .form-group {
+  margin-bottom: 1rem;
+  min-width: 0;
+}
+
+.auth-form-lead {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: -0.5rem 0 1.25rem;
+  line-height: 1.5;
+}
+
+.auth-footer-links {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.auth-footer-links a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer-links a:hover {
+  text-decoration: underline;
+}
+
+.auth-card-footer {
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 560px) {
+  .form-row-2,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-card-body {
+    padding: 1.25rem 1.25rem;
+  }
+
+  .auth-card-header {
+    padding: 1.5rem 1.25rem 1.25rem;
+  }
 }
