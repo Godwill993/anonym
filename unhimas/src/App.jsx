@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import ProtectedRoute from './routes/ProtectedRoute';
-import ToastContainer from './components/common/Toast';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import RoleRouter from './components/auth/RoleRouter';
 
 // Auth Pages (Lazy loaded)
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
@@ -19,6 +19,7 @@ const ApplicationStatusPage = lazy(() => import('./pages/public/ApplicationStatu
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const DepartmentsPage = lazy(() => import('./pages/admin/DepartmentsPage'));
 const BatchesPage = lazy(() => import('./pages/admin/BatchesPage'));
+const ProgrammesPage = lazy(() => import('./pages/admin/ProgrammesPage'));
 const AcademicYearsPage = lazy(() => import('./pages/admin/AcademicYearsPage'));
 const SemestersPage = lazy(() => import('./pages/admin/SemestersPage'));
 const CoursesPage = lazy(() => import('./pages/admin/CoursesPage'));
@@ -38,16 +39,16 @@ const AdminAnnouncementsPage = lazy(() => import('./pages/admin/AdminAnnouncemen
 const AdminNotificationsPage = lazy(() => import('./pages/admin/AdminNotificationsPage'));
 const AdminResourcesPage = lazy(() => import('./pages/admin/AdminResourcesPage'));
 const StudentTransfersPage = lazy(() => import('./pages/admin/StudentTransfersPage'));
-const AcademicEventsPage = lazy(() => import('./pages/admin/AcademicEventsPage'));
-const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
-const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'));
-const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 const AdminFeesPage = lazy(() => import('./pages/admin/AdminFeesPage'));
 const AdminPaymentsPage = lazy(() => import('./pages/admin/AdminPaymentsPage'));
+const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 const AdminAdmissionsPage = lazy(() => import('./pages/admin/AdminAdmissionsPage'));
 const LecturerAttendancePage = lazy(() => import('./pages/admin/LecturerAttendancePage'));
+const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'));
+const AcademicEventsPage = lazy(() => import('./pages/admin/AcademicEventsPage'));
 
-// Admin Report Pages (Lazy loaded)
+// Admin Report Pages
 const ResultsReportPage = lazy(() => import('./pages/admin/reports/ResultsReportPage'));
 const AttendanceReportPage = lazy(() => import('./pages/admin/reports/AttendanceReportPage'));
 const CoursePerformanceReportPage = lazy(() => import('./pages/admin/reports/CoursePerformanceReportPage'));
@@ -99,44 +100,24 @@ function AppLoading() {
         gap: '1rem',
       }}
     >
-      <div className="spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
-      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
-        Loading UNHIMAS…
-      </span>
+      <div className="spinner" />
+      <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>
     </div>
   );
 }
 
-function RoleRouter() {
-  const { profile, loading, session } = useAuth();
-  if (loading) return <AppLoading />;
-  if (!session) return <Navigate to="/login" replace />;
-  if (!profile?.is_active) return <Navigate to="/unauthorized" replace />;
-  switch (profile.role) {
-    case 'admin':
-      return <Navigate to="/admin" replace />;
-    case 'lecturer':
-      return <Navigate to="/lecturer" replace />;
-    case 'student':
-      return <Navigate to="/student" replace />;
-    default:
-      return <Navigate to="/unauthorized" replace />;
-  }
-}
-
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <AuthProvider>
+      <AuthProvider>
+        <Router>
           <Suspense fallback={<AppLoading />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/set-new-password" element={<SetNewPasswordPage />} />
+              <Route path="/set-password" element={<SetNewPasswordPage />} />
               <Route path="/results" element={<PublicResultsPage />} />
-              <Route path="/results/verify" element={<PublicResultsPage />} />
               <Route path="/apply" element={<ApplyPage />} />
               <Route path="/apply/status" element={<ApplicationStatusPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -150,7 +131,7 @@ function App() {
                     <Routes>
                       <Route index element={<AdminDashboard />} />
                       <Route path="departments" element={<DepartmentsPage />} />
-                      <Route path="programmes" element={<Navigate to="/admin/students" replace />} />
+                      <Route path="programmes" element={<ProgrammesPage />} />
                       <Route path="batches" element={<BatchesPage />} />
                       <Route path="academic-years" element={<AcademicYearsPage />} />
                       <Route path="semesters" element={<SemestersPage />} />
@@ -170,23 +151,22 @@ function App() {
                       <Route path="results" element={<AdminResultsPage />} />
                       <Route path="timetable" element={<AdminTimetablePage />} />
                       <Route path="class-sessions" element={<AdminClassSessionsPage />} />
-                      <Route path="student-transfers" element={<StudentTransfersPage />} />
-                      <Route path="academic-events" element={<AcademicEventsPage />} />
                       <Route path="announcements" element={<AdminAnnouncementsPage />} />
                       <Route path="notifications" element={<AdminNotificationsPage />} />
                       <Route path="resources" element={<AdminResourcesPage />} />
+                      <Route path="transfers" element={<StudentTransfersPage />} />
                       <Route path="fees" element={<AdminFeesPage />} />
                       <Route path="payments" element={<AdminPaymentsPage />} />
-                      <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
                       <Route path="settings" element={<SettingsPage />} />
-                      <Route path="audit-log" element={<AuditLogPage />} />
                       <Route path="profile" element={<AdminProfilePage />} />
-
-                      {/* Administrative Reports */}
+                      <Route path="lecturer-attendance" element={<LecturerAttendancePage />} />
+                      <Route path="audit-log" element={<AuditLogPage />} />
+                      <Route path="academic-events" element={<AcademicEventsPage />} />
                       <Route path="reports/results" element={<ResultsReportPage />} />
                       <Route path="reports/attendance" element={<AttendanceReportPage />} />
                       <Route path="reports/course-performance" element={<CoursePerformanceReportPage />} />
                       <Route path="reports/lecturer-hours" element={<LecturerHoursReportPage />} />
+                      <Route path="*" element={<Navigate to="/admin" replace />} />
                     </Routes>
                   </ProtectedRoute>
                 }
@@ -200,12 +180,12 @@ function App() {
                       <Route index element={<LecturerDashboard />} />
                       <Route path="courses" element={<LecturerCoursesPage />} />
                       <Route path="sessions" element={<LecturerSessionsPage />} />
-                      <Route path="attendance" element={<LecturerSessionsPage />} />
                       <Route path="marks" element={<LecturerMarksPage />} />
                       <Route path="hours" element={<LecturerHoursPage />} />
                       <Route path="notifications" element={<LecturerNotificationsPage />} />
                       <Route path="resources" element={<LecturerResourcesPage />} />
                       <Route path="profile" element={<LecturerProfilePage />} />
+                      <Route path="*" element={<Navigate to="/lecturer" replace />} />
                     </Routes>
                   </ProtectedRoute>
                 }
@@ -221,13 +201,14 @@ function App() {
                       <Route path="attendance" element={<StudentAttendancePage />} />
                       <Route path="results" element={<StudentResultsPage />} />
                       <Route path="transcript" element={<StudentTranscriptPage />} />
-                      <Route path="documents" element={<StudentDocumentsPage />} />
                       <Route path="timetable" element={<StudentTimetablePage />} />
-                      <Route path="fees" element={<StudentFeesPage />} />
                       <Route path="announcements" element={<StudentAnnouncementsPage />} />
                       <Route path="notifications" element={<StudentNotificationsPage />} />
                       <Route path="resources" element={<StudentResourcesPage />} />
                       <Route path="profile" element={<StudentProfilePage />} />
+                      <Route path="fees" element={<StudentFeesPage />} />
+                      <Route path="documents" element={<StudentDocumentsPage />} />
+                      <Route path="*" element={<Navigate to="/student" replace />} />
                     </Routes>
                   </ProtectedRoute>
                 }
@@ -236,11 +217,8 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
-          <ToastContainer />
-        </AuthProvider>
-      </Router>
+        </Router>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
-
-export default App;
