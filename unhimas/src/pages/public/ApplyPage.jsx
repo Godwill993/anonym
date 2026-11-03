@@ -27,11 +27,11 @@ const empty = {
   preferred_level: 'Level 1',
   previous_school: '',
   previous_qualification: '',
-  website: '', // honeypot — must stay empty
+  website: '',
 };
 
 export default function ApplyPage() {
-  const { translateText } = useTranslation();
+  const { t, translateText } = useTranslation();
   const [form, setForm] = useState(empty);
   const [result, setResult] = useState(null);
   const [localError, setLocalError] = useState('');
@@ -105,17 +105,16 @@ export default function ApplyPage() {
   };
 
   const busy = mutation.isPending || verifyingCaptcha;
+  const universityName = t('auth.school_subtitle');
 
   return (
     <div className="auth-page">
-      <div className="auth-card" style={{ maxWidth: 560 }}>
+      <div className="auth-card auth-card-wide">
         <div className="auth-card-header">
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
-            <div className="auth-school-subtitle">
-              {translateText('University of Higher Institute of Management & Applied Sciences')}
-            </div>
+            <div className="auth-school-subtitle">{universityName}</div>
           </div>
         </div>
 
@@ -126,7 +125,7 @@ export default function ApplyPage() {
               <h1 className="auth-title" style={{ marginBottom: 8 }}>
                 {translateText('Application submitted')}
               </h1>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: 12 }}>
+              <p className="auth-form-lead">
                 {translateText('Your application number is')}
               </p>
               <div
@@ -144,35 +143,22 @@ export default function ApplyPage() {
               >
                 {result.application_number}
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: 20 }}>
+              <p className="auth-form-lead">
                 {translateText('Keep this number. The admissions office will contact you by email.')}
               </p>
               <button type="button" className="btn btn-primary btn-full" onClick={() => setResult(null)}>
                 {translateText('Submit another')}
               </button>
-              <div style={{ marginTop: 16, fontSize: '0.85rem' }}>
-                <Link to="/apply/status" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                  {translateText('Check application status')}
-                </Link>
+              <div className="auth-footer-links">
+                <Link to="/apply/status">{translateText('Check application status')}</Link>
                 {' · '}
-                <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                  {translateText('Back to login')}
-                </Link>
+                <Link to="/login">{translateText('Back to login')}</Link>
               </div>
             </div>
           ) : (
             <>
               <h1 className="auth-title">{translateText('Online Application')}</h1>
-              <p
-                style={{
-                  textAlign: 'center',
-                  fontSize: '0.85rem',
-                  color: 'var(--color-text-muted)',
-                  marginTop: -8,
-                  marginBottom: 20,
-                  lineHeight: 1.5,
-                }}
-              >
+              <p className="auth-form-lead">
                 {translateText(
                   'Apply for admission. You will receive an application number to track your status.',
                 )}
@@ -195,31 +181,18 @@ export default function ApplyPage() {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="apply-first">
-                    {translateText('First Name')} *
-                  </label>
-                  <input
-                    id="apply-first"
-                    className="form-input"
-                    required
-                    value={form.first_name}
-                    onChange={set('first_name')}
-                    autoComplete="given-name"
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-row form-row-2">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="apply-middle">
-                      {translateText('Middle name')}
+                    <label className="form-label" htmlFor="apply-first">
+                      {translateText('First Name')} *
                     </label>
                     <input
-                      id="apply-middle"
+                      id="apply-first"
                       className="form-input"
-                      value={form.middle_name}
-                      onChange={set('middle_name')}
-                      autoComplete="additional-name"
+                      required
+                      value={form.first_name}
+                      onChange={set('first_name')}
+                      autoComplete="given-name"
                     />
                   </div>
                   <div className="form-group">
@@ -237,7 +210,20 @@ export default function ApplyPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="apply-middle">
+                    {translateText('Middle name')}
+                  </label>
+                  <input
+                    id="apply-middle"
+                    className="form-input"
+                    value={form.middle_name}
+                    onChange={set('middle_name')}
+                    autoComplete="additional-name"
+                  />
+                </div>
+
+                <div className="form-row form-row-2">
                   <div className="form-group">
                     <label className="form-label" htmlFor="apply-email">
                       Email *
@@ -267,7 +253,7 @@ export default function ApplyPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-row form-row-3">
                   <div className="form-group">
                     <label className="form-label" htmlFor="apply-dob">
                       {translateText('Date of birth')}
@@ -377,7 +363,7 @@ export default function ApplyPage() {
                 </div>
 
                 {(localError || mutation.isError) && (
-                  <div className="auth-alert error" role="alert" style={{ marginBottom: '1rem' }}>
+                  <div className="auth-alert error" role="alert">
                     <MdErrorOutline style={{ flexShrink: 0 }} />
                     {localError || mutation.error?.message || translateText('Submission failed')}
                   </div>
@@ -388,39 +374,17 @@ export default function ApplyPage() {
                 </button>
               </form>
 
-              <div
-                style={{
-                  marginTop: '1.25rem',
-                  paddingTop: '1rem',
-                  borderTop: '1px solid var(--color-border)',
-                  textAlign: 'center',
-                  fontSize: '0.85rem',
-                  color: 'var(--color-text-muted)',
-                  lineHeight: 1.7,
-                }}
-              >
-                <Link to="/apply/status" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                  {translateText('Check application status')}
-                </Link>
+              <div className="auth-footer-links">
+                <Link to="/apply/status">{translateText('Check application status')}</Link>
                 {' · '}
-                <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                  {translateText('Already have an account? Sign in')}
-                </Link>
+                <Link to="/login">{translateText('Already have an account? Sign in')}</Link>
               </div>
             </>
           )}
         </div>
 
-        <div
-          style={{
-            padding: '0.875rem 1.5rem',
-            borderTop: '1px solid var(--color-border)',
-            textAlign: 'center',
-            fontSize: '0.75rem',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          © {new Date().getFullYear()} UNHIMAS
+        <div className="auth-card-footer">
+          © {new Date().getFullYear()} UNHIMAS · {universityName}
         </div>
       </div>
     </div>
