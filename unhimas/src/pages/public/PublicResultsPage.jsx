@@ -5,7 +5,6 @@ import {
   MdSearch,
   MdShield,
   MdVerified,
-  MdPrint,
   MdArrowBack,
   MdHelpOutline,
 } from 'react-icons/md';
@@ -71,10 +70,6 @@ export default function PublicResultsPage() {
 
     recordPublicLookupAttempt(store, THROTTLE_KEY);
     setLookupKey(validated.matricule);
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const verificationRef = data?.length > 0
@@ -290,23 +285,12 @@ export default function PublicResultsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span
-                    className="badge badge-green"
-                    style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981' }}
-                  >
-                    ✓ OFFICIAL VERIFIED
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="btn btn-sm"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none' }}
-                    title="Print Verification Slip"
-                  >
-                    <MdPrint /> Print Slip
-                  </button>
-                </div>
+                <span
+                  className="badge badge-green"
+                  style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981' }}
+                >
+                  ✓ OFFICIAL VERIFIED
+                </span>
               </div>
 
               <div
