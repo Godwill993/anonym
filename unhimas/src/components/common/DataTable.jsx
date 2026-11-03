@@ -1,4 +1,4 @@
-import { useState, useMemo, useId, useEffect } from 'react';
+import { useState, useMemo, useId, useEffect, useRef } from 'react';
 import {
   MdSearch,
   MdClose,
@@ -14,7 +14,7 @@ import { exportToCsv } from '../../utils/exportUtils';
 
 /** Collect plain text from nested row values for client-side search. */
 function collectSearchText(value, depth = 0, out = []) {
-  if (value == null || depth > 4) return out;
+  if (value == null || depth > 5) return out;
   const t = typeof value;
   if (t === 'string' || t === 'number' || t === 'boolean') {
     const s = String(value).trim();
@@ -22,13 +22,24 @@ function collectSearchText(value, depth = 0, out = []) {
     return out;
   }
   if (t !== 'object') return out;
-  // Skip React elements
-  if (value.$$typeof || value._owner) return out;
+  // Skip React elements / DOM nodes / functions
+  if (value.$$typeof || value._owner || typeof value === 'function') return out;
+  if (typeof Node !== 'undefined' && value instanceof Node) return out;
   if (Array.isArray(value)) {
     for (const item of value) collectSearchText(item, depth + 1, out);
     return out;
   }
-  for (const v of Object.values(value)) {
+  // Prefer common display fields first for better relevance
+  const preferred = ['name', 'title', 'code', 'label', 'email', 'matricule', 'first_name', 'last_name', 'abbreviation', 'description'];
+  for (const key of preferred) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      collectSearchText(value[key], depth + 1, out);
+    }
+  }
+  for (const [k, v] of Object.entries(value)) {
+    if (preferred.includes(k)) continue;
+    // Skip internal / large blobs
+    if (k.startsWith('_') || k === 'password' || k === 'token') continue;
     collectSearchText(v, depth + 1, out);
   }
   return out;
@@ -38,6 +49,11 @@ function getByPath(obj, path) {
   if (!obj || !path) return undefined;
   if (!path.includes('.')) return obj[path];
   return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+}
+
+function textMatches(haystackParts, term) {
+  if (!term) return true;
+  return haystackParts.some((s) => s.toLowerCase().includes(term));
 }
 
 function rowMatchesSearch(item, term, searchField, columns) {
@@ -54,31 +70,57 @@ function rowMatchesSearch(item, term, searchField, columns) {
   if (Array.isArray(searchField) && searchField.length > 0) {
     return searchField.some((key) => {
       const val = getByPath(item, key);
-      return collectSearchText(val).some((s) => s.toLowerCase().includes(term));
+      return textMatches(collectSearchText(val), term);
     });
   }
 
   // Prefer column-defined searchable values when available
   if (columns?.length) {
-    const fromCols = columns.some((col) => {
-      if (col.searchable === false) return false;
+    let anyColumnHit = false;
+    for (const col of columns) {
+      if (col.searchable === false) continue;
+
+      // Explicit searchValue extractor
       if (typeof col.searchValue === 'function') {
         try {
           const v = col.searchValue(item);
-          return collectSearchText(v).some((s) => s.toLowerCase().includes(term));
+          if (textMatches(collectSearchText(v), term)) return true;
+          anyColumnHit = true;
         } catch {
-          return false;
+          /* ignore */
+        }
+        continue;
+      }
+
+      // sortValue often holds a plain searchable string/number
+      if (typeof col.sortValue === 'function') {
+        try {
+          const v = col.sortValue(item);
+          if (textMatches(collectSearchText(v), term)) return true;
+          anyColumnHit = true;
+        } catch {
+          /* ignore */
         }
       }
+
       const key = col.accessor || col.key;
-      if (!key) return false;
-      return collectSearchText(getByPath(item, key)).some((s) => s.toLowerCase().includes(term));
-    });
-    if (fromCols) return true;
+      if (key) {
+        const val = getByPath(item, key);
+        if (val !== undefined && val !== null && textMatches(collectSearchText(val), term)) {
+          return true;
+        }
+        anyColumnHit = true;
+      }
+    }
+    // If we successfully inspected columns and none matched, still allow deep fallback
+    // so nested objects (e.g. batch_courses.courses.code) are found even when
+    // accessors are "display aliases" that don't exist on the raw row.
+    if (anyColumnHit && textMatches(collectSearchText(item), term)) return true;
+    if (anyColumnHit) return false;
   }
 
   // Fallback: deep-scan the whole row object
-  return collectSearchText(item).some((s) => s.toLowerCase().includes(term));
+  return textMatches(collectSearchText(item), term);
 }
 
 export default function DataTable({
@@ -95,6 +137,7 @@ export default function DataTable({
   exportFileName = 'export',
   enableSorting = true,
   enableSearch = true,
+  loading = false,
 }) {
   const { language, translateText } = useTranslation();
   const [search, setSearch] = useState('');
@@ -103,6 +146,19 @@ export default function DataTable({
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const searchId = useId();
   const regionId = useId();
+  const prevDataLen = useRef(Array.isArray(data) ? data.length : 0);
+
+  // When the underlying dataset size changes a lot (e.g. external filter),
+  // reset to page 1 so the user is not left on an empty page.
+  useEffect(() => {
+    const len = Array.isArray(data) ? data.length : 0;
+    if (Math.abs(len - prevDataLen.current) > 0 && currentPage > 1) {
+      // Only force reset when the list shrinks past the current window
+      const maxPage = Math.max(1, Math.ceil(len / perPage) || 1);
+      if (currentPage > maxPage) setCurrentPage(1);
+    }
+    prevDataLen.current = len;
+  }, [data, perPage, currentPage]);
 
   const filteredData = useMemo(() => {
     const list = Array.isArray(data) ? data : [];
@@ -173,10 +229,10 @@ export default function DataTable({
   const handleExportCsv = () => {
     if (!sortedData.length) return;
     const exportHeaders = columns
-      .filter((c) => c.header && (c.accessor || c.exportKey))
+      .filter((c) => c.header && (c.accessor || c.exportKey || c.key))
       .map((c) => ({
         label: translateText(c.header),
-        key: c.exportKey || c.accessor,
+        key: c.exportKey || c.accessor || c.key,
       }));
     exportToCsv(exportFileName, exportHeaders, sortedData);
   };
@@ -263,7 +319,7 @@ export default function DataTable({
               type="button"
               className="btn btn-outline btn-sm"
               onClick={handleExportCsv}
-              disabled={sortedData.length === 0}
+              disabled={sortedData.length === 0 || loading}
               title={translateText('Export table to CSV')}
             >
               <MdFileDownload aria-hidden="true" /> {translateText('Export CSV')}
@@ -345,7 +401,17 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody>
-            {paginatedData.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={Math.max(columns.length, 1)} style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+                  <div className="empty-state" style={{ padding: '0.5rem' }}>
+                    <div className="empty-state-title" style={{ marginTop: 0 }}>
+                      {translateText('Loading…')}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : paginatedData.length === 0 ? (
               <tr>
                 <td colSpan={Math.max(columns.length, 1)} style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
                   <div className="empty-state" style={{ padding: '0.5rem' }}>
@@ -392,7 +458,7 @@ export default function DataTable({
         </table>
       </div>
 
-      {sortedData.length > 0 && (
+      {!loading && sortedData.length > 0 && (
         <div
           className="data-table-footer"
           style={{
