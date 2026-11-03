@@ -64,7 +64,6 @@ export async function lookupApplication(applicationNumber, email) {
 
 /** Public / unauthenticated submit */
 export async function submitApplication(payload) {
-  // Silent success for bots — do not reveal detection
   if (isHoneypotTriggered(payload)) {
     return { application_number: 'APP-SPAM', status: 'submitted', _spam: true };
   }
@@ -118,13 +117,23 @@ export async function updateApplicationStatus(id, { status, adminNotes, reviewed
   return data;
 }
 
-export async function acceptAndEnrollApplication(applicationId, { batchId, reviewedBy }) {
+export async function acceptAndEnrollApplication(applicationId, { batchId, programmeId = null, reviewedBy }) {
   if (!batchId) throw new Error('Batch is required to enrol');
 
   const app = await getApplication(applicationId);
   if (!app) throw new Error('Application not found');
   if (app.student_id) {
     return { application: app, student: { id: app.student_id }, alreadyEnrolled: true };
+  }
+
+  let resolvedProgrammeId = programmeId || null;
+  if (!resolvedProgrammeId) {
+    const { data: batchRow } = await supabase
+      .from('batches')
+      .select('programme_id')
+      .eq('id', batchId)
+      .maybeSingle();
+    resolvedProgrammeId = batchRow?.programme_id || null;
   }
 
   const year = new Date().getFullYear();
@@ -141,6 +150,7 @@ export async function acceptAndEnrollApplication(applicationId, { batchId, revie
       email: app.email,
       phone: app.phone,
       batch_id: batchId,
+      programme_id: resolvedProgrammeId,
       admission_date: new Date().toISOString().slice(0, 10),
     })
     .select()
