@@ -75,13 +75,13 @@ export default function AdminAdmissionsPage() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="form-group" style={{ marginBottom: 0, maxWidth: 240 }}>
-          <label className="form-label">{translateText('Filter by status')}</label>
+      <div className="card" style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem' }}>
+        <div style={{ maxWidth: 240 }}>
           <select
             className="form-input"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label={translateText('Filter by status')}
           >
             <option value="">{translateText('All statuses')}</option>
             {ADMISSION_STATUSES.map((s) => (
