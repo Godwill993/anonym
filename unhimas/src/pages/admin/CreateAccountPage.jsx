@@ -1,94 +1,76 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  MdPersonAdd,
-  MdSchool,
-  MdPersonPin,
-  MdCheckCircle,
-  MdErrorOutline,
-  MdArrowBack,
-  MdKey,
-} from 'react-icons/md';
 import { Link } from 'react-router-dom';
+import { MdPersonAdd, MdSchool, MdPersonPin, MdCheckCircle } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
-import { createSchoolAccount } from '../../services/auth';
+import { toast } from '../../components/common/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { getBatches } from '../../services/academicService';
+import { getDepartments } from '../../services/academicService';
 import { createStudent, createLecturer } from '../../services/peopleService';
-import { getBatches, getDepartments } from '../../services/academicService';
+import { createSchoolAccount } from '../../services/authService';
 
 export default function CreateAccountPage() {
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [role, setRole] = useState('student');
-  const [step, setStep] = useState('form');
+  const [formError, setFormError] = useState('');
   const [lastResult, setLastResult] = useState(null);
-
   const [studentForm, setStudentForm] = useState({
-    matricule: `UNH/${new Date().getFullYear()}/`,
+    matricule: '',
     first_name: '',
     middle_name: '',
     last_name: '',
     email: '',
     phone: '',
     batch_id: '',
-    admission_date: new Date().toISOString().split('T')[0],
   });
-
-  const [lecturerForm, setLecturerForm] = useState(() => ({
-    staff_id: `LEC-${Math.floor(1000 + Math.random() * 9000)}`,
+  const [lecturerForm, setLecturerForm] = useState({
+    staff_id: '',
     first_name: '',
-    middle_name: '',
     last_name: '',
     email: '',
     phone: '',
     department_id: '',
     specialization: '',
-  }));
-
-  const [formError, setFormError] = useState('');
-
-  const { data: batches = [] } = useQuery({
-    queryKey: ['admin-batches'],
-    queryFn: () => getBatches(),
   });
-  const { data: departments = [] } = useQuery({
-    queryKey: ['admin-departments'],
-    queryFn: getDepartments,
-  });
+
+  const { data: batches = [] } = useQuery({ queryKey: ['admin-batches'], queryFn: () => getBatches() });
+  const { data: departments = [] } = useQuery({ queryKey: ['admin-departments'], queryFn: getDepartments });
 
   const createStudentMutation = useMutation({ mutationFn: createStudent });
   const createLecturerMutation = useMutation({ mutationFn: createLecturer });
-  const createAccountMutation = useMutation({ mutationFn: createSchoolAccount });
 
   const isPending =
-    createStudentMutation.isPending ||
-    createLecturerMutation.isPending ||
-    createAccountMutation.isPending;
+    createStudentMutation.isPending || createLecturerMutation.isPending;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-
+    setLastResult(null);
     try {
       let record;
-
       if (role === 'student') {
-        if (!studentForm.matricule.trim() || !studentForm.first_name.trim() ||
-            !studentForm.last_name.trim() || !studentForm.batch_id) {
-          setFormError('Matricule, First Name, Last Name, and Batch are required.');
+        if (!studentForm.matricule.trim() || !studentForm.first_name.trim() || !studentForm.last_name.trim()) {
+          setFormError('Matricule, first name and last name are required');
+          return;
+        }
+        if (!studentForm.batch_id) {
+          setFormError('Batch is required');
           return;
         }
         if (!studentForm.email.trim()) {
-          setFormError('An email address is required to create a login account.');
+          setFormError('Email is required for login');
           return;
         }
         record = await createStudentMutation.mutateAsync(studentForm);
       } else {
-        if (!lecturerForm.staff_id.trim() || !lecturerForm.first_name.trim() ||
-            !lecturerForm.last_name.trim()) {
-          setFormError('Staff ID, First Name, and Last Name are required.');
+        if (!lecturerForm.staff_id.trim() || !lecturerForm.first_name.trim() || !lecturerForm.last_name.trim()) {
+          setFormError('Staff ID, first name and last name are required');
           return;
         }
         if (!lecturerForm.email.trim()) {
-          setFormError('An email address is required to create a login account.');
+          setFormError('Email is required for login');
           return;
         }
         record = await createLecturerMutation.mutateAsync(lecturerForm);
@@ -102,110 +84,83 @@ export default function CreateAccountPage() {
               full_name: [studentForm.first_name, studentForm.middle_name, studentForm.last_name]
                 .filter(Boolean)
                 .join(' '),
-              linked_record_id: record.id,
               login_id: studentForm.matricule.trim().toUpperCase(),
+              linked_record_id: record.id,
+              created_by: profile?.id,
             }
           : {
               role: 'lecturer',
               email: lecturerForm.email.trim(),
-              full_name: [lecturerForm.first_name, lecturerForm.middle_name, lecturerForm.last_name]
-                .filter(Boolean)
-                .join(' '),
-              linked_record_id: record.id,
+              full_name: [lecturerForm.first_name, lecturerForm.last_name].filter(Boolean).join(' '),
               login_id: lecturerForm.staff_id.trim().toUpperCase(),
+              linked_record_id: record.id,
+              created_by: profile?.id,
             };
 
-      const accountResult = await createAccountMutation.mutateAsync(accountPayload);
-
-      setLastResult({
-        role,
-        record,
-        account: accountResult,
-        login_id: accountPayload.login_id,
-        email: accountPayload.email,
-      });
-      setStep('done');
+      const account = await createSchoolAccount(accountPayload);
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       queryClient.invalidateQueries({ queryKey: ['admin-lecturers'] });
+      setLastResult({
+        role,
+        login_id: account.login_id || accountPayload.login_id,
+        email: accountPayload.email,
+        temp_password: account.temp_password || account.temporary_password,
+      });
+      toast.success(`${role === 'student' ? 'Student' : 'Lecturer'} account created`);
+      if (role === 'student') {
+        setStudentForm({
+          matricule: '',
+          first_name: '',
+          middle_name: '',
+          last_name: '',
+          email: '',
+          phone: '',
+          batch_id: '',
+        });
+      } else {
+        setLecturerForm({
+          staff_id: '',
+          first_name: '',
+          last_name: '',
+          email: '',
+          phone: '',
+          department_id: '',
+          specialization: '',
+        });
+      }
     } catch (err) {
       setFormError(err.message || 'Failed to create account');
+      toast.error(err.message || 'Failed to create account');
     }
   };
 
-  const resetForm = () => {
-    setStep('form');
-    setLastResult(null);
-    setFormError('');
-    setStudentForm({
-      matricule: `UNH/${new Date().getFullYear()}/`,
-      first_name: '',
-      middle_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      batch_id: '',
-      admission_date: new Date().toISOString().split('T')[0],
-    });
-    setLecturerForm({
-      staff_id: `LEC-${Math.floor(1000 + Math.random() * 9000)}`,
-      first_name: '',
-      middle_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      department_id: '',
-      specialization: '',
-    });
-  };
-
-  if (step === 'done' && lastResult) {
+  if (lastResult) {
     return (
       <AppLayout>
         <div className="page-header">
           <div>
-            <h1 className="page-title">Account Created</h1>
-            <p className="page-subtitle">Login credentials have been generated.</p>
+            <h1 className="page-title">Account created</h1>
+            <p className="page-subtitle">Share these credentials securely with the user</p>
           </div>
         </div>
-        <div className="card" style={{ maxWidth: 520, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <MdCheckCircle size={48} color="var(--color-success)" />
+        <div className="card" style={{ maxWidth: 520, padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <MdCheckCircle style={{ color: 'var(--color-success)' }} />
+            <strong>
+              {lastResult.role === 'student' ? 'Student' : 'Lecturer'} account ready
+            </strong>
           </div>
-          <div className="form-group">
-            <label className="form-label">Role</label>
-            <div className="form-input" style={{ background: 'var(--color-bg-muted)' }}>
-              {lastResult.role === 'student' ? 'Student' : 'Lecturer'}
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Login ID</label>
-            <div className="form-input" style={{ background: 'var(--color-bg-muted)', fontFamily: 'monospace' }}>
-              {lastResult.login_id}
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <div className="form-input" style={{ background: 'var(--color-bg-muted)' }}>
-              {lastResult.email}
-            </div>
-          </div>
-          {lastResult.account?.temp_password && (
-            <div className="form-group">
-              <label className="form-label">Temporary Password</label>
-              <div className="form-input" style={{ background: 'var(--color-bg-muted)', fontFamily: 'monospace' }}>
-                {lastResult.account.temp_password}
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                Share this securely. The user should change it on first login.
-              </p>
-            </div>
+          <p><strong>Login ID:</strong> <code>{lastResult.login_id}</code></p>
+          <p><strong>Email:</strong> {lastResult.email}</p>
+          {lastResult.temp_password && (
+            <p><strong>Temporary password:</strong> <code>{lastResult.temp_password}</code></p>
           )}
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-            <button type="button" className="btn btn-primary" onClick={resetForm}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button type="button" className="btn btn-primary" onClick={() => setLastResult(null)}>
               Create another
             </button>
             <Link to="/admin/students" className="btn btn-secondary">
-              Go to Students
+              Back to students
             </Link>
           </div>
         </div>
@@ -217,18 +172,18 @@ export default function CreateAccountPage() {
     <AppLayout>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Create Account</h1>
+          <h1 className="page-title">Create account</h1>
           <p className="page-subtitle">
             Create a login account for a new student or lecturer. Programme is inherited from the selected batch.
           </p>
         </div>
         <Link to="/admin/students" className="btn btn-secondary">
-          <MdArrowBack /> Back
+          Students list
         </Link>
       </div>
 
-      <div className="card" style={{ maxWidth: 640, margin: '0 auto' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      <div className="card" style={{ maxWidth: 720 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: '1rem 1rem 0' }}>
           <button
             type="button"
             className={`btn ${role === 'student' ? 'btn-primary' : 'btn-secondary'}`}
@@ -245,26 +200,20 @@ export default function CreateAccountPage() {
           </button>
         </div>
 
-        {formError && (
-          <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
-            <MdErrorOutline /> {formError}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ padding: '0 1rem 1.25rem' }}>
+          {formError && (
+            <div className="alert-banner alert-banner-danger" style={{ marginBottom: 12 }} role="alert">
+              {formError}
+            </div>
+          )}
           {role === 'student' ? (
             <StudentFields form={studentForm} setForm={setStudentForm} batches={batches} />
           ) : (
             <LecturerFields form={lecturerForm} setForm={setLecturerForm} departments={departments} />
           )}
-
-          <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="submit" className="btn btn-primary" disabled={isPending}>
-              {isPending ? 'Creating…' : (
-                <>
-                  <MdPersonAdd /> Create {role === 'student' ? 'Student' : 'Lecturer'} Account
-                </>
-              )}
+              <MdPersonAdd /> Create {role === 'student' ? 'Student' : 'Lecturer'} Account
             </button>
           </div>
         </form>
@@ -323,25 +272,52 @@ function StudentFields({ form, setForm, batches }) {
             </option>
           ))}
         </select>
-        {selectedBatch?.programmes && (
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            Programme from batch: {selectedBatch.programmes.code} — {selectedBatch.programmes.name}
+        <p className="form-hint" style={{ marginTop: 4 }}>
+          Programme comes from the batch. Set programme on the batch first.
+        </p>
+        {form.batch_id && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: '0.65rem 0.75rem',
+              borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface-muted, rgba(0,0,0,0.03))',
+              fontSize: '0.85rem',
+            }}
+          >
+            {selectedBatch?.programmes ? (
+              <>
+                <div>
+                  <strong>Programme</strong>:{' '}
+                  <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
+                </div>
+                {selectedBatch.year_of_study != null && (
+                  <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
+                    Year of study: {selectedBatch.year_of_study}
+                    {selectedBatch.programmes.duration_years != null
+                      ? ` of ${selectedBatch.programmes.duration_years}`
+                      : ''}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span style={{ color: 'var(--color-danger)' }}>
+                This batch has no programme. Edit the batch and set HND, B.Tech, or M.Tech first.
+              </span>
+            )}
           </div>
         )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
         <div className="form-group">
-          <label className="form-label">Email Address *</label>
+          <label className="form-label">Email *</label>
           <input id="student-email" type="email" className="form-input" placeholder="student@unhimas.edu" value={form.email} onChange={f('email')} required />
         </div>
         <div className="form-group">
           <label className="form-label">Phone</label>
           <input id="student-phone" type="text" className="form-input" value={form.phone} onChange={f('phone')} />
         </div>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Admission date</label>
-        <input type="date" className="form-input" value={form.admission_date} onChange={f('admission_date')} />
       </div>
     </>
   );
@@ -353,30 +329,19 @@ function LecturerFields({ form, setForm, departments }) {
     <>
       <div className="form-group">
         <label className="form-label">Staff ID *</label>
-        <input
-          id="lecturer-staff-id"
-          type="text"
-          className="form-input"
-          value={form.staff_id}
-          onChange={(e) => setForm((p) => ({ ...p, staff_id: e.target.value.toUpperCase() }))}
-          required
-        />
+        <input type="text" className="form-input" value={form.staff_id} onChange={(e) => setForm((p) => ({ ...p, staff_id: e.target.value.toUpperCase() }))} required />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
         <div className="form-group">
           <label className="form-label">First Name *</label>
           <input type="text" className="form-input" value={form.first_name} onChange={f('first_name')} required />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Middle Name</label>
-          <input type="text" className="form-input" value={form.middle_name} onChange={f('middle_name')} />
         </div>
         <div className="form-group">
           <label className="form-label">Last Name *</label>
           <input type="text" className="form-input" value={form.last_name} onChange={f('last_name')} required />
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
         <div className="form-group">
           <label className="form-label">Email *</label>
           <input type="email" className="form-input" value={form.email} onChange={f('email')} required />
@@ -389,11 +354,9 @@ function LecturerFields({ form, setForm, departments }) {
       <div className="form-group">
         <label className="form-label">Department</label>
         <select className="form-input" value={form.department_id} onChange={f('department_id')}>
-          <option value="">Select department…</option>
+          <option value="">Select…</option>
           {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name} ({d.abbreviation})
-            </option>
+            <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
       </div>
