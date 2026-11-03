@@ -209,19 +209,18 @@ export default function BatchesPage() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
-            <label className="form-label">Search</label>
+      <div className="card" style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <input
               className="form-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search batch, level, department…"
+              aria-label="Search batch, level, department…"
             />
           </div>
-          <div className="form-group" style={{ marginBottom: 0, minWidth: 200 }}>
-            <label className="form-label">Department</label>
+          <div style={{ minWidth: 200 }}>
             <select
               className="form-input"
               value={selectedDeptFilter}
@@ -234,6 +233,7 @@ export default function BatchesPage() {
                   setSearchParams({});
                 }
               }}
+              aria-label="Department"
             >
               <option value="">All departments</option>
               {departments.map((d) => (
@@ -501,17 +501,17 @@ export default function BatchesPage() {
               ))}
             </select>
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-secondary" onClick={() => setAddCourseOpen(false)}>Cancel</button>
             <button
               type="button"
               className="btn btn-primary"
-              disabled={!courseForm.course_id || assignCourseMutation.isPending}
+              disabled={!courseForm.course_id || !courseForm.semester_id || assignCourseMutation.isPending}
               onClick={() =>
                 assignCourseMutation.mutate({
                   batch_id: programmeBatch.id,
                   course_id: courseForm.course_id,
-                  semester_id: courseForm.semester_id || null,
+                  semester_id: courseForm.semester_id,
                 })
               }
             >
@@ -523,17 +523,19 @@ export default function BatchesPage() {
 
       {completeBatch && (
         <Modal title="Mark programme completed" onClose={() => setCompleteBatch(null)}>
-          <p style={{ marginBottom: 12 }}>
-            {completeBatch.name} — choose result for all active students in this batch.
-          </p>
+          <p style={{ marginBottom: 12 }}>Batch: <strong>{completeBatch.name}</strong></p>
           <div className="form-group">
             <label className="form-label">Result</label>
-            <select className="form-input" value={completeResult} onChange={(e) => setCompleteResult(e.target.value)}>
+            <select
+              className="form-input"
+              value={completeResult}
+              onChange={(e) => setCompleteResult(e.target.value)}
+            >
               <option value="pass">Pass</option>
               <option value="fail_or_exit">Fail / exit</option>
             </select>
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-secondary" onClick={() => setCompleteBatch(null)}>Cancel</button>
             <button
               type="button"
