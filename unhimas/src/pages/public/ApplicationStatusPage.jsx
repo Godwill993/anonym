@@ -22,12 +22,14 @@ function browserStore() {
 }
 
 export default function ApplicationStatusPage() {
-  const { translateText } = useTranslation();
+  const { t, translateText } = useTranslation();
   const [number, setNumber] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  const universityName = t('auth.school_subtitle');
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -73,29 +75,18 @@ export default function ApplicationStatusPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card" style={{ maxWidth: 440 }}>
+      <div className="auth-card">
         <div className="auth-card-header">
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
-            <div className="auth-school-subtitle">
-              {translateText('Admissions')}
-            </div>
+            <div className="auth-school-subtitle">{universityName}</div>
           </div>
         </div>
 
         <div className="auth-card-body">
           <h1 className="auth-title">{translateText('Application status')}</h1>
-          <p
-            style={{
-              textAlign: 'center',
-              fontSize: '0.85rem',
-              color: 'var(--color-text-muted)',
-              marginTop: -8,
-              marginBottom: 20,
-              lineHeight: 1.5,
-            }}
-          >
+          <p className="auth-form-lead">
             {translateText('Enter your application number and email to check status.')}
           </p>
 
@@ -132,7 +123,7 @@ export default function ApplicationStatusPage() {
             </div>
 
             {error && (
-              <div className="auth-alert error" role="alert" style={{ marginBottom: '1rem' }}>
+              <div className="auth-alert error" role="alert">
                 <MdErrorOutline style={{ flexShrink: 0 }} />
                 {error}
               </div>
@@ -187,37 +178,15 @@ export default function ApplicationStatusPage() {
             </div>
           )}
 
-          <div
-            style={{
-              marginTop: '1.25rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid var(--color-border)',
-              textAlign: 'center',
-              fontSize: '0.85rem',
-              color: 'var(--color-text-muted)',
-              lineHeight: 1.7,
-            }}
-          >
-            <Link to="/apply" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-              {translateText('Submit a new application')}
-            </Link>
+          <div className="auth-footer-links">
+            <Link to="/apply">{translateText('Submit a new application')}</Link>
             {' · '}
-            <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-              {translateText('Back to login')}
-            </Link>
+            <Link to="/login">{translateText('Back to login')}</Link>
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '0.875rem 1.5rem',
-            borderTop: '1px solid var(--color-border)',
-            textAlign: 'center',
-            fontSize: '0.75rem',
-            color: 'var(--color-text-muted)',
-          }}
-        >
-          © {new Date().getFullYear()} UNHIMAS
+        <div className="auth-card-footer">
+          © {new Date().getFullYear()} UNHIMAS · {universityName}
         </div>
       </div>
     </div>
