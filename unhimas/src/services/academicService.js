@@ -182,6 +182,70 @@ export async function getBatches(departmentId = null) {
   return data || [];
 }
 
+/**
+ * Validate batch fields for Cameroon model.
+ * programme_id and year_of_study are required so students inherit a programme.
+ * @throws {Error} with a plain-language message
+ */
+export function assertBatchIntegrity({
+  programme_id,
+  year_of_study,
+  name,
+  department_id,
+  academic_year_id,
+  programme = null,
+}) {
+  if (!name || !String(name).trim()) {
+    throw new Error('Batch name is required.');
+  }
+  if (!department_id) {
+    throw new Error('Department is required.');
+  }
+  if (!academic_year_id) {
+    throw new Error('School year (academic year) is required.');
+  }
+  if (!programme_id) {
+    throw new Error('Programme is required (HND, B.Tech, or M.Tech). Set it on the batch so students inherit it.');
+  }
+  const year = Number(year_of_study);
+  if (!Number.isFinite(year) || year < 1) {
+    throw new Error('Year of study is required and must be at least 1.');
+  }
+  const maxYears = programme?.duration_years != null ? Number(programme.duration_years) : null;
+  if (maxYears != null && Number.isFinite(maxYears) && year > maxYears) {
+    const code = programme.code || 'this programme';
+    throw new Error(`Year of study cannot exceed ${maxYears} for ${code}.`);
+  }
+  return year;
+}
+
+/** Build a short batch code when the admin leaves code empty. */
+export function buildBatchCode({
+  code,
+  departmentAbbr,
+  programmeCode,
+  year_of_study,
+  name,
+  batch_number,
+}) {
+  const explicit = code != null ? String(code).trim() : '';
+  if (explicit) return explicit.toUpperCase().slice(0, 32);
+  const parts = [
+    departmentAbbr || null,
+    programmeCode || null,
+    year_of_study != null ? `Y${year_of_study}` : null,
+    batch_number != null ? `B${batch_number}` : null,
+  ].filter(Boolean);
+  if (parts.length >= 2) return parts.join('-').toUpperCase().slice(0, 32);
+  const fromName = String(name || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 24);
+  return fromName || `BATCH-${Date.now().toString(36).toUpperCase()}`;
+}
+
 export async function createBatch({
   department_id,
   academic_year_id,
@@ -191,16 +255,58 @@ export async function createBatch({
   level_name,
   batch_number,
   code,
+  departmentAbbr,
+  programmeCode,
+  programme,
 }) {
+  let resolvedProgramme = programme || null;
+  if (!resolvedProgramme && programme_id) {
+    try {
+      resolvedProgramme = await getProgramme(programme_id);
+    } catch {
+      resolvedProgramme = null;
+    }
+  }
+  const year = assertBatchIntegrity({
+    programme_id,
+    year_of_study,
+    name,
+    department_id,
+    academic_year_id,
+    programme: resolvedProgramme,
+  });
+
+  const progCode = programmeCode || resolvedProgramme?.code || null;
+  let deptAbbr = departmentAbbr || null;
+  if (!deptAbbr && department_id) {
+    try {
+      const { data: dept } = await supabase
+        .from('departments')
+        .select('abbreviation')
+        .eq('id', department_id)
+        .maybeSingle();
+      deptAbbr = dept?.abbreviation || null;
+    } catch {
+      /* ignore */
+    }
+  }
+
   const row = {
     department_id,
     academic_year_id,
-    programme_id: programme_id || null,
-    year_of_study: year_of_study != null ? Number(year_of_study) : null,
+    programme_id,
+    year_of_study: year,
     name: name.trim(),
     level_name: level_name?.trim() || null,
     batch_number: batch_number != null ? Number(batch_number) : 1,
-    code: code?.trim() || null,
+    code: buildBatchCode({
+      code,
+      departmentAbbr: deptAbbr,
+      programmeCode: progCode,
+      year_of_study: year,
+      name,
+      batch_number: batch_number != null ? Number(batch_number) : 1,
+    }),
   };
   const { data, error } = await supabase.from('batches').insert([row]).select().single();
   if (error) throw error;
@@ -208,8 +314,57 @@ export async function createBatch({
 }
 
 export async function updateBatch(id, updates) {
-  if (updates.year_of_study != null) updates.year_of_study = Number(updates.year_of_study);
-  const { data, error } = await supabase.from('batches').update(updates).eq('id', id).select().single();
+  const next = { ...updates };
+  if (next.year_of_study != null) next.year_of_study = Number(next.year_of_study);
+
+  // When programme / year / core fields are part of the update, enforce integrity.
+  const touchesStructure =
+    next.programme_id !== undefined ||
+    next.year_of_study !== undefined ||
+    next.name !== undefined ||
+    next.department_id !== undefined ||
+    next.academic_year_id !== undefined;
+
+  if (touchesStructure) {
+    const { data: existing, error: loadErr } = await supabase
+      .from('batches')
+      .select('name, department_id, academic_year_id, programme_id, year_of_study')
+      .eq('id', id)
+      .single();
+    if (loadErr) throw loadErr;
+
+    const merged = {
+      name: next.name !== undefined ? next.name : existing.name,
+      department_id: next.department_id !== undefined ? next.department_id : existing.department_id,
+      academic_year_id: next.academic_year_id !== undefined ? next.academic_year_id : existing.academic_year_id,
+      programme_id: next.programme_id !== undefined ? next.programme_id : existing.programme_id,
+      year_of_study: next.year_of_study !== undefined ? next.year_of_study : existing.year_of_study,
+    };
+
+    let programme = null;
+    if (merged.programme_id) {
+      try {
+        programme = await getProgramme(merged.programme_id);
+      } catch {
+        programme = null;
+      }
+    }
+    const year = assertBatchIntegrity({ ...merged, programme });
+    next.year_of_study = year;
+    if (next.programme_id !== undefined) next.programme_id = merged.programme_id;
+  }
+
+  if (next.code !== undefined) {
+    const trimmed = next.code != null ? String(next.code).trim() : '';
+    next.code = trimmed ? trimmed.toUpperCase().slice(0, 32) : next.code;
+  }
+
+  // Strip client-only helper fields so they are not sent to PostgREST
+  delete next.departmentAbbr;
+  delete next.programmeCode;
+  delete next.programme;
+
+  const { data, error } = await supabase.from('batches').update(next).eq('id', id).select().single();
   if (error) throw error;
   return data;
 }
