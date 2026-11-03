@@ -164,6 +164,8 @@ export default function StudentsPage() {
     setEditingStudent(null);
   };
 
+  const selectedBatch = batches.find((b) => b.id === formData.batch_id) || null;
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.matricule?.trim() || !formData.first_name?.trim() || !formData.last_name?.trim()) {
@@ -455,7 +457,40 @@ export default function StudentsPage() {
                 </option>
               ))}
             </select>
-            <p className="form-hint">{translateText('Programme is inherited from the selected batch.')}</p>
+            <p className="form-hint">{translateText('Programme comes from the batch. Set programme on the batch first.')}</p>
+            {formData.batch_id && selectedBatch && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: '0.65rem 0.75rem',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface-muted, rgba(0,0,0,0.03))',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {selectedBatch.programmes ? (
+                  <>
+                    <div>
+                      <strong>{translateText('Programme')}</strong>:{' '}
+                      <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
+                    </div>
+                    {selectedBatch.year_of_study != null && (
+                      <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
+                        {translateText('Year of study')}: {selectedBatch.year_of_study}
+                        {selectedBatch.programmes.duration_years != null
+                          ? ` of ${selectedBatch.programmes.duration_years}`
+                          : ''}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--color-danger)' }}>
+                    {translateText('This batch has no programme. Edit the batch and set HND, B.Tech, or M.Tech first.')}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">
