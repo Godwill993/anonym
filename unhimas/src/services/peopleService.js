@@ -59,15 +59,10 @@ export async function createStudent({
   programme_id,
   admission_date,
 }) {
-  // If programme not given, inherit from the batch (Cameroon model: cohort belongs to a programme)
-  let resolvedProgrammeId = programme_id || null;
-  if (!resolvedProgrammeId && batch_id) {
-    const { data: batchRow } = await supabase
-      .from('batches')
-      .select('programme_id')
-      .eq('id', batch_id)
-      .maybeSingle();
-    resolvedProgrammeId = batchRow?.programme_id || null;
+  // Admin chooses the programme the student belongs to. Do not drop it.
+  const resolvedProgrammeId = programme_id || null;
+  if (!resolvedProgrammeId) {
+    throw new Error('Select the programme this student belongs to.');
   }
 
   const { data, error } = await supabase

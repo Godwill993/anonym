@@ -119,6 +119,7 @@ export async function updateApplicationStatus(id, { status, adminNotes, reviewed
 
 export async function acceptAndEnrollApplication(applicationId, { batchId, programmeId = null, reviewedBy }) {
   if (!batchId) throw new Error('Batch is required to enrol');
+  if (!programmeId) throw new Error('Select the programme this student belongs to.');
 
   const app = await getApplication(applicationId);
   if (!app) throw new Error('Application not found');
@@ -126,15 +127,7 @@ export async function acceptAndEnrollApplication(applicationId, { batchId, progr
     return { application: app, student: { id: app.student_id }, alreadyEnrolled: true };
   }
 
-  let resolvedProgrammeId = programmeId || null;
-  if (!resolvedProgrammeId) {
-    const { data: batchRow } = await supabase
-      .from('batches')
-      .select('programme_id')
-      .eq('id', batchId)
-      .maybeSingle();
-    resolvedProgrammeId = batchRow?.programme_id || null;
-  }
+  const resolvedProgrammeId = programmeId;
 
   const year = new Date().getFullYear();
   const suffix = String(Date.now()).slice(-5);

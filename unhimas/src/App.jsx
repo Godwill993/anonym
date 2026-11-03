@@ -18,7 +18,6 @@ const ApplicationStatusPage = lazy(() => import('./pages/public/ApplicationStatu
 // Admin Pages (Lazy loaded)
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const DepartmentsPage = lazy(() => import('./pages/admin/DepartmentsPage'));
-const ProgrammesPage = lazy(() => import('./pages/admin/ProgrammesPage'));
 const BatchesPage = lazy(() => import('./pages/admin/BatchesPage'));
 const AcademicYearsPage = lazy(() => import('./pages/admin/AcademicYearsPage'));
 const SemestersPage = lazy(() => import('./pages/admin/SemestersPage'));
@@ -151,7 +150,7 @@ function App() {
                     <Routes>
                       <Route index element={<AdminDashboard />} />
                       <Route path="departments" element={<DepartmentsPage />} />
-                      <Route path="programmes" element={<ProgrammesPage />} />
+                      <Route path="programmes" element={<Navigate to="/admin/students" replace />} />
                       <Route path="batches" element={<BatchesPage />} />
                       <Route path="academic-years" element={<AcademicYearsPage />} />
                       <Route path="semesters" element={<SemestersPage />} />
