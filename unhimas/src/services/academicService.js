@@ -62,7 +62,7 @@ export async function getProgrammeProgressions() {
 }
 
 export async function getEffectiveProgrammeDuration(programmeId, departmentId = null) {
-  const { data, error } = await supabase.rpc('get_effective_programme_duration', {
+  const { data, error } = await supabase.rpc('effective_programme_duration_years', {
     p_programme_id: programmeId,
     p_department_id: departmentId,
   });
@@ -71,7 +71,7 @@ export async function getEffectiveProgrammeDuration(programmeId, departmentId = 
 }
 
 export async function getEffectiveHndDuration(departmentId) {
-  const { data, error } = await supabase.rpc('get_effective_hnd_duration', {
+  const { data, error } = await supabase.rpc('effective_hnd_duration_years', {
     p_department_id: departmentId,
   });
   if (error) throw error;

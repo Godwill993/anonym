@@ -57,27 +57,47 @@ export default function AdminDashboard() {
     queryFn: getAdminOverviewStats,
   });
 
-  const { data: liveShifts = [], isLoading: shiftsLoading } = useQuery({
+  const {
+    data: liveShifts = [],
+    isLoading: shiftsLoading,
+    refetch: refetchShifts,
+  } = useQuery({
     queryKey: ['admin-live-shifts'],
     queryFn: getLiveLecturerPresence,
   });
 
-  const { data: pendingMarks = [], isLoading: marksLoading } = useQuery({
+  const {
+    data: pendingMarks = [],
+    isLoading: marksLoading,
+    refetch: refetchPendingMarks,
+  } = useQuery({
     queryKey: ['admin-pending-marks'],
     queryFn: getPendingSubmissionsList,
   });
 
-  const { data: enrollment = [], isLoading: enrollLoading } = useQuery({
+  const {
+    data: enrollment = [],
+    isLoading: enrollLoading,
+    refetch: refetchEnrollment,
+  } = useQuery({
     queryKey: ['admin-dept-enrollment'],
     queryFn: getDepartmentEnrollment,
   });
 
-  const { data: markStatus = [], isLoading: markStatusLoading } = useQuery({
+  const {
+    data: markStatus = [],
+    isLoading: markStatusLoading,
+    refetch: refetchMarkStatus,
+  } = useQuery({
     queryKey: ['admin-mark-status'],
     queryFn: getMarkStatusBreakdown,
   });
 
-  const { data: feeSnap, isLoading: feeLoading } = useQuery({
+  const {
+    data: feeSnap,
+    isLoading: feeLoading,
+    refetch: refetchFees,
+  } = useQuery({
     queryKey: ['admin-fee-snapshot'],
     queryFn: getFeeCollectionSnapshot,
   });
@@ -101,7 +121,14 @@ export default function AdminDashboard() {
     : [];
 
   const refreshAll = () => {
-    refetchStats();
+    void Promise.all([
+      refetchStats(),
+      refetchShifts(),
+      refetchPendingMarks(),
+      refetchEnrollment(),
+      refetchMarkStatus(),
+      refetchFees(),
+    ]);
   };
 
   return (
@@ -112,7 +139,13 @@ export default function AdminDashboard() {
           <p className="page-subtitle">{formattedDate}</p>
         </div>
         <div className="page-header-actions">
-          <button type="button" className="btn btn-outline btn-sm" onClick={refreshAll}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={refreshAll}
+            aria-label={translateText('Refresh dashboard data')}
+            title={translateText('Refresh dashboard data')}
+          >
             <MdRefresh aria-hidden="true" />
           </button>
           <Link to="/admin/create-account" className="btn btn-primary btn-sm">

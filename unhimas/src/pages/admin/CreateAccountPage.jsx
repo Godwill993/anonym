@@ -4,14 +4,12 @@ import { Link } from 'react-router-dom';
 import { MdPersonAdd, MdSchool, MdPersonPin, MdCheckCircle } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
-import { useAuth } from '../../context/AuthContext';
 import { getBatches } from '../../services/academicService';
 import { getDepartments } from '../../services/academicService';
 import { createStudent, createLecturer } from '../../services/peopleService';
 import { createSchoolAccount } from '../../services/auth';
 
 export default function CreateAccountPage() {
-  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [role, setRole] = useState('student');
   const [formError, setFormError] = useState('');

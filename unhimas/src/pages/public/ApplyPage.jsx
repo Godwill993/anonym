@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MdCheckCircle, MdErrorOutline } from 'react-icons/md';
@@ -46,7 +46,11 @@ export default function ApplyPage() {
   const [localError, setLocalError] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
   const [verifyingCaptcha, setVerifyingCaptcha] = useState(false);
-  const openedAt = useMemo(() => Date.now(), []);
+  const openedAt = useRef(0);
+
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
 
   const { data: programmes = [] } = useQuery({
     queryKey: ['public-programmes'],
@@ -76,7 +80,7 @@ export default function ApplyPage() {
     e.preventDefault();
     setLocalError('');
 
-    if (isSubmitTooFast(openedAt)) {
+    if (!openedAt.current || isSubmitTooFast(openedAt.current)) {
       setLocalError(
         translateText('Please take a moment to review your details before submitting.'),
       );

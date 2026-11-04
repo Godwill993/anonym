@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdAdd,
   MdGroups,
-  MdSearch,
   MdToggleOn,
   MdToggleOff,
   MdEdit,
@@ -37,13 +36,7 @@ export default function BatchesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const deptFromUrl = searchParams.get('department') || '';
-  const [selectedDeptFilter, setSelectedDeptFilter] = useState(deptFromUrl);
-
-  useEffect(() => {
-    const d = searchParams.get('department') || '';
-    setSelectedDeptFilter(d);
-  }, [searchParams]);
+  const selectedDeptFilter = searchParams.get('department') || '';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
   const [programmeBatch, setProgrammeBatch] = useState(null);
@@ -252,7 +245,6 @@ export default function BatchesPage() {
               value={selectedDeptFilter}
               onChange={(e) => {
                 const value = e.target.value;
-                setSelectedDeptFilter(value);
                 if (value) {
                   setSearchParams({ department: value });
                 } else {

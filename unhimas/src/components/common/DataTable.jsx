@@ -1,4 +1,4 @@
-import { useState, useMemo, useId, useEffect, useRef } from 'react';
+import { useState, useMemo, useId } from 'react';
 import {
   MdSearch,
   MdClose,
@@ -141,24 +141,11 @@ export default function DataTable({
 }) {
   const { language, translateText } = useTranslation();
   const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [requestedPage, setRequestedPage] = useState(1);
   const [perPage, setPerPage] = useState(pageSize);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const searchId = useId();
   const regionId = useId();
-  const prevDataLen = useRef(Array.isArray(data) ? data.length : 0);
-
-  // When the underlying dataset size changes a lot (e.g. external filter),
-  // reset to page 1 so the user is not left on an empty page.
-  useEffect(() => {
-    const len = Array.isArray(data) ? data.length : 0;
-    if (Math.abs(len - prevDataLen.current) > 0 && currentPage > 1) {
-      // Only force reset when the list shrinks past the current window
-      const maxPage = Math.max(1, Math.ceil(len / perPage) || 1);
-      if (currentPage > maxPage) setCurrentPage(1);
-    }
-    prevDataLen.current = len;
-  }, [data, perPage, currentPage]);
 
   const filteredData = useMemo(() => {
     const list = Array.isArray(data) ? data : [];
@@ -190,11 +177,7 @@ export default function DataTable({
   }, [filteredData, sortConfig, columns]);
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / perPage) || 1);
-
-  // Keep current page in range when filters/search shrink the result set
-  useEffect(() => {
-    setCurrentPage((p) => Math.min(Math.max(1, p), totalPages));
-  }, [totalPages]);
+  const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * perPage;
@@ -203,12 +186,12 @@ export default function DataTable({
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
-    setCurrentPage(1);
+    setRequestedPage(1);
   };
 
   const handleClearSearch = () => {
     setSearch('');
-    setCurrentPage(1);
+    setRequestedPage(1);
   };
 
   const handleHeaderClick = (col) => {
@@ -223,7 +206,7 @@ export default function DataTable({
       }
       return { key: colKey, direction: 'asc' };
     });
-    setCurrentPage(1);
+    setRequestedPage(1);
   };
 
   const handleExportCsv = () => {
@@ -502,7 +485,7 @@ export default function DataTable({
                   value={perPage}
                   onChange={(e) => {
                     setPerPage(Number(e.target.value));
-                    setCurrentPage(1);
+                    setRequestedPage(1);
                   }}
                 >
                   <option value={10}>10</option>
@@ -520,7 +503,7 @@ export default function DataTable({
                 type="button"
                 className="btn btn-outline btn-sm"
                 disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => setRequestedPage(Math.max(1, currentPage - 1))}
                 aria-label={translateText('Previous page')}
               >
                 <MdChevronLeft aria-hidden="true" /> {translateText('Prev')}
@@ -542,7 +525,7 @@ export default function DataTable({
                 type="button"
                 className="btn btn-outline btn-sm"
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setRequestedPage(Math.min(totalPages, currentPage + 1))}
                 aria-label={translateText('Next page')}
               >
                 {translateText('Next')} <MdChevronRight aria-hidden="true" />

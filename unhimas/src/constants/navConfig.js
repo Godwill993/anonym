@@ -60,7 +60,7 @@ export const NAV_CONFIG = {
           children: [
             { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
             { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
-            { key: 'administrators', label: 'Administrators', path: '/admin/administrators', icon: MdAdminPanelSettings, capability: 'manage_people' },
+            { key: 'administrators', label: 'Administrators', path: '/admin/staff', icon: MdAdminPanelSettings, capability: 'manage_people' },
           ],
         },
         { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },

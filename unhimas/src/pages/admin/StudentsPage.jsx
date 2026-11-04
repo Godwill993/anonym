@@ -1,15 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  MdAdd, MdSchool, MdSearch, MdEdit, MdDelete, MdToggleOn, MdToggleOff,
+  MdAdd, MdSchool, MdSearch, MdEdit, MdDelete, MdToggleOff,
   MdEmail, MdPhone, MdPersonAdd, MdCheckCircle, MdFileDownload, MdChevronLeft, MdChevronRight,
-  MdMoreVert,
 } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { toast } from '../../components/common/Toast';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
-import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
@@ -20,7 +18,6 @@ import {
   updateStudent,
   deleteSchoolAccount,
   archiveStudent,
-  studentHasMarks,
 } from '../../services/peopleService';
 import { getBatches, markStudentProgrammeCompleted, computeIsFinalYear } from '../../services/academicService';
 
@@ -28,7 +25,7 @@ const PAGE_SIZE = 20;
 
 export default function StudentsPage() {
   const { profile } = useAuth();
-  const { language, translateText } = useTranslation();
+  const { translateText } = useTranslation();
   const queryClient = useQueryClient();
   const canManagePeople = profile?.role === 'admin';
   const canCreateAccounts = profile?.role === 'admin';

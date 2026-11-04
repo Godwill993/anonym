@@ -55,11 +55,11 @@ export function checkPublicLookupThrottle(
   if (!store || typeof store.getItem !== 'function') {
     return { allowed: true };
   }
-  let last = 0;
+  let last;
   try {
     last = Number(store.getItem(key) || 0);
   } catch {
-    last = 0;
+    return { allowed: true };
   }
   if (Number.isFinite(last) && last > 0 && now - last < cooldownMs) {
     return { allowed: false, retryAfterMs: cooldownMs - (now - last) };
@@ -96,14 +96,14 @@ export function normalizeApplicationNumber(value) {
 
 export function isPlausibleApplicationNumber(value) {
   const n = normalizeApplicationNumber(value);
-  return n.length >= 5 && n.length <= 40;
+  return /^APP-(?:\d{4}-)?\d{5,}$/.test(n);
 }
 
 export function validateApplicationLookup(applicationNumber, email) {
   const number = normalizeApplicationNumber(applicationNumber);
   const em = String(email || '').trim().toLowerCase();
-  if (!number || number.length < 5) {
-    return { ok: false, message: 'Application number is required' };
+  if (!isPlausibleApplicationNumber(number)) {
+    return { ok: false, message: 'Enter a valid application number (e.g. APP-2026-01000)' };
   }
   if (!isValidEmail(em)) {
     return { ok: false, message: 'A valid email address is required' };
@@ -112,13 +112,12 @@ export function validateApplicationLookup(applicationNumber, email) {
 }
 
 export function normalizeMatricule(value) {
-  return String(value || '').trim().toUpperCase();
+  return String(value || '').replace(/\s+/g, '').toUpperCase();
 }
 
 export function isPlausibleMatricule(value) {
   const m = normalizeMatricule(value);
-  if (m.length < 5 || m.length > 40) return false;
-  return /[A-Z0-9]/.test(m);
+  return /^UNH(?:\d{7,}|[/-]\d{4}(?:[/-][A-Z0-9]+){1,2})$/.test(m);
 }
 
 /**

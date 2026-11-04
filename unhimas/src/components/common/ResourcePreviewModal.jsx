@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MdDownload, MdInsertDriveFile, MdImage, MdPictureAsPdf } from 'react-icons/md';
 import Modal from './Modal';
 import { useTranslation } from '../../i18n';
-import { isImageMime, isPdfMime, getResourceKind } from '../../utils/resourceUtils';
+import { isImageMime, getResourceKind } from '../../utils/resourceUtils';
 
 export function ResourceKindIcon({ mime, name, size = 22 }) {
   const kind = getResourceKind(mime, name);
@@ -140,6 +140,8 @@ export function LocalFilePreview({ file }) {
       return undefined;
     }
     const url = URL.createObjectURL(file);
+    // The URL is an external resource; keep its lifecycle synchronized with the selected file.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setObjectUrl(url);
     return () => {
       URL.revokeObjectURL(url);

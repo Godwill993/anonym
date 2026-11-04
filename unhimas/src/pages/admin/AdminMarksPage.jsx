@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MdCheckCircle, MdVisibility, MdFilterList, MdPublish } from 'react-icons/md';
@@ -95,7 +95,7 @@ export default function AdminMarksPage() {
     return submissions.filter((s) => s.status === statusFilter);
   }, [submissions, statusFilter]);
 
-  const canPublishRow = (s) => {
+  const canPublishRow = useCallback((s) => {
     if (s.status !== 'approved' || !canPublishResults) return false;
     const batchId = s?.batch_courses?.batches?.id;
     const semesterId = s?.batch_courses?.semesters?.id;
@@ -103,7 +103,7 @@ export default function AdminMarksPage() {
     const row = batchReadiness.find((r) => r.batch_id === batchId && r.semester_id === semesterId);
     if (!row && batchReadiness.length === 0) return true;
     return Boolean(row?.can_publish);
-  };
+  }, [batchReadiness, canPublishResults]);
 
   const columns = useMemo(
     () => [

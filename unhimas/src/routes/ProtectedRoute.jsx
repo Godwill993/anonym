@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useTranslation } from '../i18n';
 
 /**
  * Protect a route. Optionally restrict to specific roles.
@@ -12,11 +13,13 @@ import { supabase } from '../lib/supabase';
  */
 export default function ProtectedRoute({ children, roles }) {
   const { session, profile, loading, profileError } = useAuth();
-  const [mustReset, setMustReset] = useState(null); // null = checking, true/false = resolved
+  const { translateText } = useTranslation();
+  const [resetCheck, setResetCheck] = useState({ key: null, status: 'checking' });
 
   const needsResetCheck = Boolean(
     session && profile && (profile.role === 'student' || profile.role === 'lecturer')
   );
+  const resetCheckKey = `${session?.user?.id || ''}:${profile?.role || ''}`;
 
   useEffect(() => {
     if (!needsResetCheck) {
@@ -30,23 +33,36 @@ export default function ProtectedRoute({ children, roles }) {
       .select('must_reset_password')
       .eq('profile_id', session.user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) {
-          setMustReset(data?.must_reset_password === true);
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error || !data) {
+          console.error(
+            'Unable to verify password reset requirement',
+            error || new Error('No matching student or lecturer record'),
+          );
         }
+        setResetCheck({
+          key: resetCheckKey,
+          status: error || !data ? 'error' : data.must_reset_password === true ? 'required' : 'clear',
+        });
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('Unable to verify password reset requirement', error);
         if (isMounted) {
-          setMustReset(false);
+          setResetCheck({ key: resetCheckKey, status: 'error' });
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [needsResetCheck, session?.user?.id, profile?.role]);
+  }, [needsResetCheck, resetCheckKey, session?.user?.id, profile?.role]);
 
-  if (loading || (needsResetCheck && mustReset === null)) {
+  if (
+    loading ||
+    (needsResetCheck &&
+      (resetCheck.key !== resetCheckKey || resetCheck.status === 'checking'))
+  ) {
     return (
       <div className="route-loading">
         <div className="spinner" />
@@ -62,8 +78,19 @@ export default function ProtectedRoute({ children, roles }) {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  if (needsResetCheck && resetCheck.key === resetCheckKey && resetCheck.status === 'error') {
+    return (
+      <div className="route-loading" role="alert">
+        <p>{translateText('Unable to verify your account setup. Refresh the page or contact an administrator.')}</p>
+        <button type="button" className="btn btn-outline" onClick={() => window.location.reload()}>
+          {translateText('Retry')}
+        </button>
+      </div>
+    );
+  }
+
   // Force password change before allowing access to any role-specific page
-  if (mustReset) {
+  if (needsResetCheck && resetCheck.key === resetCheckKey && resetCheck.status === 'required') {
     return <Navigate to="/set-new-password" replace />;
   }
 
