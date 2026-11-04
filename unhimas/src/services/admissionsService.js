@@ -62,7 +62,11 @@ export async function lookupApplication(applicationNumber, email) {
   return data || null;
 }
 
-/** Public / unauthenticated submit */
+/**
+ * Public / unauthenticated submit.
+ * Uses SECURITY DEFINER RPC so anon does not need SELECT on the table
+ * (insert().select() fails under RLS without a select policy).
+ */
 export async function submitApplication(payload) {
   if (isHoneypotTriggered(payload)) {
     return { application_number: 'APP-SPAM', status: 'submitted', _spam: true };
@@ -75,29 +79,18 @@ export async function submitApplication(payload) {
 
   const clean = sanitizeAdmissionPayload(payload);
 
-  let applicationNumber;
-  try {
-    const { data } = await supabase.rpc('generate_application_number');
-    applicationNumber = data;
-  } catch {
-    applicationNumber = `APP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
-  }
-
-  const row = {
-    application_number: applicationNumber,
-    status: 'submitted',
-    ...clean,
-  };
-
-  const { data, error } = await supabase
-    .from('admission_applications')
-    .insert(row)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('submit_admission_application', {
+    p_payload: clean,
+  });
   if (error) throw error;
 
-  void notifyApplicationSubmitted(data);
-  return data;
+  const row = data && typeof data === 'object' ? data : null;
+  if (!row?.application_number) {
+    throw new Error('Application was not created. Please try again.');
+  }
+
+  void notifyApplicationSubmitted(row);
+  return row;
 }
 
 export async function updateApplicationStatus(id, { status, adminNotes, reviewedBy }) {
