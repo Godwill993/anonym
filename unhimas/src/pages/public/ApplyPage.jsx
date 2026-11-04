@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MdCheckCircle, MdErrorOutline } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
-import { getDepartments } from '../../services/academicService';
+import { getProgrammes } from '../../services/academicService';
 import { submitApplication } from '../../services/admissionsService';
 import {
   isSubmitTooFast,
@@ -23,12 +23,21 @@ const empty = {
   date_of_birth: '',
   gender: '',
   nationality: 'Cameroonian',
-  department_id: '',
+  programme_id: '',
   preferred_level: 'Level 1',
   previous_school: '',
   previous_qualification: '',
   website: '',
 };
+
+/** Display label for catalogue programmes (Cameroon model). */
+function programmeLabel(p) {
+  if (!p) return '';
+  const code = p.code ? String(p.code).toUpperCase() : '';
+  const name = p.name || '';
+  if (code && name) return `${name} (${code})`;
+  return name || code || 'Programme';
+}
 
 export default function ApplyPage() {
   const { t, translateText } = useTranslation();
@@ -39,9 +48,9 @@ export default function ApplyPage() {
   const [verifyingCaptcha, setVerifyingCaptcha] = useState(false);
   const openedAt = useMemo(() => Date.now(), []);
 
-  const { data: departments = [] } = useQuery({
-    queryKey: ['public-departments'],
-    queryFn: getDepartments,
+  const { data: programmes = [] } = useQuery({
+    queryKey: ['public-programmes'],
+    queryFn: () => getProgrammes({ activeOnly: true }),
   });
 
   const mutation = useMutation({
@@ -74,6 +83,11 @@ export default function ApplyPage() {
       return;
     }
 
+    if (!form.programme_id) {
+      setLocalError(translateText('Please select a preferred programme.'));
+      return;
+    }
+
     const validation = validateAdmissionPayload(form);
     if (!validation.ok) {
       setLocalError(translateText(validation.message));
@@ -99,7 +113,8 @@ export default function ApplyPage() {
 
     mutation.mutate({
       ...form,
-      department_id: form.department_id || null,
+      programme_id: form.programme_id || null,
+      department_id: null,
       academic_year_id: null,
     });
   };
@@ -296,24 +311,28 @@ export default function ApplyPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="apply-dept">
-                    {translateText('Preferred programme / department')} *
+                  <label className="form-label" htmlFor="apply-programme">
+                    {translateText('Preferred programme')} *
                   </label>
                   <select
-                    id="apply-dept"
+                    id="apply-programme"
                     className="form-input"
                     required
-                    value={form.department_id}
-                    onChange={set('department_id')}
+                    value={form.programme_id}
+                    onChange={set('programme_id')}
                   >
                     <option value="">{translateText('Select…')}</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                        {d.abbreviation ? ` (${d.abbreviation})` : ''}
+                    {programmes.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {programmeLabel(p)}
                       </option>
                     ))}
                   </select>
+                  <p className="form-hint" style={{ marginTop: 4 }}>
+                    {translateText(
+                      'HND, Bachelor of Science, Bachelor of Technology, Masters of Science, or Masters of Technology.',
+                    )}
+                  </p>
                 </div>
 
                 <div className="form-group">
@@ -325,7 +344,7 @@ export default function ApplyPage() {
                     className="form-input"
                     value={form.preferred_level}
                     onChange={set('preferred_level')}
-                    placeholder="Level 1, HND Year 1…"
+                    placeholder="Level 1, Year 1…"
                   />
                 </div>
 
