@@ -16,7 +16,6 @@ import {
   MdSchedule,
   MdDescription,
   MdAdminPanelSettings,
-  MdPersonAdd,
   MdNotifications,
   MdCampaign,
   MdFolder,
@@ -24,7 +23,6 @@ import {
   MdPerson,
   MdEventNote,
   MdAssignment,
-  MdMenuBook,
 } from 'react-icons/md';
 
 /**
@@ -49,7 +47,6 @@ export const NAV_CONFIG = {
             { key: 'years', label: 'Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
             { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
             { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
-            { key: 'batch-courses', label: 'Batch courses', path: '/admin/batch-courses', icon: MdMenuBook, capability: 'manage_academic_structure' },
             { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
             { key: 'class-sessions', label: 'Class sessions', path: '/admin/class-sessions', icon: MdEventNote, capability: 'manage_academic_structure' },
           ],
@@ -64,7 +61,6 @@ export const NAV_CONFIG = {
             { key: 'students', label: 'Students', path: '/admin/students', icon: MdSchool, capability: 'manage_people' },
             { key: 'lecturers', label: 'Lecturers', path: '/admin/lecturers', icon: MdPersonPin, capability: 'manage_people' },
             { key: 'administrators', label: 'Administrators', path: '/admin/administrators', icon: MdAdminPanelSettings, capability: 'manage_people' },
-            { key: 'create-account', label: 'Create account', path: '/admin/create-account', icon: MdPersonAdd, capability: 'create_accounts' },
           ],
         },
         { key: 'admissions', label: 'Admissions', path: '/admin/admissions', icon: MdHowToReg, capability: 'manage_admissions' },
