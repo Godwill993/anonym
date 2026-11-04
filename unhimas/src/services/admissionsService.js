@@ -22,6 +22,7 @@ export async function listApplications({ status, limit = 100 } = {}) {
     .select(`
       *,
       departments ( id, name, abbreviation ),
+      programmes ( id, code, name, award, duration_years ),
       academic_years ( id, name )
     `)
     .order('submitted_at', { ascending: false })
@@ -38,6 +39,7 @@ export async function getApplication(id) {
     .select(`
       *,
       departments ( id, name, abbreviation ),
+      programmes ( id, code, name, award, duration_years ),
       academic_years ( id, name )
     `)
     .eq('id', id)
@@ -94,6 +96,9 @@ export async function submitApplication(payload) {
 }
 
 export async function updateApplicationStatus(id, { status, adminNotes, reviewedBy }) {
+  if (!id) throw new Error('Application id is required');
+  if (!status) throw new Error('Status is required');
+
   const { data, error } = await supabase
     .from('admission_applications')
     .update({
@@ -111,6 +116,7 @@ export async function updateApplicationStatus(id, { status, adminNotes, reviewed
 }
 
 export async function acceptAndEnrollApplication(applicationId, { batchId, programmeId = null, reviewedBy }) {
+  if (!applicationId) throw new Error('Application id is required');
   if (!batchId) throw new Error('Batch is required to enrol');
 
   const app = await getApplication(applicationId);
@@ -119,7 +125,7 @@ export async function acceptAndEnrollApplication(applicationId, { batchId, progr
     return { application: app, student: { id: app.student_id }, alreadyEnrolled: true };
   }
 
-  let resolvedProgrammeId = programmeId || null;
+  let resolvedProgrammeId = programmeId || app.programme_id || null;
   if (!resolvedProgrammeId) {
     const { data: batch, error: batchErr } = await supabase
       .from('batches')

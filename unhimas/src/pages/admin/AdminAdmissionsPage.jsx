@@ -14,6 +14,18 @@ import {
   ADMISSION_STATUSES,
 } from '../../services/admissionsService';
 
+function statusClass(s) {
+  const map = {
+    submitted: 'badge-info',
+    under_review: 'badge-warning',
+    accepted: 'badge-success',
+    rejected: 'badge-danger',
+    waitlisted: 'badge-muted',
+    withdrawn: 'badge-muted',
+  };
+  return map[s] || 'badge-muted';
+}
+
 export default function AdminAdmissionsPage() {
   const { profile } = useAuth();
   const { translateText } = useTranslation();
@@ -22,55 +34,74 @@ export default function AdminAdmissionsPage() {
   const [enrolApp, setEnrolApp] = useState(null);
   const [batchId, setBatchId] = useState('');
 
-  const { data: applications = [], isLoading, refetch } = useQuery({
+  const { data: applications = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['admissions', statusFilter],
-    queryFn: () => listApplications(statusFilter || undefined),
+    queryFn: () => listApplications({ status: statusFilter || undefined, limit: 150 }),
   });
 
   const { data: batches = [] } = useQuery({
-    queryKey: ['batches'],
-    queryFn: getBatches,
+    queryKey: ['batches-for-enrol'],
+    queryFn: () => getBatches(),
     enabled: Boolean(enrolApp),
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }) => updateApplicationStatus(id, status),
+    mutationFn: ({ id, status }) =>
+      updateApplicationStatus(id, { status, reviewedBy: profile?.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
       toast.success(translateText('Application updated'));
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e?.message || translateText('Update failed')),
   });
 
   const enrolMutation = useMutation({
-    mutationFn: () =>
-      acceptAndEnrollApplication({
-        applicationId: enrolApp.id,
+    mutationFn: () => {
+      if (!enrolApp?.id) throw new Error('No application selected');
+      if (!batchId) throw new Error('Batch is required');
+      return acceptAndEnrollApplication(enrolApp.id, {
         batchId,
-        createdBy: profile?.id,
-      }),
+        programmeId: enrolApp.programme_id || null,
+        reviewedBy: profile?.id,
+      });
+    },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
       toast.success(
-        res?.already_enrolled
+        res?.alreadyEnrolled
           ? translateText('Already enrolled')
           : translateText('Student enrolled successfully'),
       );
       setEnrolApp(null);
       setBatchId('');
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e?.message || translateText('Enrol failed')),
   });
+
+  const openEnrol = (app) => {
+    setEnrolApp(app);
+    setBatchId('');
+  };
+
+  const selectedBatch = batches.find((b) => b.id === batchId);
 
   return (
     <AppLayout>
       <div className="page-header">
         <div>
           <h1 className="page-title">{translateText('Admissions')}</h1>
-          <p className="page-subtitle">{translateText('Review applications and enrol accepted candidates')}</p>
+          <p className="page-subtitle">
+            {translateText('Review applications and enrol accepted candidates')}
+          </p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => refetch()}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
           <MdRefresh /> {translateText('Refresh')}
         </button>
       </div>
@@ -101,7 +132,7 @@ export default function AdminAdmissionsPage() {
                 <th>{translateText('Application #')}</th>
                 <th>{translateText('Name')}</th>
                 <th>{translateText('Email')}</th>
-                <th>{translateText('Department')}</th>
+                <th>{translateText('Programme')}</th>
                 <th>{translateText('Status')}</th>
                 <th>{translateText('Submitted')}</th>
                 <th>{translateText('Actions')}</th>
@@ -109,69 +140,115 @@ export default function AdminAdmissionsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7}>{translateText('Loading…')}</td></tr>
+                <tr>
+                  <td colSpan={7}>{translateText('Loading…')}</td>
+                </tr>
               ) : applications.length === 0 ? (
-                <tr><td colSpan={7}>{translateText('No applications')}</td></tr>
+                <tr>
+                  <td colSpan={7}>{translateText('No applications')}</td>
+                </tr>
               ) : (
-                applications.map((app) => (
-                  <tr key={app.id}>
-                    <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{app.application_number}</td>
-                    <td>{[app.first_name, app.last_name].filter(Boolean).join(' ')}</td>
-                    <td>{app.email}</td>
-                    <td>{app.department_name || '—'}</td>
-                    <td>
-                      <span className="badge badge-info" style={{ textTransform: 'capitalize' }}>
-                        {String(app.status || '').replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                      {app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '—'}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {app.status === 'submitted' && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => statusMutation.mutate({ id: app.id, status: 'under_review' })}
-                          >
-                            {translateText('Review')}
-                          </button>
+                applications.map((app) => {
+                  const canReview = app.status === 'submitted';
+                  const canAccept =
+                    app.status === 'submitted' || app.status === 'under_review';
+                  const canEnrol =
+                    (app.status === 'accepted' || app.status === 'under_review') &&
+                    !app.student_id;
+                  const canReject =
+                    app.status !== 'rejected' &&
+                    app.status !== 'withdrawn' &&
+                    !app.student_id;
+
+                  return (
+                    <tr key={app.id}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                        {app.application_number}
+                      </td>
+                      <td>{[app.first_name, app.last_name].filter(Boolean).join(' ')}</td>
+                      <td>{app.email}</td>
+                      <td>
+                        {app.programmes?.code ? (
+                          <>
+                            <code>{app.programmes.code}</code>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                              {app.programmes.name}
+                            </div>
+                          </>
+                        ) : (
+                          '—'
                         )}
-                        {(app.status === 'submitted' || app.status === 'under_review') && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-primary"
-                            onClick={() => statusMutation.mutate({ id: app.id, status: 'accepted' })}
-                          >
-                            {translateText('Accept')}
-                          </button>
+                        {app.preferred_level && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            {app.preferred_level}
+                          </div>
                         )}
-                        {(app.status === 'accepted' || app.status === 'under_review') && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-primary"
-                            onClick={() => {
-                              setEnrolApp(app);
-                              setBatchId('');
-                            }}
-                          >
-                            <MdPersonAdd /> {translateText('Enrol')}
-                          </button>
+                      </td>
+                      <td>
+                        <span className={`badge ${statusClass(app.status)}`} style={{ textTransform: 'capitalize' }}>
+                          {String(app.status || '').replace(/_/g, ' ')}
+                        </span>
+                        {app.student_id && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                            {translateText('Student linked')}
+                          </div>
                         )}
-                        {app.status !== 'rejected' && app.status !== 'enrolled' && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline"
-                            onClick={() => statusMutation.mutate({ id: app.id, status: 'rejected' })}
-                          >
-                            {translateText('Reject')}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                        {app.submitted_at ? new Date(app.submitted_at).toLocaleString() : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {canReview && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              disabled={statusMutation.isPending}
+                              onClick={() =>
+                                statusMutation.mutate({ id: app.id, status: 'under_review' })
+                              }
+                            >
+                              {translateText('Review')}
+                            </button>
+                          )}
+                          {canAccept && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              disabled={statusMutation.isPending}
+                              onClick={() =>
+                                statusMutation.mutate({ id: app.id, status: 'accepted' })
+                              }
+                            >
+                              {translateText('Accept')}
+                            </button>
+                          )}
+                          {canEnrol && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={() => openEnrol(app)}
+                            >
+                              <MdPersonAdd /> {translateText('Enrol')}
+                            </button>
+                          )}
+                          {canReject && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline"
+                              disabled={statusMutation.isPending}
+                              onClick={() =>
+                                statusMutation.mutate({ id: app.id, status: 'rejected' })
+                              }
+                            >
+                              {translateText('Reject')}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -187,14 +264,26 @@ export default function AdminAdmissionsPage() {
           }}
         >
           <p style={{ marginBottom: 12, fontSize: '0.9rem' }}>
-            {[enrolApp.first_name, enrolApp.last_name].filter(Boolean).join(' ')} · {enrolApp.application_number}
+            {[enrolApp.first_name, enrolApp.last_name].filter(Boolean).join(' ')} ·{' '}
+            {enrolApp.application_number}
           </p>
+          {enrolApp.programmes && (
+            <p style={{ marginBottom: 12, fontSize: '0.85rem' }}>
+              <strong>{translateText('Preferred programme')}</strong>:{' '}
+              <code>{enrolApp.programmes.code}</code> — {enrolApp.programmes.name}
+            </p>
+          )}
           <p style={{ marginBottom: 12, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-            {translateText('Programme comes from the batch. Set programme on the batch first.')}
+            {translateText('Programme for the student record comes from the selected batch.')}
           </p>
           <div className="form-group">
             <label className="form-label">{translateText('Batch / cohort')} *</label>
-            <select className="form-input" value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
+            <select
+              className="form-input"
+              value={batchId}
+              onChange={(e) => setBatchId(e.target.value)}
+              required
+            >
               <option value="">{translateText('Select…')}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -204,53 +293,61 @@ export default function AdminAdmissionsPage() {
                 </option>
               ))}
             </select>
-            {batchId && (() => {
-              const b = batches.find((x) => x.id === batchId);
-              if (!b) return null;
-              return (
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: '0.65rem 0.75rem',
-                    borderRadius: 8,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface-muted, rgba(0,0,0,0.03))',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  {b.programmes ? (
-                    <>
-                      <div>
-                        <strong>{translateText('Programme')}</strong>:{' '}
-                        <code>{b.programmes.code}</code> — {b.programmes.name}
+            {batchId && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: '0.65rem 0.75rem',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface-muted, rgba(0,0,0,0.03))',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {selectedBatch?.programmes ? (
+                  <>
+                    <div>
+                      <strong>{translateText('Programme')}</strong>:{' '}
+                      <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
+                    </div>
+                    {selectedBatch.year_of_study != null && (
+                      <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
+                        {translateText('Year of study')}: {selectedBatch.year_of_study}
+                        {selectedBatch.programmes.duration_years != null
+                          ? ` of ${selectedBatch.programmes.duration_years}`
+                          : ''}
                       </div>
-                      {b.year_of_study != null && (
-                        <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
-                          {translateText('Year of study')}: {b.year_of_study}
-                          {b.programmes.duration_years != null ? ` of ${b.programmes.duration_years}` : ''}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <span style={{ color: 'var(--color-danger)' }}>
-                      {translateText('This batch has no programme. Edit the batch and set HND, B.Tech, or M.Tech first.')}
-                    </span>
-                  )}
-                </div>
-              );
-            })()}
+                    )}
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--color-danger)' }}>
+                    {translateText(
+                      'This batch has no programme. Edit the batch and set HND, B.Tech, or M.Tech first.',
+                    )}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setEnrolApp(null)}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setEnrolApp(null);
+                setBatchId('');
+              }}
+            >
               {translateText('Cancel')}
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              disabled={!batchId || enrolMutation.isPending}
+              disabled={!batchId || !selectedBatch?.programmes || enrolMutation.isPending}
               onClick={() => enrolMutation.mutate()}
             >
-              <MdHowToReg /> {enrolMutation.isPending ? translateText('Enrolling…') : translateText('Confirm enrol')}
+              <MdHowToReg />{' '}
+              {enrolMutation.isPending ? translateText('Enrolling…') : translateText('Confirm enrol')}
             </button>
           </div>
         </Modal>
