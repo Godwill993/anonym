@@ -25,6 +25,7 @@ import {
   getMyUpcomingSessions,
 } from '../../services/studentService';
 import { getStudentFeeBalance, formatXAF } from '../../services/feesService';
+import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
 
 function StatCard({ icon, value, label, color = 'blue', link, suffix = '' }) {
   const { translateText } = useTranslation();
@@ -176,12 +177,10 @@ export default function StudentDashboard() {
   const dept = studentProfile?.batches?.departments?.name || '';
   const batchName = studentProfile?.batches?.name || '';
   const prog = studentProfile?.programmes || studentProfile?.batches?.programmes;
-  const yearOfStudy = studentProfile?.batches?.year_of_study;
+  const programmeYears = getProgrammeAcademicYearRangeLabel(studentProfile?.batches);
   const progStatus = studentProfile?.programme_status || 'active';
   const progLabel = prog
-    ? `${prog.code}${yearOfStudy != null ? ` · Year ${yearOfStudy}` : ''}${
-        prog.duration_years != null ? ` of ${prog.duration_years}` : ''
-      }`
+    ? `${prog.code}${programmeYears ? ` · ${programmeYears}` : ''}`
     : '';
   const statusLabel =
     progStatus === 'completed'

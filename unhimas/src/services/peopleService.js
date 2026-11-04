@@ -19,6 +19,10 @@ export async function getStudents({ batchId = null, departmentId = null, search 
         code,
         year_of_study,
         programme_id,
+        academic_year_id,
+        programme_end_academic_year_id,
+        academic_years:academic_year_id(id, name, start_date, end_date),
+        programme_end_academic_years:programme_end_academic_year_id(id, name, start_date, end_date),
         programmes:programme_id(id, code, name, award, duration_years),
         departments:department_id(
           id,

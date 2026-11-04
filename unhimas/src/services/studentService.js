@@ -10,10 +10,11 @@ export async function getMyStudentProfile() {
     programme_completion_result,
     programmes:programme_id (id, code, name, award, track, duration_years),
     batches:batch_id (
-      id, name, code, year_of_study, programme_id,
+      id, name, code, year_of_study, programme_id, academic_year_id, programme_end_academic_year_id,
       programmes:programme_id (id, code, name, award, duration_years),
       departments:department_id (id, name, abbreviation),
-      academic_years:academic_year_id (id, name, is_current)
+      academic_years:academic_year_id (id, name, is_current, start_date, end_date),
+      programme_end_academic_years:programme_end_academic_year_id (id, name, start_date, end_date)
     )
   `).eq('profile_id', user.id).single();
   if (error) throw error;

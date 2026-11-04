@@ -20,6 +20,10 @@ import {
   archiveStudent,
 } from '../../services/peopleService';
 import { getBatches, markStudentProgrammeCompleted, computeIsFinalYear } from '../../services/academicService';
+import {
+  getProgrammeAcademicYearRangeLabel,
+  isProgrammePeriodComplete,
+} from '../../lib/programmeAcademicYear';
 
 const PAGE_SIZE = 20;
 
@@ -286,10 +290,12 @@ export default function StudentsPage() {
                 pageRows.map((stu) => {
                   const prog = stu.programmes || stu.batches?.programmes;
                   const status = stu.programme_status || 'active';
-                  const isFinal = computeIsFinalYear({
-                    year_of_study: stu.batches?.year_of_study,
-                    duration_years: prog?.duration_years ?? stu.batches?.programmes?.duration_years,
-                  });
+                  const isFinal = stu.batches?.programme_end_academic_year_id
+                    ? isProgrammePeriodComplete(stu.batches)
+                    : computeIsFinalYear({
+                        year_of_study: stu.batches?.year_of_study,
+                        duration_years: prog?.duration_years ?? stu.batches?.programmes?.duration_years,
+                      });
                   return (
                     <tr key={stu.id}>
                       <td><code>{stu.matricule}</code></td>
@@ -450,7 +456,7 @@ export default function StudentsPage() {
                 <option key={b.id} value={b.id}>
                   {b.name}
                   {b.programmes?.name ? ` — ${b.programmes.name}` : ''}
-                  {b.year_of_study != null ? ` · Y${b.year_of_study}` : ''}
+                  {getProgrammeAcademicYearRangeLabel(b) ? ` · ${getProgrammeAcademicYearRangeLabel(b)}` : ''}
                 </option>
               ))}
             </select>
@@ -472,12 +478,9 @@ export default function StudentsPage() {
                       <strong>{translateText('Programme')}</strong>:{' '}
                       <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
                     </div>
-                    {selectedBatch.year_of_study != null && (
+                    {getProgrammeAcademicYearRangeLabel(selectedBatch) && (
                       <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
-                        {translateText('Year of study')}: {selectedBatch.year_of_study}
-                        {selectedBatch.programmes.duration_years != null
-                          ? ` of ${selectedBatch.programmes.duration_years}`
-                          : ''}
+                        {translateText('Programme years')}: {getProgrammeAcademicYearRangeLabel(selectedBatch)}
                       </div>
                     )}
                   </>

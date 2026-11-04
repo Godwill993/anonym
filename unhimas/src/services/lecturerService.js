@@ -48,7 +48,9 @@ export async function getMyCourses(lecturerId) {
     id, is_compulsory,
     courses:course_id (id, code, name, credit_units),
     batches:batch_id (
-      id, name, code, year_of_study,
+      id, name, code, year_of_study, academic_year_id, programme_end_academic_year_id,
+      academic_years:academic_year_id(id, name, start_date, end_date),
+      programme_end_academic_years:programme_end_academic_year_id(id, name, start_date, end_date),
       programmes:programme_id (id, code, name, award, duration_years),
       departments:department_id (name, abbreviation)
     ),

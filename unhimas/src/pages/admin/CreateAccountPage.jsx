@@ -8,6 +8,7 @@ import { getBatches } from '../../services/academicService';
 import { getDepartments } from '../../services/academicService';
 import { createStudent, createLecturer } from '../../services/peopleService';
 import { createSchoolAccount } from '../../services/auth';
+import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
 
 export default function CreateAccountPage() {
   const queryClient = useQueryClient();
@@ -264,7 +265,7 @@ function StudentFields({ form, setForm, batches }) {
             <option key={b.id} value={b.id}>
               {b.name} ({b.code})
               {b.programmes?.code ? ` · ${b.programmes.code}` : ''}
-              {b.year_of_study != null ? ` · Y${b.year_of_study}` : ''}
+              {getProgrammeAcademicYearRangeLabel(b) ? ` · ${getProgrammeAcademicYearRangeLabel(b)}` : ''}
               {b.departments?.abbreviation ? ` — ${b.departments.abbreviation}` : ''}
             </option>
           ))}
@@ -289,12 +290,9 @@ function StudentFields({ form, setForm, batches }) {
                   <strong>Programme</strong>:{' '}
                   <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
                 </div>
-                {selectedBatch.year_of_study != null && (
+                {getProgrammeAcademicYearRangeLabel(selectedBatch) && (
                   <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
-                    Year of study: {selectedBatch.year_of_study}
-                    {selectedBatch.programmes.duration_years != null
-                      ? ` of ${selectedBatch.programmes.duration_years}`
-                      : ''}
+                    Programme years: {getProgrammeAcademicYearRangeLabel(selectedBatch)}
                   </div>
                 )}
               </>

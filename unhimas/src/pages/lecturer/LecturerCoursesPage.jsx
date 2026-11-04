@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { getMyLecturerProfile, getMyCourses } from '../../services/lecturerService';
+import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
 
 export default function LecturerCoursesPage() {
   const { session } = useAuth();
@@ -108,17 +109,15 @@ export default function LecturerCoursesPage() {
                     <MdGroups size={16} />
                     <span>{bc.batches?.name} ({bc.batches?.code})</span>
                   </div>
-                  {(bc.batches?.programmes || bc.batches?.year_of_study != null) && (
+                  {(bc.batches?.programmes || bc.batches?.year_of_study != null || getProgrammeAcademicYearRangeLabel(bc.batches)) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
                       <MdBook size={16} />
                       <span>
                         {bc.batches?.programmes ? (
                           <>
                             <code>{bc.batches.programmes.code}</code>
-                            {bc.batches.year_of_study != null && (
-                              <> · Year {bc.batches.year_of_study}
-                                {bc.batches.programmes.duration_years != null && <> of {bc.batches.programmes.duration_years}</>}
-                              </>
+                            {getProgrammeAcademicYearRangeLabel(bc.batches) && (
+                              <> · {getProgrammeAcademicYearRangeLabel(bc.batches)}</>
                             )}
                           </>
                         ) : (

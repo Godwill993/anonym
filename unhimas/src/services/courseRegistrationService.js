@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { isAcademicYearInProgrammeRange } from '../lib/programmeAcademicYear';
 import { checkFeeClearance } from './feeClearance';
 
 /** Whether registration requires fee clearance (default true). */
@@ -26,18 +27,21 @@ export function isRegistrationWindowOpen(semester) {
   return true;
 }
 
-/** Current semester for the student's batch academic year when possible. */
+/** Current semester when its academic year falls within the student's cohort. */
 export async function getCurrentSemesterForStudent(student) {
-  const yearId = student?.batches?.academic_year_id || student?.batches?.academic_years?.id;
-  let q = supabase
+  const { data, error } = await supabase
     .from('semesters')
-    .select('id, name, number, is_current, registration_open, registration_closes_at, academic_year_id')
+    .select(`
+      id, name, number, is_current, registration_open, registration_closes_at, academic_year_id,
+      academic_years:academic_year_id(id, start_date)
+    `)
     .eq('is_current', true)
     .limit(1);
-  if (yearId) q = q.eq('academic_year_id', yearId);
-  const { data, error } = await q.maybeSingle();
   if (error) throw error;
-  return data;
+  const semester = data?.[0] || null;
+  const batch = student?.batches;
+  if (!semester || !batch) return null;
+  return isAcademicYearInProgrammeRange(semester.academic_years, batch) ? semester : null;
 }
 
 export async function listBatchCoursesForSemester(batchId, semesterId) {

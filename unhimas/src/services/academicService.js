@@ -137,7 +137,7 @@ export async function setCurrentAcademicYear(id) {
 export async function getSemesters(academicYearId = null) {
   let query = supabase
     .from('semesters')
-    .select('*, academic_years:academic_year_id(id, name, is_current)')
+    .select('*, academic_years:academic_year_id(id, name, is_current, start_date, end_date)')
     .order('number');
   if (academicYearId) query = query.eq('academic_year_id', academicYearId);
   const { data, error } = await query;
@@ -163,7 +163,7 @@ export async function setCurrentSemester(id) {
 }
 
 // ============================================================
-// BATCHES (programme_id + year_of_study required for Cameroon model)
+// BATCHES (one full-programme cohort spanning academic years)
 // ============================================================
 
 export async function getBatches(departmentId = null) {
@@ -173,7 +173,8 @@ export async function getBatches(departmentId = null) {
       *,
       programmes:programme_id(id, code, name, award, track, duration_years),
       departments:department_id(id, name, abbreviation),
-      academic_years:academic_year_id(id, name, is_current)
+      academic_years:academic_year_id(id, name, is_current, start_date, end_date),
+      programme_end_academic_years:programme_end_academic_year_id(id, name, start_date, end_date)
     `)
     .order('name');
   if (departmentId) query = query.eq('department_id', departmentId);
@@ -184,16 +185,15 @@ export async function getBatches(departmentId = null) {
 
 /**
  * Validate batch fields for Cameroon model.
- * programme_id and year_of_study are required so students inherit a programme.
+ * The batch is a stable programme cohort spanning its start and end academic years.
  * @throws {Error} with a plain-language message
  */
 export function assertBatchIntegrity({
   programme_id,
-  year_of_study,
   name,
   department_id,
   academic_year_id,
-  programme = null,
+  programme_end_academic_year_id,
 }) {
   if (!name || !String(name).trim()) {
     throw new Error('Batch name is required.');
@@ -207,16 +207,10 @@ export function assertBatchIntegrity({
   if (!programme_id) {
     throw new Error('Programme is required (HND, B.Tech, or M.Tech). Set it on the batch so students inherit it.');
   }
-  const year = Number(year_of_study);
-  if (!Number.isFinite(year) || year < 1) {
-    throw new Error('Year of study is required and must be at least 1.');
+  if (!programme_end_academic_year_id) {
+    throw new Error('The programme end academic year is required.');
   }
-  const maxYears = programme?.duration_years != null ? Number(programme.duration_years) : null;
-  if (maxYears != null && Number.isFinite(maxYears) && year > maxYears) {
-    const code = programme.code || 'this programme';
-    throw new Error(`Year of study cannot exceed ${maxYears} for ${code}.`);
-  }
-  return year;
+  return true;
 }
 
 /** Build a short batch code when the admin leaves code empty. */
@@ -224,7 +218,6 @@ export function buildBatchCode({
   code,
   departmentAbbr,
   programmeCode,
-  year_of_study,
   name,
   batch_number,
 }) {
@@ -233,7 +226,6 @@ export function buildBatchCode({
   const parts = [
     departmentAbbr || null,
     programmeCode || null,
-    year_of_study != null ? `Y${year_of_study}` : null,
     batch_number != null ? `B${batch_number}` : null,
   ].filter(Boolean);
   if (parts.length >= 2) return parts.join('-').toUpperCase().slice(0, 32);
@@ -249,8 +241,8 @@ export function buildBatchCode({
 export async function createBatch({
   department_id,
   academic_year_id,
+  programme_end_academic_year_id,
   programme_id,
-  year_of_study,
   name,
   level_name,
   batch_number,
@@ -261,49 +253,30 @@ export async function createBatch({
 }) {
   let resolvedProgramme = programme || null;
   if (!resolvedProgramme && programme_id) {
-    try {
-      resolvedProgramme = await getProgramme(programme_id);
-    } catch {
-      resolvedProgramme = null;
-    }
+    resolvedProgramme = await getProgramme(programme_id);
   }
-  const year = assertBatchIntegrity({
+  assertBatchIntegrity({
     programme_id,
-    year_of_study,
     name,
     department_id,
     academic_year_id,
-    programme: resolvedProgramme,
+    programme_end_academic_year_id,
   });
 
   const progCode = programmeCode || resolvedProgramme?.code || null;
-  let deptAbbr = departmentAbbr || null;
-  if (!deptAbbr && department_id) {
-    try {
-      const { data: dept } = await supabase
-        .from('departments')
-        .select('abbreviation')
-        .eq('id', department_id)
-        .maybeSingle();
-      deptAbbr = dept?.abbreviation || null;
-    } catch {
-      /* ignore */
-    }
-  }
-
   const row = {
     department_id,
     academic_year_id,
+    programme_end_academic_year_id,
     programme_id,
-    year_of_study: year,
+    year_of_study: null,
     name: name.trim(),
     level_name: level_name?.trim() || null,
     batch_number: batch_number != null ? Number(batch_number) : 1,
     code: buildBatchCode({
       code,
-      departmentAbbr: deptAbbr,
+      departmentAbbr,
       programmeCode: progCode,
-      year_of_study: year,
       name,
       batch_number: batch_number != null ? Number(batch_number) : 1,
     }),
@@ -315,19 +288,17 @@ export async function createBatch({
 
 export async function updateBatch(id, updates) {
   const next = { ...updates };
-  if (next.year_of_study != null) next.year_of_study = Number(next.year_of_study);
-
   const touchesStructure =
     next.programme_id !== undefined ||
-    next.year_of_study !== undefined ||
     next.name !== undefined ||
     next.department_id !== undefined ||
-    next.academic_year_id !== undefined;
+    next.academic_year_id !== undefined ||
+    next.programme_end_academic_year_id !== undefined;
 
   if (touchesStructure) {
     const { data: existing, error: loadErr } = await supabase
       .from('batches')
-      .select('name, department_id, academic_year_id, programme_id, year_of_study')
+      .select('name, department_id, academic_year_id, programme_id, programme_end_academic_year_id')
       .eq('id', id)
       .single();
     if (loadErr) throw loadErr;
@@ -336,20 +307,16 @@ export async function updateBatch(id, updates) {
       name: next.name !== undefined ? next.name : existing.name,
       department_id: next.department_id !== undefined ? next.department_id : existing.department_id,
       academic_year_id: next.academic_year_id !== undefined ? next.academic_year_id : existing.academic_year_id,
+      programme_end_academic_year_id: next.programme_end_academic_year_id !== undefined
+        ? next.programme_end_academic_year_id
+        : existing.programme_end_academic_year_id,
       programme_id: next.programme_id !== undefined ? next.programme_id : existing.programme_id,
-      year_of_study: next.year_of_study !== undefined ? next.year_of_study : existing.year_of_study,
     };
 
-    let programme = null;
     if (merged.programme_id) {
-      try {
-        programme = await getProgramme(merged.programme_id);
-      } catch {
-        programme = null;
-      }
+      await getProgramme(merged.programme_id);
     }
-    const year = assertBatchIntegrity({ ...merged, programme });
-    next.year_of_study = year;
+    assertBatchIntegrity(merged);
     if (next.programme_id !== undefined) next.programme_id = merged.programme_id;
   }
 
@@ -402,8 +369,12 @@ export async function getBatchCourses({ batchId = null, semesterId = null, lectu
     .select(`
       *,
       courses:course_id(id, code, name, credit_units),
-      batches:batch_id(id, name, code),
-      semesters:semester_id(id, name, number),
+      batches:batch_id(
+        id, name, code, year_of_study, academic_year_id, programme_end_academic_year_id,
+        academic_years:academic_year_id(id, name, start_date, end_date),
+        programme_end_academic_years:programme_end_academic_year_id(id, name, start_date, end_date)
+      ),
+      semesters:semester_id(id, name, number, academic_years:academic_year_id(id, name, start_date, end_date)),
       lecturers:lecturer_id(id, first_name, last_name, staff_id)
     `)
     .order('created_at', { ascending: false });
@@ -503,7 +474,7 @@ export function computeIsFinalYear({ year_of_study, duration_years } = {}) {
   return year >= Math.ceil(dur);
 }
 
-/** RPC: true when batch year_of_study is the final year (uses effective duration). */
+/** RPC: true once the batch programme end academic year has finished. */
 export async function isFinalYearBatch(batchId) {
   if (!batchId) return false;
   const { data, error } = await supabase.rpc('is_final_year_batch', { p_batch_id: batchId });
@@ -512,7 +483,7 @@ export async function isFinalYearBatch(batchId) {
 }
 
 /**
- * RPC: programme + year + is_final_year for one batch.
+ * RPC: programme + cohort period + completion eligibility for one batch.
  * Returns a single object (first row) or null.
  */
 export async function getBatchProgrammeInfo(batchId) {
@@ -522,38 +493,20 @@ export async function getBatchProgrammeInfo(batchId) {
   return data || null;
 }
 
-/**
- * Resolve final-year for UI: try server RPC, fall back to local duration.
- * Does not throw when the migration is missing — returns { isFinalYear, source }.
- */
+/** Resolve cohort completion eligibility using the server-side academic-year rule. */
 export async function resolveBatchFinalYear(batch) {
   if (!batch?.id) {
-    return { isFinalYear: false, source: 'none', info: null };
+    throw new Error('A batch is required to verify programme completion eligibility.');
   }
-  try {
-    const info = await getBatchProgrammeInfo(batch.id);
-    if (info && typeof info.is_final_year === 'boolean') {
-      return { isFinalYear: info.is_final_year, source: 'rpc', info };
-    }
-  } catch (err) {
-    console.debug(
-      'get_batch_programme_info unavailable; using local final-year check:',
-      err?.message || err,
-    );
+  const info = await getBatchProgrammeInfo(batch.id);
+  if (!info || typeof info.is_final_year !== 'boolean') {
+    throw new Error('The server could not verify this batch programme period.');
   }
-  const duration = batch.programmes?.duration_years ?? batch.duration_years ?? null;
-  return {
-    isFinalYear: computeIsFinalYear({
-      year_of_study: batch.year_of_study,
-      duration_years: duration,
-    }),
-    source: 'local',
-    info: null,
-  };
+  return { isFinalYear: info.is_final_year, source: 'rpc', info };
 }
 
 export async function markStudentProgrammeCompleted(studentId, result = 'pass', notes = null) {
-  // Requires migration 20261103000000_programme_completion.sql on Supabase.
+  // Requires migration 20261104200000_batch_programme_year_range.sql on Supabase.
   const { data, error } = await supabase.rpc('mark_student_programme_completed', {
     p_student_id: studentId,
     p_result: result,
@@ -564,8 +517,8 @@ export async function markStudentProgrammeCompleted(studentId, result = 'pass', 
 }
 
 export async function markBatchProgrammeCompleted(batchId, result = 'pass', notes = null) {
-  // Server enforces is_final_year_batch; UI should hide the action when not final year.
-  // Requires migration 20261103000000_programme_completion.sql on Supabase.
+  // Server enforces that the cohort end academic year has finished.
+  // Requires migration 20261104200000_batch_programme_year_range.sql on Supabase.
   const { data, error } = await supabase.rpc('mark_batch_programme_completed', {
     p_batch_id: batchId,
     p_result: result,

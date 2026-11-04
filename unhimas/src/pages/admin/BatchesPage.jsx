@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdAdd,
@@ -24,6 +24,7 @@ import {
   getProgrammes,
   getCourses,
   getSemesters,
+  getEffectiveProgrammeDuration,
   getBatchCourses,
   assignBatchCourse,
   deleteBatchCourse,
@@ -31,6 +32,12 @@ import {
   computeIsFinalYear,
   resolveBatchFinalYear,
 } from '../../services/academicService';
+import {
+  getProgrammeAcademicYearRangeLabel,
+  isAcademicYearInProgrammeRange,
+  isProgrammePeriodComplete,
+  resolveProgrammeEndAcademicYear,
+} from '../../lib/programmeAcademicYear';
 
 export default function BatchesPage() {
   const queryClient = useQueryClient();
@@ -49,7 +56,6 @@ export default function BatchesPage() {
     department_id: '',
     academic_year_id: '',
     programme_id: '',
-    year_of_study: 1,
     name: '',
     level_name: '',
     batch_number: 1,
@@ -142,7 +148,6 @@ export default function BatchesPage() {
       department_id: departments[0]?.id || '',
       academic_year_id: currentYear?.id || '',
       programme_id: defaultProg?.id || '',
-      year_of_study: 1,
       name: '',
       level_name: '',
       batch_number: 1,
@@ -156,7 +161,6 @@ export default function BatchesPage() {
       department_id: batch.department_id || '',
       academic_year_id: batch.academic_year_id || '',
       programme_id: batch.programme_id || '',
-      year_of_study: batch.year_of_study || 1,
       name: batch.name || '',
       level_name: batch.level_name || '',
       batch_number: batch.batch_number || 1,
@@ -165,6 +169,28 @@ export default function BatchesPage() {
   };
 
   const selectedProgramme = programmes.find((p) => p.id === formData.programme_id) || null;
+  const {
+    data: effectiveDuration,
+    isLoading: durationLoading,
+    error: durationError,
+  } = useQuery({
+    queryKey: ['effective-programme-duration', formData.programme_id, formData.department_id],
+    queryFn: () => getEffectiveProgrammeDuration(formData.programme_id, formData.department_id),
+    enabled: isModalOpen && Boolean(formData.programme_id && formData.department_id),
+  });
+  const endAcademicYear = resolveProgrammeEndAcademicYear(
+    academicYears,
+    formData.academic_year_id,
+    effectiveDuration,
+  );
+  const isCompletionEligible = (batch) => (
+    batch.programme_end_academic_year_id
+      ? isProgrammePeriodComplete(batch)
+      : computeIsFinalYear({
+          year_of_study: batch.year_of_study,
+          duration_years: batch.programmes?.duration_years,
+        })
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -176,21 +202,24 @@ export default function BatchesPage() {
       toast.error('Programme is required (HND, B.Tech, or M.Tech). Students inherit it from this batch.');
       return;
     }
-    const year = Number(formData.year_of_study);
-    if (!Number.isFinite(year) || year < 1) {
-      toast.error('Year of study is required and must be at least 1');
+    if (durationLoading) {
+      toast.error('Wait for the programme duration to finish loading');
       return;
     }
-    const maxYears = selectedProgramme?.duration_years != null ? Number(selectedProgramme.duration_years) : null;
-    if (maxYears != null && year > maxYears) {
-      toast.error(`Year of study cannot exceed ${maxYears} for ${selectedProgramme.code || 'this programme'}`);
+    if (durationError) {
+      toast.error(durationError.message || 'Could not load the effective programme duration');
+      return;
+    }
+    if (!endAcademicYear) {
+      toast.error('Add the required future academic years before creating this cohort.');
       return;
     }
     const dept = departments.find((d) => d.id === formData.department_id);
     const payload = {
       ...formData,
       programme_id: formData.programme_id,
-      year_of_study: year,
+      programme_end_academic_year_id: endAcademicYear.id,
+      year_of_study: null,
       batch_number: Number(formData.batch_number) || 1,
       departmentAbbr: dept?.abbreviation || null,
       programmeCode: selectedProgramme?.code || null,
@@ -210,7 +239,8 @@ export default function BatchesPage() {
       (b.name || '').toLowerCase().includes(q) ||
       (b.level_name || '').toLowerCase().includes(q) ||
       (b.departments?.name || '').toLowerCase().includes(q) ||
-      (b.programmes?.name || '').toLowerCase().includes(q)
+      (b.programmes?.name || '').toLowerCase().includes(q) ||
+      getProgrammeAcademicYearRangeLabel(b).toLowerCase().includes(q)
     );
   });
 
@@ -220,7 +250,7 @@ export default function BatchesPage() {
         <div>
           <h1 className="page-title">Batches</h1>
           <p className="page-subtitle">
-            Student cohorts by department, programme (HND / B.Tech / M.Tech), year of study, and school year
+            Stable student cohorts spanning their programme start and end academic years
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={openAdd}>
@@ -270,17 +300,16 @@ export default function BatchesPage() {
                 <th>Name</th>
                 <th>Department</th>
                 <th>Programme</th>
-                <th>Year</th>
-                <th>Academic year</th>
+                <th>Programme years</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7}>Loading…</td></tr>
+                <tr><td colSpan={6}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7}>No batches found</td></tr>
+                <tr><td colSpan={6}>No batches found</td></tr>
               ) : (
                 filtered.map((batch) => (
                   <tr key={batch.id}>
@@ -293,24 +322,11 @@ export default function BatchesPage() {
                     <td>{batch.departments?.name || '—'}</td>
                     <td>{batch.programmes?.name || '—'}</td>
                     <td>
-                      {batch.year_of_study != null ? (
-                        <span>
-                          Year {batch.year_of_study}
-                          {batch.programmes?.duration_years != null && (
-                            <> of {batch.programmes.duration_years}</>
-                          )}
-                          {computeIsFinalYear({
-                            year_of_study: batch.year_of_study,
-                            duration_years: batch.programmes?.duration_years,
-                          }) && (
-                            <span className="badge badge-amber" style={{ marginLeft: 6 }}>Final year</span>
-                          )}
-                        </span>
-                      ) : (
-                        batch.level_name || '—'
+                      {getProgrammeAcademicYearRangeLabel(batch) || batch.level_name || '—'}
+                      {isCompletionEligible(batch) && (
+                        <span className="badge badge-amber" style={{ marginLeft: 6 }}>Programme ended</span>
                       )}
                     </td>
-                    <td>{batch.academic_years?.name || '—'}</td>
                     <td>
                       <span className={`badge ${batch.is_active !== false ? 'badge-success' : 'badge-danger'}`}>
                         {batch.is_active !== false ? 'Active' : 'Inactive'}
@@ -342,8 +358,8 @@ export default function BatchesPage() {
                                 if (!isFinalYear) {
                                   toast.error(
                                     source === 'rpc'
-                                      ? 'This batch is not in the final year of its programme (server check).'
-                                      : 'This batch is not in the final year of its programme.',
+                                      ? 'This cohort programme period has not ended yet (server check).'
+                                      : 'This cohort programme period has not ended yet.',
                                   );
                                   return;
                                 }
@@ -354,10 +370,7 @@ export default function BatchesPage() {
                               setCompleteBatch(batch);
                               setCompleteResult('pass');
                             },
-                            hidden: !computeIsFinalYear({
-                              year_of_study: batch.year_of_study,
-                              duration_years: batch.programmes?.duration_years,
-                            }),
+                            hidden: !isCompletionEligible(batch),
                           },
                           {
                             id: 'toggle',
@@ -413,14 +426,14 @@ export default function BatchesPage() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Academic year *</label>
+              <label className="form-label">Programme start academic year *</label>
               <select
                 className="form-input"
                 value={formData.academic_year_id}
                 onChange={(e) => setFormData({ ...formData, academic_year_id: e.target.value })}
                 required
               >
-                <option value="">Select year</option>
+                <option value="">Select start year</option>
                 {academicYears.map((y) => (
                   <option key={y.id} value={y.id}>{y.name}</option>
                 ))}
@@ -433,34 +446,48 @@ export default function BatchesPage() {
                 value={formData.programme_id}
                 onChange={(e) => {
                   const pid = e.target.value;
-                  setFormData({ ...formData, programme_id: pid, year_of_study: 1 });
+                  setFormData({ ...formData, programme_id: pid });
                 }}
                 required
               >
                 <option value="">Select programme</option>
-                {programmes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                    {p.duration_years != null ? ` (${p.duration_years} yr${Number(p.duration_years) === 1 ? '' : 's'})` : ''}
-                  </option>
-                ))}
+                {programmes.map((p) => {
+                  const duration = p.id === formData.programme_id
+                    ? effectiveDuration ?? p.duration_years
+                    : p.duration_years;
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.code} — {p.name}
+                      {duration != null ? ` (${duration} yr${Number(duration) === 1 ? '' : 's'})` : ''}
+                    </option>
+                  );
+                })}
               </select>
               <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
-                Required. HND (2 yrs), B.Tech (1 yr), M.Tech (2 yrs). Students inherit this programme from the batch.
+                Students inherit this programme from the batch. The effective duration sets the cohort end year.
+                {effectiveDuration != null && ` Effective duration: ${effectiveDuration} academic year(s).`}
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Year of study *</label>
+                <label className="form-label">Programme end academic year</label>
                 <input
-                  type="number"
-                  min={1}
-                  max={selectedProgramme?.duration_years != null ? Number(selectedProgramme.duration_years) : 6}
                   className="form-input"
-                  value={formData.year_of_study}
-                  onChange={(e) => setFormData({ ...formData, year_of_study: e.target.value })}
-                  required
+                  value={durationLoading ? 'Calculating…' : (endAcademicYear?.name || '')}
+                  placeholder="Select programme, department, and start year"
+                  readOnly
                 />
+                {durationError && (
+                  <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '0.78rem', margin: '0.25rem 0 0' }}>
+                    {durationError.message}
+                  </p>
+                )}
+                {!endAcademicYear && !durationLoading && !durationError
+                  && formData.academic_year_id && formData.programme_id && formData.department_id && (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
+                    Add missing future sessions in <Link to="/admin/academic-years">Academic Years</Link>.
+                  </p>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Level name</label>
@@ -561,10 +588,20 @@ export default function BatchesPage() {
               onChange={(e) => setCourseForm({ ...courseForm, semester_id: e.target.value })}
             >
               <option value="">Select…</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
+              {semesters
+                .filter((semester) => isAcademicYearInProgrammeRange(semester.academic_years, programmeBatch))
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — {s.academic_years?.name}
+                  </option>
+                ))}
             </select>
+            {!semesters.some((semester) => isAcademicYearInProgrammeRange(semester.academic_years, programmeBatch)) && (
+              <p className="form-hint">
+                No semesters are configured within this programme period. Add them in{' '}
+                <Link to="/admin/semesters">Semesters</Link>.
+              </p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-secondary" onClick={() => setAddCourseOpen(false)}>Cancel</button>
@@ -594,8 +631,8 @@ export default function BatchesPage() {
             {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : 'their programme'}.
           </p>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-            Only final-year batches can be completed (server checks effective programme duration).
-            Requires migration <code>20261103000000_programme_completion.sql</code> on Supabase.
+            Completion is available after the cohort's programme end academic year has finished.
+            Requires migration <code>20261104200000_batch_programme_year_range.sql</code> on Supabase.
           </p>
           <div className="form-group">
             <label className="form-label">Result</label>

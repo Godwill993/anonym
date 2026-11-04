@@ -7,6 +7,7 @@ import { toast } from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
 import { getBatches } from '../../services/academicService';
+import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
 import {
   listApplications,
   updateApplicationStatus,
@@ -289,7 +290,7 @@ export default function AdminAdmissionsPage() {
                 <option key={b.id} value={b.id}>
                   {b.name}
                   {b.programmes?.name ? ` — ${b.programmes.name}` : ''}
-                  {b.year_of_study != null ? ` · Y${b.year_of_study}` : ''}
+                  {getProgrammeAcademicYearRangeLabel(b) ? ` · ${getProgrammeAcademicYearRangeLabel(b)}` : ''}
                 </option>
               ))}
             </select>
@@ -310,12 +311,9 @@ export default function AdminAdmissionsPage() {
                       <strong>{translateText('Programme')}</strong>:{' '}
                       <code>{selectedBatch.programmes.code}</code> — {selectedBatch.programmes.name}
                     </div>
-                    {selectedBatch.year_of_study != null && (
+                    {getProgrammeAcademicYearRangeLabel(selectedBatch) && (
                       <div style={{ marginTop: 4, color: 'var(--color-text-muted)' }}>
-                        {translateText('Year of study')}: {selectedBatch.year_of_study}
-                        {selectedBatch.programmes.duration_years != null
-                          ? ` of ${selectedBatch.programmes.duration_years}`
-                          : ''}
+                        {translateText('Programme years')}: {getProgrammeAcademicYearRangeLabel(selectedBatch)}
                       </div>
                     )}
                   </>

@@ -3,6 +3,7 @@ import { MdAccountCircle, MdBook, MdEmail, MdPersonPin, MdPhone, MdSchool } from
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { getMyStudentProfile } from '../../services/studentService';
+import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
 
 function ProfileField({ icon, label, value }) {
   return (
@@ -77,11 +78,14 @@ export default function StudentProfilePage() {
                 value={(() => {
                   const prog = studentProfile?.programmes || studentProfile?.batches?.programmes;
                   if (!prog) return null;
-                  const y = studentProfile?.batches?.year_of_study;
-                  return `${prog.code} — ${prog.name}${y != null ? ` (Year ${y}${prog.duration_years != null ? ` of ${prog.duration_years}` : ''})` : ''}`;
+                  return `${prog.code} — ${prog.name}`;
                 })()}
               />
-              <ProfileField icon={<MdPersonPin />} label="School year" value={studentProfile?.batches?.academic_years?.name} />
+              <ProfileField
+                icon={<MdPersonPin />}
+                label="Programme years"
+                value={getProgrammeAcademicYearRangeLabel(studentProfile?.batches)}
+              />
               <ProfileField
                 icon={<MdPersonPin />}
                 label="Programme status"
