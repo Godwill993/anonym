@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getBatches } from '../../services/academicService';
 import { getDepartments } from '../../services/academicService';
 import { createStudent, createLecturer } from '../../services/peopleService';
-import { createSchoolAccount } from '../../services/authService';
+import { createSchoolAccount } from '../../services/auth';
 
 export default function CreateAccountPage() {
   const { profile } = useAuth();
@@ -50,6 +50,7 @@ export default function CreateAccountPage() {
     setLastResult(null);
     try {
       let record;
+      let formSnapshot;
       if (role === 'student') {
         if (!studentForm.matricule.trim() || !studentForm.first_name.trim() || !studentForm.last_name.trim()) {
           setFormError('Matricule, first name and last name are required');
@@ -63,6 +64,7 @@ export default function CreateAccountPage() {
           setFormError('Email is required for login');
           return;
         }
+        formSnapshot = { ...studentForm };
         record = await createStudentMutation.mutateAsync(studentForm);
       } else {
         if (!lecturerForm.staff_id.trim() || !lecturerForm.first_name.trim() || !lecturerForm.last_name.trim()) {
@@ -73,38 +75,30 @@ export default function CreateAccountPage() {
           setFormError('Email is required for login');
           return;
         }
+        formSnapshot = { ...lecturerForm };
         record = await createLecturerMutation.mutateAsync(lecturerForm);
       }
 
-      const accountPayload =
-        role === 'student'
-          ? {
-              role: 'student',
-              email: studentForm.email.trim(),
-              full_name: [studentForm.first_name, studentForm.middle_name, studentForm.last_name]
-                .filter(Boolean)
-                .join(' '),
-              login_id: studentForm.matricule.trim().toUpperCase(),
-              linked_record_id: record.id,
-              created_by: profile?.id,
-            }
-          : {
-              role: 'lecturer',
-              email: lecturerForm.email.trim(),
-              full_name: [lecturerForm.first_name, lecturerForm.last_name].filter(Boolean).join(' '),
-              login_id: lecturerForm.staff_id.trim().toUpperCase(),
-              linked_record_id: record.id,
-              created_by: profile?.id,
-            };
+      // auth.js expects { recordType, record } where record has email + matricule/staff_id + names + id
+      const account = await createSchoolAccount({
+        recordType: role,
+        record: { ...formSnapshot, ...record },
+      });
 
-      const account = await createSchoolAccount(accountPayload);
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       queryClient.invalidateQueries({ queryKey: ['admin-lecturers'] });
+
+      const loginId =
+        role === 'student'
+          ? formSnapshot.matricule.trim().toUpperCase()
+          : formSnapshot.staff_id.trim().toUpperCase();
+
       setLastResult({
         role,
-        login_id: account.login_id || accountPayload.login_id,
-        email: accountPayload.email,
-        temp_password: account.temp_password || account.temporary_password,
+        login_id: loginId,
+        email: formSnapshot.email.trim(),
+        temp_password: loginId,
+        message: account?.message,
       });
       toast.success(`${role === 'student' ? 'Student' : 'Lecturer'} account created`);
       if (role === 'student') {
@@ -154,6 +148,11 @@ export default function CreateAccountPage() {
           <p><strong>Email:</strong> {lastResult.email}</p>
           {lastResult.temp_password && (
             <p><strong>Temporary password:</strong> <code>{lastResult.temp_password}</code></p>
+          )}
+          {lastResult.message && (
+            <p style={{ marginTop: 8, color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+              {lastResult.message}
+            </p>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button type="button" className="btn btn-primary" onClick={() => setLastResult(null)}>
