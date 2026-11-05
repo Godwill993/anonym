@@ -4,7 +4,7 @@ import { MdClose } from 'react-icons/md';
 import { useTranslation } from '../../i18n';
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Accessible modal dialog.
@@ -23,7 +23,12 @@ export default function Modal({
   const { translateText } = useTranslation();
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -37,8 +42,14 @@ export default function Modal({
     const focusFirst = () => {
       const panel = panelRef.current;
       if (!panel) return;
-      const nodes = panel.querySelectorAll(FOCUSABLE);
-      const target = nodes[0] || panel;
+      const nodes = Array.from(panel.querySelectorAll(FOCUSABLE));
+      const target =
+        panel.querySelector('[autofocus]') ||
+        nodes.find((node) =>
+          node.matches('input:not([type="hidden"]), textarea, select'),
+        ) ||
+        nodes[0] ||
+        panel;
       if (target instanceof HTMLElement) {
         target.focus();
       }
@@ -49,7 +60,7 @@ export default function Modal({
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== 'Tab' || !panelRef.current) return;
@@ -88,17 +99,14 @@ export default function Modal({
         prev.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const node = (
     <div
       className="modal-backdrop"
-      onClick={() => onClose?.()}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose?.();
-      }}
+      onClick={() => onCloseRef.current?.()}
     >
       <div
         ref={panelRef}
@@ -117,7 +125,7 @@ export default function Modal({
           <button
             type="button"
             className="modal-close"
-            onClick={() => onClose?.()}
+            onClick={() => onCloseRef.current?.()}
             aria-label={translateText('Close dialog')}
           >
             <MdClose aria-hidden="true" />
