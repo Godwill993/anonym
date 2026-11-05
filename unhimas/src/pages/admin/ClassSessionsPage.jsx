@@ -1,6 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdAdd, MdDelete, MdEdit, MdSearch, MdSchedule, MdVideocam, MdVideocamOff } from 'react-icons/md';
+import {
+  MdAdd,
+  MdAssignmentReturn,
+  MdCheckCircle,
+  MdDelete,
+  MdEdit,
+  MdSearch,
+  MdSchedule,
+  MdVideocam,
+  MdVideocamOff,
+} from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -13,6 +23,7 @@ import {
   generateSessionsFromTimetable,
   updateClassSessionAdmin,
   deleteClassSessionAdmin,
+  reviewClassSession,
 } from '../../services/academicService';
 import { getLecturers } from '../../services/peopleService';
 import { createZoomMeeting, deleteZoomMeeting } from '../../services/zoomService';
@@ -29,8 +40,11 @@ export default function ClassSessionsPage() {
   const { translateText: tx } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState('pending');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [returnTarget, setReturnTarget] = useState(null);
+  const [returnComment, setReturnComment] = useState('');
   const [zoomLoading, setZoomLoading] = useState(null);
   const [genOpen, setGenOpen] = useState(false);
   const [genForm, setGenForm] = useState({ from: '', to: '', batchCourseId: '' });
@@ -45,8 +59,8 @@ export default function ClassSessionsPage() {
   });
 
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ['admin-class-sessions'],
-    queryFn: () => getClassSessions({ limit: 300 }),
+    queryKey: ['admin-class-sessions', approvalFilter],
+    queryFn: () => getClassSessions({ limit: 300, approvalStatus: approvalFilter || null }),
   });
 
   const { data: batchCourses = [] } = useQuery({
@@ -79,6 +93,21 @@ export default function ClassSessionsPage() {
       setEditing(null);
     },
     onError: (err) => toast.error(err.message || tx('Failed to update session')),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, status, comment }) => reviewClassSession(id, { status, comment }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-class-sessions'] });
+      toast.success(
+        variables.status === 'approved'
+          ? tx('Class session approved')
+          : tx('Class session returned to lecturer'),
+      );
+      setReturnTarget(null);
+      setReturnComment('');
+    },
+    onError: (err) => toast.error(err.message || tx('Could not review class session')),
   });
 
   const deleteMutation = useMutation({
@@ -139,6 +168,18 @@ export default function ClassSessionsPage() {
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  const handleReturnSession = () => {
+    if (!returnTarget || !returnComment.trim()) {
+      toast.error(tx('A reason is required when returning a class session'));
+      return;
+    }
+    reviewMutation.mutate({
+      id: returnTarget.id,
+      status: 'returned',
+      comment: returnComment.trim(),
+    });
   };
 
   const handleAddZoom = async (session) => {
@@ -210,7 +251,7 @@ export default function ClassSessionsPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">{tx('Class Sessions')}</h1>
-          <p className="page-subtitle">{tx('Scheduled teaching sessions, rooms, and online meetings')}</p>
+          <p className="page-subtitle">{tx('Review lecturer session requests and manage scheduled teaching sessions')}</p>
         </div>
         <div className="page-header-actions">
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setGenOpen(true)}>
@@ -235,6 +276,18 @@ export default function ClassSessionsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <select
+            className="form-input"
+            style={{ maxWidth: 220 }}
+            value={approvalFilter}
+            onChange={(event) => setApprovalFilter(event.target.value)}
+            aria-label={tx('Filter by session approval')}
+          >
+            <option value="pending">{tx('Pending approval')}</option>
+            <option value="approved">{tx('Approved sessions')}</option>
+            <option value="returned">{tx('Returned sessions')}</option>
+            <option value="">{tx('All sessions')}</option>
+          </select>
         </div>
 
         <div className="table-wrapper">
@@ -246,16 +299,17 @@ export default function ClassSessionsPage() {
                 <th>{tx('When')}</th>
                 <th>{tx('Room')}</th>
                 <th>{tx('Topic')}</th>
+                <th>{tx('Approval')}</th>
                 <th>{tx('Online')}</th>
                 <th style={{ textAlign: 'right' }}>{tx('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>{tx('Loading sessions...')}</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>{tx('Loading sessions...')}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
                       <div className="empty-state-title">{tx('No class sessions')}</div>
@@ -289,6 +343,22 @@ export default function ClassSessionsPage() {
                       <td>{session.room || '—'}</td>
                       <td>{session.topic || '—'}</td>
                       <td>
+                        <span className={`badge ${
+                          session.approval_status === 'approved'
+                            ? 'badge-green'
+                            : session.approval_status === 'returned'
+                              ? 'badge-red'
+                              : 'badge-amber'
+                        }`}>
+                          {tx(session.approval_status || 'approved')}
+                        </span>
+                        {session.approval_comment && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+                            {session.approval_comment}
+                          </div>
+                        )}
+                      </td>
+                      <td>
                         {session.zoom_join_url ? (
                           <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '2px 6px', fontWeight: 700, width: 'fit-content', display: 'inline-block' }}>ONLINE</span>
                         ) : (
@@ -296,7 +366,30 @@ export default function ClassSessionsPage() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <RowActionsMenu
+                        {session.approval_status === 'pending' ? (
+                          <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              disabled={reviewMutation.isPending}
+                              onClick={() => reviewMutation.mutate({ id: session.id, status: 'approved' })}
+                            >
+                              <MdCheckCircle /> {tx('Approve')}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              disabled={reviewMutation.isPending}
+                              onClick={() => {
+                                setReturnTarget(session);
+                                setReturnComment('');
+                              }}
+                            >
+                              <MdAssignmentReturn /> {tx('Return')}
+                            </button>
+                          </div>
+                        ) : (
+                          <RowActionsMenu
                           ariaLabel={tx('Session actions')}
                           items={[
                             {
@@ -343,7 +436,8 @@ export default function ClassSessionsPage() {
                               },
                             },
                           ]}
-                        />
+                          />
+                        )}
                       </td>
                     </tr>
                   );
@@ -353,6 +447,44 @@ export default function ClassSessionsPage() {
           </table>
         </div>
       </div>
+
+      {returnTarget && (
+        <Modal
+          isOpen
+          onClose={() => {
+            setReturnTarget(null);
+            setReturnComment('');
+          }}
+          title={tx('Return session request')}
+        >
+          <p>
+            {tx('Explain what the lecturer should change before resubmitting this session.')}
+          </p>
+          <div className="form-group">
+            <label className="form-label">{tx('Reason')} *</label>
+            <textarea
+              className="form-input"
+              rows={4}
+              value={returnComment}
+              onChange={(event) => setReturnComment(event.target.value)}
+              required
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="btn btn-outline" onClick={() => setReturnTarget(null)}>
+              {tx('Cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!returnComment.trim() || reviewMutation.isPending}
+              onClick={handleReturnSession}
+            >
+              <MdAssignmentReturn /> {tx('Return to lecturer')}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editing ? tx('Edit class session') : tx('Add class session')}>
         <form onSubmit={handleSubmit}>

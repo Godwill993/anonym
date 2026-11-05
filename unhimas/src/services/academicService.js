@@ -412,7 +412,13 @@ export async function deleteBatchCourse(id) {
 // CLASS SESSIONS (admin)
 // ============================================================
 
-export async function getClassSessions({ limit = 200, from = null, to = null, batchCourseId = null } = {}) {
+export async function getClassSessions({
+  limit = 200,
+  from = null,
+  to = null,
+  batchCourseId = null,
+  approvalStatus = null,
+} = {}) {
   let query = supabase
     .from('class_sessions')
     .select(`*, batch_courses:batch_course_id(id, courses:course_id(code, name), batches:batch_id(name, code))`)
@@ -421,9 +427,32 @@ export async function getClassSessions({ limit = 200, from = null, to = null, ba
   if (from) query = query.gte('scheduled_start', from);
   if (to) query = query.lte('scheduled_start', to);
   if (batchCourseId) query = query.eq('batch_course_id', batchCourseId);
+  if (approvalStatus) query = query.eq('approval_status', approvalStatus);
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+export async function reviewClassSession(id, { status, comment = null }) {
+  if (!id || !['approved', 'returned'].includes(status)) {
+    throw new Error('A class session and valid review decision are required.');
+  }
+  if (status === 'returned' && !comment?.trim()) {
+    throw new Error('A reason is required when returning a class session.');
+  }
+
+  const { data, error } = await supabase
+    .from('class_sessions')
+    .update({
+      approval_status: status,
+      approval_comment: status === 'returned' ? comment.trim() : null,
+    })
+    .eq('id', id)
+    .eq('approval_status', 'pending')
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function createClassSessionAdmin(payload) {

@@ -40,6 +40,16 @@ function attendanceStatusBadge(status) {
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
+function sessionApprovalBadge(status) {
+  const map = {
+    pending: ['badge-amber', 'Session awaiting admin approval'],
+    returned: ['badge-red', 'Session returned by admin'],
+    approved: ['badge-green', 'Session approved'],
+  };
+  const [cls, label] = map[status || 'approved'];
+  return <span className={`badge ${cls}`}>{label}</span>;
+}
+
 export default function LecturerSessionsPage() {
   const { session, profile } = useAuth();
   const [searchParams] = useSearchParams();
@@ -73,7 +83,8 @@ export default function LecturerSessionsPage() {
 
   const selectedCourse = courses.find((c) => c.id === selectedBcId);
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) || null;
-  const attendanceEditable = canEditSessionAttendance(selectedSession);
+  const attendanceEditable = selectedSession?.approval_status === 'approved'
+    && canEditSessionAttendance(selectedSession);
 
   const { data: students = [] } = useQuery({
     queryKey: ['students-in-batch', selectedCourse?.batches?.id],
@@ -119,7 +130,8 @@ export default function LecturerSessionsPage() {
         : await createClassSession(payload);
 
       // If the lecturer toggled "Online Class", auto-create a Zoom meeting
-      if (!editingSession && sessionForm.is_online && savedSession?.id) {
+      if (!editingSession && sessionForm.is_online && savedSession?.id
+        && savedSession.approval_status === 'approved') {
         const durationMs = end.getTime() - start.getTime();
         const durationMinutes = Math.round(durationMs / 60000);
         try {
@@ -141,7 +153,14 @@ export default function LecturerSessionsPage() {
       return savedSession;
     },
     onSuccess: (data) => {
-      showToast(editingSession ? 'Session updated' : 'Session created', 'success');
+      showToast(
+        data?.approval_status === 'pending'
+          ? 'Session request submitted to admin for approval'
+          : editingSession
+            ? 'Session updated'
+            : 'Session created',
+        'success',
+      );
       setSessionModal(false);
       setEditingSession(null);
       setSessionForm(emptyForm);
@@ -189,6 +208,10 @@ export default function LecturerSessionsPage() {
 
   const handleAddZoom = async (s) => {
     if (!s?.id) return;
+    if (s.approval_status !== 'approved') {
+      showToast('A Zoom meeting can be added after the admin approves this session.', 'error');
+      return;
+    }
     setZoomLoading(s.id);
     try {
       const start = new Date(s.scheduled_start);
@@ -284,7 +307,7 @@ export default function LecturerSessionsPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Class Sessions & Attendance</h1>
-          <p className="page-subtitle">Create sessions, mark attendance, then submit to admin for approval</p>
+          <p className="page-subtitle">Request session approval, mark attendance after approval, then submit attendance for review</p>
         </div>
       </div>
 
@@ -352,6 +375,7 @@ export default function LecturerSessionsPage() {
                           {new Date(s.scheduled_start).toLocaleDateString('en-GB', {
                             day: 'numeric', month: 'short', year: 'numeric',
                           })}
+                          {sessionApprovalBadge(s.approval_status)}
                           {s.zoom_join_url && (
                             <span style={{ fontSize: '0.65rem', background: '#2d8cff', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
                               ONLINE
@@ -388,15 +412,17 @@ export default function LecturerSessionsPage() {
                     <div style={{ padding: '0 0.75rem 0.6rem', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {s.zoom_join_url ? (
                         <>
-                          <a
-                            href={s.zoom_start_url || s.zoom_join_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-primary btn-sm"
-                            style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <MdVideocam size={13} /> Start Meeting
-                          </a>
+                          {s.approval_status === 'approved' && (
+                            <a
+                              href={s.zoom_start_url || s.zoom_join_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-primary btn-sm"
+                              style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <MdVideocam size={13} /> Start Meeting
+                            </a>
+                          )}
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
@@ -412,11 +438,13 @@ export default function LecturerSessionsPage() {
                           type="button"
                           className="btn btn-outline btn-sm"
                           style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          disabled={zoomLoading === s.id}
+                          disabled={zoomLoading === s.id || s.approval_status !== 'approved'}
                           onClick={() => handleAddZoom(s)}
                         >
                           <MdVideocam size={13} />
-                          {zoomLoading === s.id ? 'Creating…' : 'Add Zoom'}
+                          {s.approval_status !== 'approved'
+                            ? 'Available after approval'
+                            : zoomLoading === s.id ? 'Creating…' : 'Add Zoom'}
                         </button>
                       )}
                     </div>
@@ -460,6 +488,19 @@ export default function LecturerSessionsPage() {
                 )}
               </div>
             </div>
+
+            {selectedSession && selectedSession.approval_status !== 'approved' && (
+              <div className="alert-banner" role="status" style={{ margin: '0 1rem 0.75rem' }}>
+                <span>
+                  {selectedSession.approval_status === 'returned'
+                    ? 'This session was returned. Update it and wait for admin approval before recording attendance.'
+                    : 'This session is awaiting admin approval. Attendance actions unlock after approval.'}
+                  {selectedSession.approval_comment && (
+                    <> Admin feedback: <strong>{selectedSession.approval_comment}</strong></>
+                  )}
+                </span>
+              </div>
+            )}
 
             {selectedSession?.attendance_status === 'returned' && selectedSession.attendance_admin_comment && (
               <div
