@@ -28,7 +28,10 @@ export async function getMyStudentCourses(batchId) {
 }
 
 export async function getMyAttendance(studentId, { batchCourseId = null } = {}) {
-  let sessionsQuery = supabase.from('class_sessions').select('id, batch_course_id, scheduled_start, scheduled_end, topic');
+  let sessionsQuery = supabase
+    .from('class_sessions')
+    .select('id, batch_course_id, scheduled_start, scheduled_end, topic')
+    .eq('approval_status', 'approved');
   if (batchCourseId) sessionsQuery = sessionsQuery.eq('batch_course_id', batchCourseId);
   const { data: sessions, error: sErr } = await sessionsQuery;
   if (sErr) throw sErr;
@@ -46,7 +49,11 @@ export async function getMyAttendanceSummary(studentId, batchId) {
   if (bcErr) throw bcErr;
   if (!batchCourses?.length) return [];
   const summary = await Promise.all(batchCourses.map(async (bc) => {
-    const { data: sessions, error: sessionsError } = await supabase.from('class_sessions').select('id').eq('batch_course_id', bc.id);
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('class_sessions')
+      .select('id')
+      .eq('batch_course_id', bc.id)
+      .eq('approval_status', 'approved');
     if (sessionsError) throw sessionsError;
     const sessionIds = (sessions || []).map((s) => s.id);
     if (!sessionIds.length) return { ...bc, totalSessions: 0, present: 0, absent: 0, late: 0, percentage: 0 };
@@ -118,6 +125,7 @@ export async function getMyUpcomingSessions(batchId, { limit = 5 } = {}) {
     .from('class_sessions')
     .select(`*, batch_courses:batch_course_id (id, courses:course_id (code, name), lecturers:lecturer_id (first_name, last_name))`)
     .in('batch_course_id', batchCourseIds)
+    .eq('approval_status', 'approved')
     .gte('scheduled_start', new Date().toISOString())
     .order('scheduled_start', { ascending: true })
     .limit(limit);

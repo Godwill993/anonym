@@ -421,7 +421,11 @@ export async function getClassSessions({
 } = {}) {
   let query = supabase
     .from('class_sessions')
-    .select(`*, batch_courses:batch_course_id(id, courses:course_id(code, name), batches:batch_id(name, code))`)
+    .select(`
+      *,
+      batch_courses:batch_course_id(id, courses:course_id(code, name), batches:batch_id(name, code)),
+      lecturers:lecturer_id(id, staff_id, first_name, last_name)
+    `)
     .order('scheduled_start', { ascending: false })
     .limit(limit);
   if (from) query = query.gte('scheduled_start', from);

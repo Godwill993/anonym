@@ -46,7 +46,7 @@ function sessionApprovalBadge(status) {
     returned: ['badge-red', 'Session returned by admin'],
     approved: ['badge-green', 'Session approved'],
   };
-  const [cls, label] = map[status || 'approved'];
+  const [cls, label] = map[status] || map.approved;
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 

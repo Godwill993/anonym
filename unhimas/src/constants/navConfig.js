@@ -48,7 +48,7 @@ export const NAV_CONFIG = {
             { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
             { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
             { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
-            { key: 'class-sessions', label: 'Class sessions', path: '/admin/class-sessions', icon: MdEventNote, capability: 'manage_academic_structure' },
+            { key: 'class-sessions', label: 'Sessions & approvals', path: '/admin/class-sessions', icon: MdEventNote, capability: 'manage_academic_structure' },
           ],
         },
         {
@@ -74,8 +74,8 @@ export const NAV_CONFIG = {
             { key: 'payments', label: 'Payments', path: '/admin/payments', icon: MdReceiptLong, capability: 'manage_fees' },
           ],
         },
-        { key: 'marks', label: 'Marks', path: '/admin/mark-approval', icon: MdGrade, capability: 'approve_marks' },
-        { key: 'attendance', label: 'Attendance', path: '/admin/attendance', icon: MdHowToReg, capability: 'approve_attendance' },
+        { key: 'marks', label: 'Marks approval', path: '/admin/mark-approval', icon: MdGrade, capability: 'approve_marks' },
+        { key: 'attendance', label: 'Attendance approval', path: '/admin/attendance', icon: MdHowToReg, capability: 'approve_attendance' },
         { key: 'results', label: 'Results', path: '/admin/results', icon: MdBarChart },
         {
           key: 'campus',

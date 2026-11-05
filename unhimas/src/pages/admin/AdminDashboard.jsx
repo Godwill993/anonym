@@ -14,6 +14,7 @@ import {
   MdGrade,
   MdBarChart,
   MdLogin,
+  MdSchedule,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { useTranslation } from '../../i18n';
@@ -34,9 +35,11 @@ import {
   FinanceBarChart,
 } from '../../components/charts/DashboardCharts';
 
-/** Highest-impact daily destinations (single row, max 8). */
+/** Direct entry points for the admin's daily review and operations queues. */
 const QUICK_ACTIONS = [
   { to: '/admin/mark-approval', label: 'Approve marks', icon: MdGrade, accent: true },
+  { to: '/admin/class-sessions', label: 'Review session requests', icon: MdSchedule },
+  { to: '/admin/attendance', label: 'Review attendance', icon: MdHowToReg },
   { to: '/admin/admissions', label: 'Admissions', icon: MdHowToReg },
   { to: '/admin/fees', label: 'Fees', icon: MdPayments },
   { to: '/admin/payments', label: 'Payments', icon: MdReceiptLong },

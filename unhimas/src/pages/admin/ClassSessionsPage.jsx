@@ -58,7 +58,12 @@ export default function ClassSessionsPage() {
     notes: '',
   });
 
-  const { data: sessions = [], isLoading } = useQuery({
+  const {
+    data: sessions = [],
+    isLoading,
+    isError: sessionsError,
+    error: sessionsErrorObj,
+  } = useQuery({
     queryKey: ['admin-class-sessions', approvalFilter],
     queryFn: () => getClassSessions({ limit: 300, approvalStatus: approvalFilter || null }),
   });
@@ -263,6 +268,18 @@ export default function ClassSessionsPage() {
         </div>
       </div>
 
+      {sessionsError && (
+        <div className="alert-banner alert-banner-danger" role="alert" style={{ marginBottom: '1.25rem' }}>
+          <div>
+            <strong>{tx('Session approval is not available yet')}</strong>
+            <div style={{ marginTop: 4, fontSize: '0.875rem' }}>
+              {tx('Apply migration 20261105000000_lecturer_session_approval.sql in Supabase.')}
+              {sessionsErrorObj?.message ? ` ${sessionsErrorObj.message}` : ''}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <div style={{ position: 'relative', minWidth: '240px', flex: '1 1 200px' }}>
@@ -313,7 +330,11 @@ export default function ClassSessionsPage() {
                     <div className="empty-state">
                       <MdSchedule className="empty-state-icon" />
                       <div className="empty-state-title">{tx('No class sessions')}</div>
-                      <div className="empty-state-text">{tx('Create a session or generate from the timetable.')}</div>
+                      <div className="empty-state-text">
+                        {approvalFilter === 'pending'
+                          ? tx('No lecturer session requests are awaiting review.')
+                          : tx('No class sessions match this filter.')}
+                      </div>
                     </div>
                   </td>
                 </tr>
