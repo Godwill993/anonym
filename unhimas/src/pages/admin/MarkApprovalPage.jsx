@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { MdCheckCircle, MdAssignmentReturn, MdPublish, MdVisibility, MdSearch } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
@@ -19,16 +20,25 @@ export default function MarkApprovalPage() {
   const { canApproveMarks, canPublishResults, isAdmin } = usePermissions();
   const mayApprove = Boolean(canApproveMarks || isAdmin);
   const mayPublish = Boolean(canPublishResults || isAdmin);
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('submitted');
   const [search, setSearch] = useState('');
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState(
+    () => searchParams.get('submission'),
+  );
   const [returnComment, setReturnComment] = useState('');
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [submissionToReturn, setSubmissionToReturn] = useState(null);
   const [forcePublishTarget, setForcePublishTarget] = useState(null);
 
-  const { data: submissions = [], isLoading } = useQuery({
+  const {
+    data: submissions = [],
+    isLoading,
+    isError: submissionsError,
+    error: submissionsErrorDetail,
+    refetch: refetchSubmissions,
+  } = useQuery({
     queryKey: ['admin-mark-submissions', statusFilter],
     queryFn: () => getMarkSubmissions({ status: statusFilter || null }),
   });
@@ -213,6 +223,17 @@ export default function MarkApprovalPage() {
         </ol>
       </div>
 
+      {submissionsError && (
+        <div className="alert-banner alert-banner-danger" role="alert" style={{ marginBottom: '1rem' }}>
+          <span>
+            {translateText('Could not load lecturer mark submissions')}: {submissionsErrorDetail?.message}
+          </span>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchSubmissions()}>
+            {translateText('Retry')}
+          </button>
+        </div>
+      )}
+
       {mayPublish && batchReadiness.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div className="card-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
@@ -357,6 +378,12 @@ export default function MarkApprovalPage() {
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
                     {translateText('Loading…')}
+                  </td>
+                </tr>
+              ) : submissionsError ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                    {translateText('Submission records could not be loaded. Use Retry above.')}
                   </td>
                 </tr>
               ) : filteredSubmissions.length === 0 ? (

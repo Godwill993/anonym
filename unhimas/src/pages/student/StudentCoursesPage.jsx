@@ -55,9 +55,9 @@ export default function StudentCoursesPage() {
   });
 
   const { data: semesterCourses = [], isLoading: semCoursesLoading } = useQuery({
-    queryKey: ['semester-batch-courses', batchId, semester?.id],
-    queryFn: () => listBatchCoursesForSemester(batchId, semester.id),
-    enabled: !!batchId && !!semester?.id,
+    queryKey: ['semester-batch-courses', batchId, semester?.id, studentId],
+    queryFn: () => listBatchCoursesForSemester(batchId, semester.id, studentId),
+    enabled: !!batchId && !!semester?.id && !!studentId,
   });
 
   const { data: registrations = [], isLoading: regLoading } = useQuery({
@@ -88,6 +88,11 @@ export default function StudentCoursesPage() {
 
   const registeredCount = currentWithReg.filter((c) => c.isRegistered).length;
   const optionalOpen = currentWithReg.filter((c) => !c.is_compulsory && !c.isRegistered).length;
+  const visibleCourses = allCourses.filter(
+    (course) =>
+      course.semesters?.semester_type !== 'resit' ||
+      currentWithReg.some((eligibleCourse) => eligibleCourse.id === course.id),
+  );
 
   const registerMutation = useMutation({
     mutationFn: (batchCourseId) =>
@@ -166,7 +171,9 @@ export default function StudentCoursesPage() {
           <span>
             {windowOpen ? (
               <>
-                {translateText('Registration is open for optional courses.')}
+                {semester.semester_type === 'resit'
+                  ? translateText('Registration is open for courses you have failed.')
+                  : translateText('Registration is open for optional courses.')}
                 {semester.registration_closes_at && (
                   <>
                     {' '}
@@ -220,7 +227,13 @@ export default function StudentCoursesPage() {
           <div className="empty-state-icon">
             <MdBook />
           </div>
-          <div className="empty-state-title">{translateText('No courses for this semester')}</div>
+          <div className="empty-state-title">
+            {translateText(
+              semester.semester_type === 'resit'
+                ? 'No failed courses are currently eligible for resit'
+                : 'No courses for this semester',
+            )}
+          </div>
         </div>
       ) : (
         <div className="entity-grid animate-stagger">
@@ -283,14 +296,14 @@ export default function StudentCoursesPage() {
         </div>
       )}
 
-      {allCourses.length > 0 && (
+      {visibleCourses.length > 0 && (
         <>
           <div className="section-heading">
             <h2>{translateText('All batch courses')}</h2>
-            <span className="section-meta">{allCourses.length}</span>
+            <span className="section-meta">{visibleCourses.length}</span>
           </div>
           <div className="entity-grid">
-            {allCourses.map((bc) => (
+            {visibleCourses.map((bc) => (
               <article key={bc.id} className="entity-card" style={{ opacity: 0.92 }}>
                 <div className="entity-card-top">
                   <span className="badge badge-blue">{bc.courses?.code}</span>

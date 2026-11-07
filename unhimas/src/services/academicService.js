@@ -112,24 +112,29 @@ export async function updateDepartment(id, updates) {
 // ============================================================
 
 export async function getAcademicYears() {
-  const { data, error } = await supabase.from('academic_years').select('*').order('start_date', { ascending: false });
+  const { data, error } = await supabase
+    .from('academic_years')
+    .select('*, semesters:semesters(id, number, name, semester_type)')
+    .order('start_date', { ascending: false });
   if (error) throw error;
   return data || [];
 }
 
 export async function createAcademicYear({ name, start_date, end_date, is_current }) {
-  const { data, error } = await supabase
-    .from('academic_years')
-    .insert([{ name, start_date, end_date, is_current: !!is_current }])
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('create_academic_year_with_semesters', {
+    p_name: name,
+    p_start_date: start_date,
+    p_end_date: end_date,
+    p_is_current: !!is_current,
+  });
   if (error) throw error;
   return data;
 }
 
 export async function setCurrentAcademicYear(id) {
-  await supabase.from('academic_years').update({ is_current: false }).neq('id', id);
-  const { data, error } = await supabase.from('academic_years').update({ is_current: true }).eq('id', id).select().single();
+  const { data, error } = await supabase.rpc('activate_academic_year', {
+    p_academic_year_id: id,
+  });
   if (error) throw error;
   return data;
 }
@@ -138,6 +143,7 @@ export async function getSemesters(academicYearId = null) {
   let query = supabase
     .from('semesters')
     .select('*, academic_years:academic_year_id(id, name, is_current, start_date, end_date)')
+    .order('start_date')
     .order('number');
   if (academicYearId) query = query.eq('academic_year_id', academicYearId);
   const { data, error } = await query;
@@ -156,8 +162,13 @@ export async function createSemester({ academic_year_id, name, number, start_dat
 }
 
 export async function setCurrentSemester(id) {
-  await supabase.from('semesters').update({ is_current: false }).neq('id', id);
-  const { data, error } = await supabase.from('semesters').update({ is_current: true }).eq('id', id).select().single();
+  const { data, error } = await supabase.rpc('activate_semester', { p_semester_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function advanceCurrentSemester() {
+  const { data, error } = await supabase.rpc('advance_current_semester');
   if (error) throw error;
   return data;
 }
@@ -374,7 +385,7 @@ export async function getBatchCourses({ batchId = null, semesterId = null, lectu
         academic_years:academic_year_id(id, name, start_date, end_date),
         programme_end_academic_years:programme_end_academic_year_id(id, name, start_date, end_date)
       ),
-      semesters:semester_id(id, name, number, academic_years:academic_year_id(id, name, start_date, end_date)),
+      semesters:semester_id(id, name, number, semester_type, academic_years:academic_year_id(id, name, start_date, end_date)),
       lecturers:lecturer_id(id, first_name, last_name, staff_id)
     `)
     .order('created_at', { ascending: false });

@@ -72,6 +72,8 @@ export default function AdminDashboard() {
   const {
     data: pendingMarks = [],
     isLoading: marksLoading,
+    isError: marksError,
+    error: marksErrorDetail,
     refetch: refetchPendingMarks,
   } = useQuery({
     queryKey: ['admin-pending-marks'],
@@ -315,6 +317,15 @@ export default function AdminDashboard() {
               <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>
                 {translateText('Loading…')}
               </div>
+            ) : marksError ? (
+              <div className="alert-banner alert-banner-danger" role="alert" style={{ margin: '0.75rem' }}>
+                <span>
+                  {translateText('Could not load pending marks')}: {marksErrorDetail?.message}
+                </span>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchPendingMarks()}>
+                  {translateText('Retry')}
+                </button>
+              </div>
             ) : pendingMarks.length === 0 ? (
               <div className="empty-state" style={{ padding: '1.5rem 1rem' }}>
                 <div className="empty-state-title">{translateText('All caught up')}</div>
@@ -327,6 +338,7 @@ export default function AdminDashboard() {
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
+                      alignItems: 'center',
                       gap: '0.75rem',
                       padding: '0.55rem 1rem',
                       borderBottom: '1px solid var(--color-border)',
@@ -339,6 +351,13 @@ export default function AdminDashboard() {
                         {item.batch_courses?.courses?.name}
                       </span>
                     </span>
+                    <Link
+                      to={`/admin/mark-approval?submission=${encodeURIComponent(item.id)}`}
+                      className="btn btn-primary btn-sm"
+                      style={{ flexShrink: 0 }}
+                    >
+                      {translateText('Review & approve')}
+                    </Link>
                   </li>
                 ))}
               </ul>

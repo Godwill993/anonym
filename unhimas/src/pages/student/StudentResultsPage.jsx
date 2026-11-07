@@ -92,14 +92,31 @@ export default function StudentResultsPage() {
   const semesters = Object.values(bySemester).sort((a, b) => b.semNum - a.semNum);
   const filtered = semFilter === 'all' ? semesters : semesters.filter((s) => s.semKey === semFilter);
 
+  const latestResultByCourse = new Map();
+  results.forEach((result) => {
+    const courseId = result.mark_submissions?.batch_courses?.courses?.id;
+    if (!courseId) return;
+    const existing = latestResultByCourse.get(courseId);
+    const publishedAt = new Date(result.mark_submissions?.published_at || result.updated_at || 0).getTime();
+    const existingPublishedAt = existing
+      ? new Date(existing.mark_submissions?.published_at || existing.updated_at || 0).getTime()
+      : -1;
+    if (!existing || publishedAt >= existingPublishedAt) latestResultByCourse.set(courseId, result);
+  });
+
   const computeGPA = (marks, semId) => {
     if (semId && semesterGpaMap[semId] !== undefined) {
       return Number(semesterGpaMap[semId]).toFixed(2);
     }
-    if (!marks.length) return null;
+    const latestSemesterMarks = semId
+      ? [...latestResultByCourse.values()].filter(
+          (result) => result.mark_submissions?.batch_courses?.semesters?.id === semId,
+        )
+      : marks;
+    if (!latestSemesterMarks.length) return null;
     let totalPoints = 0;
     let totalCredits = 0;
-    marks.forEach((m) => {
+    latestSemesterMarks.forEach((m) => {
       const credits = Number(m.mark_submissions?.batch_courses?.courses?.credit_units || 3);
       totalPoints += Number(m.grade_point || 0) * credits;
       totalCredits += credits;

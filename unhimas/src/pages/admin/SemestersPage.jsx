@@ -8,6 +8,7 @@ import {
   getSemesters,
   createSemester,
   setCurrentSemester,
+  advanceCurrentSemester,
   getAcademicYears,
 } from '../../services/academicService';
 
@@ -56,6 +57,30 @@ export default function SemestersPage() {
     },
   });
 
+  const advanceMutation = useMutation({
+    mutationFn: advanceCurrentSemester,
+    onSuccess: (semester) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['batch-semester-readiness'] });
+      toast.success(`Moved to ${semester?.name || 'the next semester'}`);
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Could not move to the next semester');
+    },
+  });
+
+  const currentSemester = semesters.find((semester) => semester.is_current);
+  const activeYear = academicYears.find((year) => year.is_current);
+  const nextSemester = currentSemester
+    ? semesters.find((semester) =>
+        semester.academic_year_id === currentSemester.academic_year_id &&
+        Number(semester.number) === Number(currentSemester.number) + 1,
+      )
+    : semesters.find((semester) =>
+        semester.academic_year_id === activeYear?.id && Number(semester.number) === 1,
+      );
+
   const handleOpenAdd = () => {
     const currentYear = academicYears.find((y) => y.is_current) || academicYears[0];
     setFormData({
@@ -83,9 +108,21 @@ export default function SemestersPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Academic Semesters</h1>
-          <p className="page-subtitle">Configure First & Second Semesters across academic years</p>
+          <p className="page-subtitle">Manage the two teaching semesters and resit period for each academic year</p>
         </div>
         <div className="page-header-actions">
+          {nextSemester && (
+            <button
+              className="btn btn-outline"
+              onClick={() => advanceMutation.mutate()}
+              disabled={advanceMutation.isPending}
+              title={`Open registration for ${nextSemester.name}${
+                currentSemester ? ` and close ${currentSemester.name}` : ''
+              }`}
+            >
+              Move to {nextSemester.name}
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleOpenAdd}>
             <MdAdd /> New Semester
           </button>
@@ -133,7 +170,9 @@ export default function SemestersPage() {
                     </td>
                     <td>{sem.academic_years?.name}</td>
                     <td>
-                      <span className="badge badge-blue">Semester {sem.number}</span>
+                      <span className={`badge ${sem.semester_type === 'resit' ? 'badge-amber' : 'badge-blue'}`}>
+                        {sem.semester_type === 'resit' ? 'Resit Period' : `Semester ${sem.number}`}
+                      </span>
                     </td>
                     <td>{sem.start_date ? new Date(sem.start_date).toLocaleDateString() : '—'}</td>
                     <td>{sem.end_date ? new Date(sem.end_date).toLocaleDateString() : '—'}</td>

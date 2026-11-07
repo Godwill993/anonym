@@ -82,3 +82,48 @@ test('returns an empty summary when no published results exist', () => {
     semesters: [],
   });
 });
+
+test('uses the latest resit attempt for the final course outcome without deleting its history', () => {
+  const firstAttempt = {
+    id: 'm4',
+    grade: 'F',
+    grade_point: 0,
+    updated_at: '2026-06-01T10:00:00Z',
+    mark_submissions: {
+      published_at: '2026-06-01T10:00:00Z',
+      batch_courses: {
+        courses: { id: 'c4', code: 'CS 104', name: 'Networks', credit_units: 3 },
+        semesters: {
+          id: 's2', name: 'Second Semester', number: 2,
+          academic_years: { id: 'y1', name: '2025/2026' },
+        },
+      },
+    },
+  };
+  const resitAttempt = {
+    ...firstAttempt,
+    id: 'm5',
+    grade: 'C',
+    grade_point: 2,
+    updated_at: '2026-09-01T10:00:00Z',
+    mark_submissions: {
+      published_at: '2026-09-01T10:00:00Z',
+      batch_courses: {
+        ...firstAttempt.mark_submissions.batch_courses,
+        semesters: {
+          id: 's3', name: 'Resit Period', number: 3,
+          academic_years: { id: 'y1', name: '2025/2026' },
+        },
+      },
+    },
+  };
+
+  const summary = buildTranscriptSummary([...results, firstAttempt, resitAttempt]);
+
+  assert.equal(summary.totalCredits, 13);
+  assert.equal(summary.completedCourses, 3);
+  assert.equal(summary.failedCourses, 1);
+  assert.equal(summary.semesters.length, 3);
+  assert.equal(summary.semesters.find((semester) => semester.id === 's2').marks.length, 3);
+  assert.equal(summary.semesters.find((semester) => semester.id === 's3').marks.length, 1);
+});

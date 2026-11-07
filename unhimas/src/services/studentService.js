@@ -22,7 +22,7 @@ export async function getMyStudentProfile() {
 }
 
 export async function getMyStudentCourses(batchId) {
-  const { data, error } = await supabase.from('batch_courses').select(`id, is_compulsory, courses:course_id (id, code, name, credit_units), semesters:semester_id (id, name, number, is_current, academic_years:academic_year_id (name)), lecturers:lecturer_id (id, first_name, last_name, staff_id)`).eq('batch_id', batchId).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('batch_courses').select(`id, is_compulsory, courses:course_id (id, code, name, credit_units), semesters:semester_id (id, name, number, semester_type, is_current, academic_years:academic_year_id (name)), lecturers:lecturer_id (id, first_name, last_name, staff_id)`).eq('batch_id', batchId).order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
@@ -69,7 +69,7 @@ export async function getMyAttendanceSummary(studentId, batchId) {
 }
 
 export async function getMyResults(studentId) {
-  const { data, error } = await supabase.from('marks').select(`id, attendance_score, coursework_score, exam_score, total_score, grade, grade_point, lecturer_comment, updated_at, mark_submissions:mark_submission_id (id, status, published_at, batch_courses:batch_course_id (id, courses:course_id (id, code, name, credit_units), semesters:semester_id (id, name, number, academic_years:academic_year_id (name))))`).eq('student_id', studentId).eq('mark_submissions.status', 'published');
+  const { data, error } = await supabase.from('marks').select(`id, student_id, attendance_score, coursework_score, exam_score, total_score, grade, grade_point, lecturer_comment, updated_at, mark_submissions:mark_submission_id (id, status, published_at, batch_courses:batch_course_id (id, courses:course_id (id, code, name, credit_units), semesters:semester_id (id, name, number, semester_type, academic_years:academic_year_id (id, name))))`).eq('student_id', studentId).eq('mark_submissions.status', 'published');
   if (error) throw error;
   return (data || []).filter((m) => m.mark_submissions?.status === 'published');
 }

@@ -29,6 +29,7 @@ export default function AcademicYearsPage() {
     mutationFn: createAcademicYear,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
       toast.success('Academic Year created successfully');
       setIsModalOpen(false);
     },
@@ -41,6 +42,7 @@ export default function AcademicYearsPage() {
     mutationFn: setCurrentAcademicYear,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-academic-years'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
       toast.success('Current academic year updated');
     },
     onError: (err) => {
@@ -66,7 +68,7 @@ export default function AcademicYearsPage() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Academic Years</h1>
-          <p className="page-subtitle">Configure institutional academic calendars and active sessions</p>
+          <p className="page-subtitle">Each new academic year includes two semesters and a resit period</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>

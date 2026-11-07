@@ -32,7 +32,7 @@ export async function getCurrentSemesterForStudent(student) {
   const { data, error } = await supabase
     .from('semesters')
     .select(`
-      id, name, number, is_current, registration_open, registration_closes_at, academic_year_id,
+      id, name, number, semester_type, is_current, registration_open, registration_closes_at, academic_year_id,
       academic_years:academic_year_id(id, start_date)
     `)
     .eq('is_current', true)
@@ -44,7 +44,7 @@ export async function getCurrentSemesterForStudent(student) {
   return isAcademicYearInProgrammeRange(semester.academic_years, batch) ? semester : null;
 }
 
-export async function listBatchCoursesForSemester(batchId, semesterId) {
+export async function listBatchCoursesForSemester(batchId, semesterId, studentId = null) {
   const { data, error } = await supabase
     .from('batch_courses')
     .select(
@@ -52,14 +52,23 @@ export async function listBatchCoursesForSemester(batchId, semesterId) {
       id, is_compulsory, batch_id, semester_id,
       courses:course_id ( id, code, name, credit_units ),
       lecturers:lecturer_id ( id, first_name, last_name ),
-      semesters:semester_id ( id, name, number, is_current, registration_open, registration_closes_at )
+      semesters:semester_id ( id, name, number, semester_type, is_current, registration_open, registration_closes_at )
     `,
     )
     .eq('batch_id', batchId)
     .eq('semester_id', semesterId)
     .order('created_at', { ascending: true });
   if (error) throw error;
-  return data || [];
+  const courses = data || [];
+  if (!studentId || courses[0]?.semesters?.semester_type !== 'resit') return courses;
+
+  const { data: eligibleCourses, error: eligibilityError } = await supabase.rpc(
+    'get_eligible_resit_batch_courses',
+    { p_student_id: studentId, p_semester_id: semesterId },
+  );
+  if (eligibilityError) throw eligibilityError;
+  const eligibleIds = new Set((eligibleCourses || []).map((row) => row.batch_course_id));
+  return courses.filter((course) => eligibleIds.has(course.id));
 }
 
 export async function listMyRegistrations(studentId) {
@@ -112,6 +121,16 @@ export async function registerForCourse({ studentId, batchCourseId, student }) {
   }
   if (bc.semester_id !== semester?.id) {
     throw new Error('You can only register for courses in the current semester');
+  }
+  if (semester.semester_type === 'resit') {
+    const { data: eligible, error: eligibilityError } = await supabase.rpc(
+      'is_student_resit_eligible',
+      { p_student_id: studentId, p_batch_course_id: batchCourseId },
+    );
+    if (eligibilityError) throw eligibilityError;
+    if (!eligible) {
+      throw new Error('You can only register for a course with a published failing result.');
+    }
   }
   if (bc.is_compulsory) {
     return { status: 'registered', compulsory: true };
