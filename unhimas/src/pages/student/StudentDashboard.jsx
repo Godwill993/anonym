@@ -15,6 +15,8 @@ import {
   MdSchool,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
+import mtnMomoLogo from '../../assets/mtnMomo.png';
+import orangeOmLogo from '../../assets/orangeOm.png';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
 import ProfileUnlinkedState from '../../components/common/ProfileUnlinkedState';
@@ -258,6 +260,37 @@ export default function StudentDashboard() {
           <Link to="/student/fees">{translateText('Pay now')} →</Link>
         </div>
       )}
+
+      <section className="card" style={{ marginBottom: '1.25rem' }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">{translateText('Make a payment')}</div>
+            <p style={{ margin: '4px 0 0', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+              {translateText('Choose a payment provider, then select an invoice to pay.')}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 1rem 1rem' }}>
+          <Link
+            to="/student/fees"
+            state={{ paymentMethod: 'mtn_momo' }}
+            className="btn btn-outline"
+            style={{ minHeight: 52, gap: 10 }}
+          >
+            <img src={mtnMomoLogo} alt="" aria-hidden="true" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+            {translateText('Pay with MTN MoMo')}
+          </Link>
+          <Link
+            to="/student/fees"
+            state={{ paymentMethod: 'orange_money' }}
+            className="btn btn-outline"
+            style={{ minHeight: 52, gap: 10 }}
+          >
+            <img src={orangeOmLogo} alt="" aria-hidden="true" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+            {translateText('Pay with Orange Money')}
+          </Link>
+        </div>
+      </section>
 
       <div className="stats-grid animate-stagger">
         {statsLoading ? (

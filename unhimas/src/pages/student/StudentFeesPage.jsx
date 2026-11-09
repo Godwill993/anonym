@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import {
   MdPayments,
   MdReceiptLong,
@@ -52,6 +53,7 @@ function statusBadge(status) {
 }
 
 export default function StudentFeesPage() {
+  const location = useLocation();
   const { translateText } = useTranslation();
   const { session } = useAuth();
   const toast = useToast();
@@ -59,7 +61,9 @@ export default function StudentFeesPage() {
 
   const [payInvoice, setPayInvoice] = useState(null);
   const [payAmount, setPayAmount] = useState('');
-  const [payMethod, setPayMethod] = useState('mtn_momo');
+  const [payMethod, setPayMethod] = useState(
+    location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
+  );
   const [phone, setPhone] = useState('');
 
   const {
@@ -122,7 +126,9 @@ export default function StudentFeesPage() {
     setPayInvoice(inv);
     const remaining = Number(inv.balance ?? inv.total_amount - inv.amount_paid) || 0;
     setPayAmount(remaining > 0 ? String(remaining) : '');
-    setPayMethod('mtn_momo');
+    setPayMethod(
+      location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
+    );
     setPhone('');
   };
 
