@@ -6,6 +6,7 @@ export const fr = {
     'Collapse sidebar': 'Réduire le menu',
     'Skip to main content': 'Aller au contenu principal',
     'Open navigation menu': 'Ouvrir le menu de navigation',
+    'Close navigation menu': 'Fermer le menu de navigation',
     'Unable to verify your account setup. Refresh the page or contact an administrator.': 'Impossible de vérifier la configuration de votre compte. Actualisez la page ou contactez un administrateur.',
     Retry: 'Réessayer',
     Search: 'Rechercher',

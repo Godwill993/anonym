@@ -599,7 +599,7 @@ export default function BatchesPage() {
             {!semesters.some((semester) => isAcademicYearInProgrammeRange(semester.academic_years, programmeBatch)) && (
               <p className="form-hint">
                 No semesters are configured within this programme period. Add them in{' '}
-                <Link to="/admin/semesters">Semesters</Link>.
+                <Link to="/admin/academic-years">Academic Years</Link>.
               </p>
             )}
           </div>

@@ -3,6 +3,12 @@
 alter table public.semesters
   add column if not exists semester_type text not null default 'regular';
 
+alter table public.semesters
+  drop constraint if exists semester_number_ck;
+
+alter table public.semesters
+  add constraint semester_number_ck check (number in (1, 2, 3));
+
 do $$
 begin
   if not exists (

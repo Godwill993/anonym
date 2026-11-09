@@ -40,6 +40,10 @@
   min-height: 68px;
 }
 
+.sidebar-mobile-close {
+  display: none;
+}
+
 .sidebar-logo img {
   width: 38px;
   height: 38px;
@@ -729,6 +733,25 @@
 
   .sidebar.mobile-open {
     transform: translateX(0);
+  }
+
+  .sidebar-mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-left: auto;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 1.15rem;
+  }
+
+  .sidebar-mobile-close:hover {
+    background: rgba(255, 255, 255, 0.15);
   }
 
   .sidebar.collapsed {

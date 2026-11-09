@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   MdMenu,
+  MdClose,
   MdSearch,
   MdNotifications,
   MdAccountCircle,
@@ -168,7 +169,7 @@ export default function Header({ onMenuClick, pageTitle, mobileNavOpen = false }
           aria-expanded={mobileNavOpen}
           aria-controls="app-sidebar"
         >
-          <MdMenu aria-hidden="true" />
+          {mobileNavOpen ? <MdClose aria-hidden="true" /> : <MdMenu aria-hidden="true" />}
         </button>
 
         <div className="header-breadcrumb">

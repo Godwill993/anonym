@@ -219,12 +219,9 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
+          <div className="login-public-links">
+            <div>
               {t('auth.official_portal')}{' '}
-              <Link to="/results" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
-                {t('auth.results_verification')}
-              </Link>
               <br />
               <Link to="/apply" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
                 {translateText('Apply for admission')}
@@ -237,20 +234,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div style={{
-          padding: '0.875rem 2rem',
-          borderTop: '1px solid var(--color-border)',
-          textAlign: 'center',
-          fontSize: '0.75rem',
-          color: 'var(--color-text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
+        <div className="auth-card-footer">
           <span>© {new Date().getFullYear()} UNHIMAS</span>
-          <Link to="/results" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-            {t('auth.verification_portal')}
-          </Link>
         </div>
       </div>
     </div>

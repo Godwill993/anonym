@@ -69,7 +69,7 @@
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .page-content .card:hover {
-  box-shadow: var(--shadow-md, 0 8px 24px rgba(17, 47, 66, 0.08));
+  box-shadow: var(--shadow-xs);
 }
 
 .stat-card {

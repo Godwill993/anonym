@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
+import { MdChevronLeft, MdChevronRight, MdClose } from 'react-icons/md';
 import { NAV_CONFIG } from '../../constants/navConfig';
 import { useAuth } from '../../context/AuthContext';
 import { can } from '../../lib/permissions';
@@ -139,6 +139,14 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             <span className="sidebar-logo-name">UNHIMAS</span>
             <span className="sidebar-logo-tagline">{translateText('School Management')}</span>
           </div>
+          <button
+            type="button"
+            className="sidebar-mobile-close"
+            onClick={onMobileClose}
+            aria-label={translateText('Close navigation menu')}
+          >
+            <MdClose aria-hidden="true" />
+          </button>
         </div>
 
         <nav className="sidebar-nav" aria-label={translateText('Main navigation')}>

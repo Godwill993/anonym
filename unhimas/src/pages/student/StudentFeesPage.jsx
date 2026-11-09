@@ -27,6 +27,13 @@ import {
 } from '../../services/feesService';
 import { validatePaymentInitiation } from '../../lib/paymentStatusLogic';
 import { printPaymentQuitus } from '../../utils/studentDocuments';
+import mtnMomoLogo from '../../assets/mtnMomo.png';
+import orangeOmLogo from '../../assets/orangeOm.png';
+
+const PAYMENT_METHOD_LOGOS = {
+  mtn_momo: mtnMomoLogo,
+  orange_money: orangeOmLogo,
+};
 
 function statusBadge(status) {
   const map = {
@@ -380,20 +387,67 @@ export default function StudentFeesPage() {
                 required
               />
             </div>
-            <div className="form-group">
-              <label>{translateText('Payment method')}</label>
-              <select
-                className="form-control"
-                value={payMethod}
-                onChange={(e) => setPayMethod(e.target.value)}
+            <fieldset
+              className="form-group"
+              style={{ border: 0, padding: 0, marginInline: 0 }}
+            >
+              <legend className="form-label">{translateText('Payment method')}</legend>
+              <div
+                role="radiogroup"
+                aria-label={translateText('Payment method')}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: 8,
+                }}
               >
                 {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
+                  <label
+                    key={m.value}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minHeight: 52,
+                      padding: '8px 10px',
+                      border: `1px solid ${
+                        payMethod === m.value
+                          ? 'var(--color-primary)'
+                          : 'var(--color-border)'
+                      }`,
+                      borderRadius: 'var(--radius-sm)',
+                      background:
+                        payMethod === m.value
+                          ? 'var(--color-bg)'
+                          : 'var(--color-surface)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value={m.value}
+                      checked={payMethod === m.value}
+                      onChange={(e) => setPayMethod(e.target.value)}
+                    />
+                    {PAYMENT_METHOD_LOGOS[m.value] && (
+                      <img
+                        src={PAYMENT_METHOD_LOGOS[m.value]}
+                        alt=""
+                        aria-hidden="true"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          objectFit: 'contain',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <span>{m.label}</span>
+                  </label>
                 ))}
-              </select>
-            </div>
+              </div>
+            </fieldset>
             {needsMoMoPhone && (
               <div className="form-group">
                 <label>

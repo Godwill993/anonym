@@ -45,7 +45,6 @@ export const NAV_CONFIG = {
             { key: 'programmes', label: 'Programmes', path: '/admin/programmes', icon: MdSchool, capability: 'manage_academic_structure' },
             { key: 'batches', label: 'Batches', path: '/admin/batches', icon: MdGroups, capability: 'manage_academic_structure' },
             { key: 'years', label: 'Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
-            { key: 'semesters', label: 'Semesters', path: '/admin/semesters', icon: MdSchedule, capability: 'manage_academic_structure' },
             { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
             { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
             { key: 'class-sessions', label: 'Sessions & approvals', path: '/admin/class-sessions', icon: MdEventNote, capability: 'manage_academic_structure' },

@@ -61,11 +61,11 @@
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #0d2433;
-  box-shadow: 0 4px 12px rgba(17, 47, 66, 0.3);
+  background: var(--color-primary-hover, #0d2433);
+  box-shadow: var(--shadow-sm);
 }
 .btn-secondary {
   background: var(--color-bg);

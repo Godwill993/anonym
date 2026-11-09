@@ -192,11 +192,11 @@ select.form-input {
 
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary, #fff);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0d2433;
+  background: var(--color-primary-hover, #0d2433);
   box-shadow: 0 4px 12px rgba(17, 47, 66, 0.3);
 }
 
@@ -360,12 +360,25 @@ select.form-input {
   text-decoration: underline;
 }
 
+.login-public-links {
+  margin-top: 1.15rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
 .auth-card-footer {
   padding: 0.875rem 1.5rem;
   border-top: 1px solid var(--color-border);
   text-align: center;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 560px) {
@@ -386,4 +399,13 @@ select.form-input {
     width: 84px;
     height: 84px;
   }
+}
+
+[data-theme='dark'] .auth-card-header {
+  background: linear-gradient(135deg, #102a43, #0b1725);
+}
+
+[data-theme='dark'] .auth-card-header .auth-school-name,
+[data-theme='dark'] .auth-card-header .auth-school-subtitle {
+  color: #f8fafc;
 }

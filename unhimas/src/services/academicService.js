@@ -56,7 +56,9 @@ export async function getProgrammeProgressions() {
       from_programme:from_programme_id(id, code, name, award, track, duration_years),
       to_programme:to_programme_id(id, code, name, award, track, duration_years)
     `)
-    .order('sort_order');
+    .order('from_programme_id')
+    .order('to_programme_id')
+    .order('condition');
   if (error) throw error;
   return data || [];
 }
@@ -114,7 +116,7 @@ export async function updateDepartment(id, updates) {
 export async function getAcademicYears() {
   const { data, error } = await supabase
     .from('academic_years')
-    .select('*, semesters:semesters(id, number, name, semester_type)')
+    .select('*, semesters:semesters(id, number, name, semester_type, is_current, registration_open, start_date, end_date)')
     .order('start_date', { ascending: false });
   if (error) throw error;
   return data || [];
@@ -151,18 +153,16 @@ export async function getSemesters(academicYearId = null) {
   return data || [];
 }
 
-export async function createSemester({ academic_year_id, name, number, start_date, end_date, is_current }) {
+export async function updateSemesterDates(id, { start_date, end_date }) {
   const { data, error } = await supabase
     .from('semesters')
-    .insert([{ academic_year_id, name, number, start_date, end_date, is_current: !!is_current }])
+    .update({
+      start_date: start_date || null,
+      end_date: end_date || null,
+    })
+    .eq('id', id)
     .select()
     .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function setCurrentSemester(id) {
-  const { data, error } = await supabase.rpc('activate_semester', { p_semester_id: id });
   if (error) throw error;
   return data;
 }

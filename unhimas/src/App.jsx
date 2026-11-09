@@ -28,7 +28,6 @@ import DepartmentsPage from "./pages/admin/DepartmentsPage";
 import BatchesPage from "./pages/admin/BatchesPage";
 import ProgrammesPage from "./pages/admin/ProgrammesPage";
 import AcademicYearsPage from "./pages/admin/AcademicYearsPage";
-import SemestersPage from "./pages/admin/SemestersPage";
 import CoursesPage from "./pages/admin/CoursesPage";
 import BatchCoursesPage from "./pages/admin/BatchCoursesPage";
 import StudentsPage from "./pages/admin/StudentsPage";
@@ -160,7 +159,7 @@ export default function App() {
                       <Route path="batches" element={<BatchesPage />} />
                       <Route path="programmes" element={<ProgrammesPage />} />
                       <Route path="academic-years" element={<AcademicYearsPage />} />
-                      <Route path="semesters" element={<SemestersPage />} />
+                      <Route path="semesters" element={<Navigate to="/admin/academic-years" replace />} />
                       <Route path="courses" element={<CoursesPage />} />
                       <Route path="batch-courses" element={<BatchCoursesPage />} />
                       <Route path="students" element={<StudentsPage />} />
