@@ -46,6 +46,93 @@ export function printPaymentQuitus(payment, student) {
   );
 }
 
+export async function downloadPaymentReceipt(payment, student) {
+  if (payment?.status !== 'completed') {
+    throw new Error('A receipt is available only after payment is completed.');
+  }
+
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF();
+  const margin = 18;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const name = `${student?.first_name || ''} ${student?.last_name || ''}`.trim();
+  const programme =
+    student?.programmes?.name || student?.batches?.programmes?.name || '—';
+  let y = 22;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('UNHIMAS - Payment receipt', margin, y);
+  y += 8;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Official payment acknowledgement', margin, y);
+  y += 10;
+  doc.setDrawColor(17, 47, 66);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 9;
+
+  const details = [
+    ['Student', name || '—'],
+    ['Matricule', student?.matricule || '—'],
+    ['Programme', programme],
+    ['Department', student?.batches?.departments?.name || '—'],
+    ['Class / batch', student?.batches?.name || '—'],
+    ['Email', student?.email || '—'],
+    ['Payment ID', payment.id || '—'],
+    ['Payment reference', payment.payment_reference || '—'],
+    ['Receipt number', payment.receipt_number || '—'],
+    ['Invoice', payment.student_invoices?.invoice_number || '—'],
+    ['Academic year', payment.student_invoices?.academic_years?.name || '—'],
+    ['Semester', payment.student_invoices?.semesters?.name || '—'],
+    ['Invoice total', formatXAF(payment.student_invoices?.total_amount)],
+    ['Amount paid', formatXAF(payment.amount)],
+    ['Payment method', (payment.method || '').replace(/_/g, ' ')],
+    ['Provider reference', payment.provider_reference || '—'],
+    [
+      'Paid at',
+      payment.paid_at
+        ? new Date(payment.paid_at).toLocaleString()
+        : new Date(payment.created_at).toLocaleString(),
+    ],
+    ['Status', 'Completed'],
+  ];
+
+  doc.setFontSize(10);
+  for (const [label, value] of details) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, margin, y);
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(String(value), pageWidth - margin * 2 - 48);
+    doc.text(wrapped, margin + 48, y);
+    y += Math.max(7, wrapped.length * 5);
+  }
+
+  const items = payment.student_invoices?.invoice_items || [];
+  if (items.length) {
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice details', margin, y);
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+    for (const item of items) {
+      const lineTotal = Number(item.quantity || 1) * Number(item.unit_amount || 0);
+      const text = `${item.description} - ${formatXAF(lineTotal)}`;
+      const wrapped = doc.splitTextToSize(text, pageWidth - margin * 2);
+      if (y + wrapped.length * 5 > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(wrapped, margin, y);
+      y += wrapped.length * 5 + 2;
+    }
+  }
+
+  const safeId = String(payment.receipt_number || payment.payment_reference || payment.id)
+    .replace(/[^a-zA-Z0-9_-]/g, '-');
+  doc.save(`UNHIMAS-receipt-${safeId}.pdf`);
+}
+
 export function printEnrollmentAttestation(student) {
   const name = `${student?.first_name || ''} ${student?.last_name || ''}`.trim();
   const dept = student?.batches?.departments?.name || student?.departments?.name || '—';

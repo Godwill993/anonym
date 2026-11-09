@@ -95,7 +95,7 @@ export async function listInvoices({ studentId, status, limit = 50 } = {}) {
       students ( id, matricule, first_name, last_name, profile_id, email ),
       academic_years ( id, name ),
       semesters ( id, name ),
-      invoice_items ( * )
+      invoice_items ( *, fee_categories ( code, name ) )
     `)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -114,12 +114,22 @@ export async function getInvoice(invoiceId) {
       students ( id, matricule, first_name, last_name, profile_id, email ),
       academic_years ( id, name ),
       semesters ( id, name ),
-      invoice_items ( * )
+      invoice_items ( *, fee_categories ( code, name ) )
     `)
     .eq('id', invoiceId)
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function createStudentResitInvoice(batchCourseIds) {
+  const { data: invoiceId, error } = await supabase.rpc(
+    'create_student_resit_invoice',
+    { p_batch_course_ids: batchCourseIds },
+  );
+  if (error) throw error;
+  if (!invoiceId) throw new Error('The resit invoice could not be created');
+  return getInvoice(invoiceId);
 }
 
 export async function createInvoice({ studentId, academicYearId, semesterId, items, notes, dueDate }) {
@@ -246,7 +256,12 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
     .from('payments')
     .select(`
       *,
-      student_invoices ( id, invoice_number, total_amount, balance ),
+      student_invoices (
+        id, invoice_number, total_amount, balance,
+        academic_years ( name ),
+        semesters ( name ),
+        invoice_items ( description, quantity, unit_amount )
+      ),
       students ( id, matricule, first_name, last_name )
     `)
     .order('created_at', { ascending: false })

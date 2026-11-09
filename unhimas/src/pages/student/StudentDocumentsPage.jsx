@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   MdDescription,
-  MdPrint,
+  MdDownload,
   MdSchool,
   MdPayments,
   MdReceiptLong,
@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/layout/AppLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n';
+import { useToast } from '../../hooks/useToast';
 import ProfileUnlinkedState from '../../components/common/ProfileUnlinkedState';
 import { getMyStudentProfile } from '../../services/studentService';
 import {
@@ -24,12 +25,13 @@ import { checkFeeClearance } from '../../services/feeClearance';
 import {
   printEnrollmentAttestation,
   printFeeStatement,
-  printPaymentQuitus,
+  downloadPaymentReceipt,
 } from '../../utils/studentDocuments';
 
 export default function StudentDocumentsPage() {
   const { translateText } = useTranslation();
   const { session } = useAuth();
+  const toast = useToast();
 
   const {
     data: studentProfile,
@@ -223,9 +225,15 @@ export default function StudentDocumentsPage() {
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
-                  onClick={() => printPaymentQuitus(p, studentProfile)}
+                  onClick={() =>
+                    downloadPaymentReceipt(p, studentProfile).catch((err) => {
+                      toast.error(
+                        err?.message || translateText('Could not download receipt'),
+                      );
+                    })
+                  }
                 >
-                  <MdPrint aria-hidden="true" /> {translateText('Quitus')}
+                  <MdDownload aria-hidden="true" /> {translateText('Download receipt')}
                 </button>
               </div>
             ))

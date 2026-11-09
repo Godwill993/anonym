@@ -2,7 +2,7 @@
 
 Edge Function: `supabase/functions/payment-webhook`
 
-Students create payments as **`pending`**. Admins can mark them completed in the UI. This webhook lets a **trusted provider callback or automation** do the same without exposing the service role to the browser.
+The webhook marks an existing **`pending`** payment completed. Admins can also mark payments completed in the UI. The student MTN MoMo / Orange Money checkout is currently disabled until provider sandbox accounts and callback integrations are configured; this webhook alone does not initiate a payment.
 
 ## Deploy
 
@@ -58,10 +58,11 @@ Only **`pending` → `completed`** is supported. Failed/refunded statuses can be
 
 ## Integration notes
 
-- **MTN / Orange**: map their callback fields to `payment_reference` or store the UNHIMAS reference when initiating the collection request.
+- **MTN / Orange**: a provider callback must be authenticated and verified against the provider before calling this webhook. Do not expose `PAYMENT_WEBHOOK_SECRET` to the browser.
 - **Make / Zapier**: HTTP module with the secret header is enough for a manual-ops bridge until a full PSP integration exists.
 - **RLS**: the function uses the **service role** and never runs in the browser.
 - Invoice balance updates remain whatever triggers/RLS already apply when payment status becomes `completed` (same as admin UI path).
+- The database assigns the unique receipt number when the payment transitions to `completed`; students can then download a PDF receipt from payment history.
 
 ## Security
 

@@ -16,3 +16,11 @@ Apply `20261107000000_academic_year_semester_resits.sql` to enable the academic-
 Manage academic years and their semester periods together on the Admin → Structure → Years page. The old `/admin/semesters` URL redirects there.
 
 The migration is safe to re-run. Apply it before using the academic-year or resit workflows in the application.
+
+## Student payment workflow
+
+Apply `20261109000000_student_payment_workflow.sql` after the fees/payments and resit migrations. It adds a protected student RPC for creating invoices for eligible resit courses at 2,500 XAF per course and prevents the same resit offering from being invoiced twice.
+
+The student dashboard links to school-fee, registration, resit, and other payment categories. Tuition and registration invoices are still issued by administration using the configured fee structures; students may pay any amount up to the invoice balance once checkout is enabled. Completed payments have downloadable PDF receipts with the payment UUID, payment reference, and receipt number.
+
+Direct MTN MoMo and Orange Money checkout is not yet configured. The student checkout remains disabled until provider sandbox accounts, secrets, and callback handling are configured; do not treat an invoice or payment attempt as proof of payment.

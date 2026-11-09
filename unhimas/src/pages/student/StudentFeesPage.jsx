@@ -9,7 +9,7 @@ import {
   MdCheckCircle,
   MdRefresh,
   MdInfo,
-  MdPrint,
+  MdDownload,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
@@ -22,12 +22,15 @@ import {
   listInvoices,
   listPayments,
   getStudentFeeBalance,
-  initiatePayment,
   formatXAF,
   PAYMENT_METHODS,
+  createStudentResitInvoice,
 } from '../../services/feesService';
-import { validatePaymentInitiation } from '../../lib/paymentStatusLogic';
-import { printPaymentQuitus } from '../../utils/studentDocuments';
+import {
+  getCurrentSemesterForStudent,
+  listBatchCoursesForSemester,
+} from '../../services/courseRegistrationService';
+import { downloadPaymentReceipt } from '../../utils/studentDocuments';
 import mtnMomoLogo from '../../assets/mtnMomo.png';
 import orangeOmLogo from '../../assets/orangeOm.png';
 
@@ -35,6 +38,26 @@ const PAYMENT_METHOD_LOGOS = {
   mtn_momo: mtnMomoLogo,
   orange_money: orangeOmLogo,
 };
+
+const PAYMENT_TYPES = [
+  { value: 'all', label: 'All invoices' },
+  { value: 'school_fees', label: 'School fees' },
+  { value: 'registration', label: 'Registration fee' },
+  { value: 'resit', label: 'Resit fees' },
+  { value: 'other', label: 'Other payments' },
+];
+
+function getInvoicePaymentType(invoice) {
+  const codes = (invoice.invoice_items || [])
+    .map((item) => item.fee_categories?.code?.toUpperCase())
+    .filter(Boolean);
+  if (codes.includes('RESIT')) return 'resit';
+  if (codes.includes('REGISTRATION')) return 'registration';
+  if (codes.some((code) => ['TUITION', 'SCHOOL_FEE', 'SCHOOL_FEES'].includes(code))) {
+    return 'school_fees';
+  }
+  return 'other';
+}
 
 function statusBadge(status) {
   const map = {
@@ -61,6 +84,12 @@ export default function StudentFeesPage() {
 
   const [payInvoice, setPayInvoice] = useState(null);
   const [payAmount, setPayAmount] = useState('');
+  const [paymentType, setPaymentType] = useState(() =>
+    PAYMENT_TYPES.some((type) => type.value === location.state?.paymentType)
+      ? location.state.paymentType
+      : 'all',
+  );
+  const [selectedResitCourseIds, setSelectedResitCourseIds] = useState([]);
   const [payMethod, setPayMethod] = useState(
     location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
   );
@@ -91,38 +120,44 @@ export default function StudentFeesPage() {
     enabled: !!studentId,
   });
 
+  const {
+    data: eligibleResitCourses = [],
+    isLoading: resitCoursesLoading,
+  } = useQuery({
+    queryKey: ['student-resit-fee-courses', studentId, studentProfile?.batch_id],
+    enabled: !!studentId && !!studentProfile?.batch_id,
+    queryFn: async () => {
+      const semester = await getCurrentSemesterForStudent(studentProfile);
+      if (semester?.semester_type !== 'resit') return [];
+      return listBatchCoursesForSemester(
+        studentProfile.batch_id,
+        semester.id,
+        studentId,
+      );
+    },
+  });
+
   const { data: payments = [], isLoading: payLoading } = useQuery({
     queryKey: ['student-payments', studentId],
     queryFn: () => listPayments({ studentId, limit: 30 }),
     enabled: !!studentId,
   });
 
-  const payMutation = useMutation({
-    mutationFn: (payload) => initiatePayment(payload),
-    onSuccess: (data) => {
-      if (data.status === 'completed') {
-        toast.success(
-          translateText('Payment recorded') +
-            (data.receipt_number ? ` · ${data.receipt_number}` : ''),
-        );
-      } else {
-        toast.success(
-          translateText('Payment submitted — pending confirmation by the finance office'),
-        );
-      }
-      setPayInvoice(null);
-      setPayAmount('');
-      setPhone('');
-      queryClient.invalidateQueries({ queryKey: ['student-fee-balance', studentId] });
+  const resitInvoiceMutation = useMutation({
+    mutationFn: createStudentResitInvoice,
+    onSuccess: (invoice) => {
+      toast.success(translateText('Resit invoice created'));
+      setSelectedResitCourseIds([]);
+      setPaymentType('resit');
       queryClient.invalidateQueries({ queryKey: ['student-invoices', studentId] });
-      queryClient.invalidateQueries({ queryKey: ['student-payments', studentId] });
+      openPay(invoice);
     },
     onError: (err) => {
-      toast.error(err?.message || translateText('Payment failed'));
+      toast.error(err?.message || translateText('Could not create resit invoice'));
     },
   });
 
-  const openPay = (inv) => {
+  function openPay(inv) {
     setPayInvoice(inv);
     const remaining = Number(inv.balance ?? inv.total_amount - inv.amount_paid) || 0;
     setPayAmount(remaining > 0 ? String(remaining) : '');
@@ -130,34 +165,7 @@ export default function StudentFeesPage() {
       location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
     );
     setPhone('');
-  };
-
-  const submitPayment = (e) => {
-    e.preventDefault();
-    if (!payInvoice || !studentId) return;
-
-    const validated = validatePaymentInitiation({
-      invoiceId: payInvoice.id,
-      studentId,
-      amount: payAmount,
-      method: payMethod,
-      phoneNumber: phone,
-    });
-    if (!validated.ok) {
-      toast.error(translateText(validated.message));
-      return;
-    }
-
-    const autoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
-    payMutation.mutate({
-      invoiceId: validated.invoiceId,
-      studentId: validated.studentId,
-      amount: validated.amount,
-      method: validated.method,
-      phoneNumber: validated.phoneNumber,
-      completeImmediately: autoComplete,
-    });
-  };
+  }
 
   if (stuLoading) {
     return (
@@ -182,6 +190,20 @@ export default function StudentFeesPage() {
 
   const outstanding = Number(balance?.outstanding_balance ?? 0);
   const needsMoMoPhone = payMethod === 'mtn_momo' || payMethod === 'orange_money';
+  const visibleInvoices =
+    paymentType === 'all'
+      ? invoices
+      : invoices.filter((invoice) => getInvoicePaymentType(invoice) === paymentType);
+  const invoicedResitCourseIds = new Set(
+    invoices.flatMap((invoice) =>
+      (invoice.invoice_items || [])
+        .map((item) => item.batch_course_id)
+        .filter(Boolean),
+    ),
+  );
+  const billableResitCourses = eligibleResitCourses.filter(
+    (course) => !invoicedResitCourseIds.has(course.id),
+  );
 
   return (
     <AppLayout pageTitle="Fees & Payments">
@@ -189,7 +211,7 @@ export default function StudentFeesPage() {
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Fees & Payments')}</h1>
           <p className="page-subtitle">
-            {translateText('View your balance, invoices, and pay securely via Mobile Money')}
+            {translateText('View your fee balance and invoices.')}
           </p>
         </div>
         <div className="page-header-actions">
@@ -247,10 +269,93 @@ export default function StudentFeesPage() {
         <MdInfo size={18} style={{ flexShrink: 0 }} />
         <span>
           {translateText(
-            'Pay with MTN MoMo or Orange Money. Payments stay pending until the finance office confirms. Then print your quitus.',
+            'MTN MoMo and Orange Money checkout is not configured yet. You can prepare invoices, but online payment is unavailable until gateway setup is complete.',
           )}
         </span>
       </div>
+
+      <div
+        role="group"
+        aria-label={translateText('Payment type')}
+        style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1.25rem' }}
+      >
+        {PAYMENT_TYPES.map((type) => (
+          <button
+            key={type.value}
+            type="button"
+            className={`btn ${paymentType === type.value ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setPaymentType(type.value)}
+          >
+            {translateText(type.label)}
+          </button>
+        ))}
+      </div>
+
+      {paymentType === 'resit' && (
+        <section className="card" style={{ marginBottom: '1.25rem' }}>
+          <div className="card-header">
+            <div>
+              <div className="card-title">{translateText('Eligible resit courses')}</div>
+              <p style={{ margin: '4px 0 0', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                {translateText('Each eligible resit course costs')} {formatXAF(2500)}.
+              </p>
+            </div>
+          </div>
+          {resitCoursesLoading ? (
+            <div className="empty-state">{translateText('Loading eligible courses…')}</div>
+          ) : billableResitCourses.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-title">
+                {eligibleResitCourses.length > 0
+                  ? translateText('Invoices already exist for your eligible resit courses')
+                  : translateText('No courses are currently eligible for resit')}
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '0 1rem 1rem' }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {billableResitCourses.map((course) => (
+                  <label
+                    key={course.id}
+                    className="list-row"
+                    style={{ cursor: 'pointer', gap: 12 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedResitCourseIds.includes(course.id)}
+                      onChange={(event) => {
+                        setSelectedResitCourseIds((current) =>
+                          event.target.checked
+                            ? [...current, course.id]
+                            : current.filter((id) => id !== course.id),
+                        );
+                      }}
+                    />
+                    <span style={{ flex: 1 }}>
+                      <strong>{course.courses?.code}</strong> — {course.courses?.name}
+                    </span>
+                    <strong>{formatXAF(2500)}</strong>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+                disabled={
+                  selectedResitCourseIds.length === 0 ||
+                  resitInvoiceMutation.isPending
+                }
+                onClick={() => resitInvoiceMutation.mutate(selectedResitCourseIds)}
+              >
+                {resitInvoiceMutation.isPending
+                  ? translateText('Creating invoice…')
+                  : `${translateText('Create resit invoice')} · ${formatXAF(selectedResitCourseIds.length * 2500)}`}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="student-dashboard-grid">
         <div className="card">
@@ -262,12 +367,18 @@ export default function StudentFeesPage() {
           <div style={{ overflowX: 'auto' }}>
             {invLoading ? (
               <div className="empty-state">{translateText('Loading invoices…')}</div>
-            ) : invoices.length === 0 ? (
+            ) : visibleInvoices.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon"><MdReceiptLong /></div>
-                <div className="empty-state-title">{translateText('No invoices yet')}</div>
+                <div className="empty-state-title">
+                  {translateText(paymentType === 'all' ? 'No invoices yet' : 'No invoices for this payment type')}
+                </div>
                 <p className="empty-state-text">
-                  {translateText('When the administration issues fees, they will appear here.')}
+                  {translateText(
+                    paymentType === 'resit'
+                      ? 'Select eligible courses above to create a resit invoice.'
+                      : 'School, registration, and other fee invoices must be issued by the administration.',
+                  )}
                 </p>
               </div>
             ) : (
@@ -282,7 +393,7 @@ export default function StudentFeesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => {
+                  {visibleInvoices.map((inv) => {
                     const bal = Number(inv.balance ?? inv.total_amount - inv.amount_paid) || 0;
                     const canPay =
                       ['issued', 'partially_paid'].includes(inv.status) && bal > 0;
@@ -362,10 +473,19 @@ export default function StudentFeesPage() {
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
-                      onClick={() => printPaymentQuitus(p, studentProfile)}
-                      title={translateText('Print quitus')}
+                      onClick={() =>
+                        downloadPaymentReceipt(
+                          { ...p, student_invoices: p.student_invoices },
+                          studentProfile,
+                        ).catch((err) => {
+                          toast.error(
+                            err?.message || translateText('Could not download receipt'),
+                          );
+                        })
+                      }
+                      title={translateText('Download receipt')}
                     >
-                      <MdPrint size={14} /> {translateText('Quitus')}
+                      <MdDownload size={14} /> {translateText('Download receipt')}
                     </button>
                   )}
                 </div>
@@ -380,18 +500,22 @@ export default function StudentFeesPage() {
           title={translateText('Pay invoice') + ` ${payInvoice.invoice_number}`}
           onClose={() => setPayInvoice(null)}
         >
-          <form onSubmit={submitPayment} className="form-stack" noValidate>
+          <form onSubmit={(event) => event.preventDefault()} className="form-stack" noValidate>
             <div className="form-group">
               <label>{translateText('Amount (XAF)')}</label>
               <input
                 type="number"
                 min="1"
+                max={Number(payInvoice.balance ?? payInvoice.total_amount - payInvoice.amount_paid)}
                 step="1"
                 className="form-control"
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
                 required
               />
+              <p className="form-hint">
+                {translateText('Enter any amount up to the outstanding invoice balance.')}
+              </p>
             </div>
             <fieldset
               className="form-group"
@@ -407,7 +531,7 @@ export default function StudentFeesPage() {
                   gap: 8,
                 }}
               >
-                {PAYMENT_METHODS.map((m) => (
+                {PAYMENT_METHODS.filter((method) => PAYMENT_METHOD_LOGOS[method.value]).map((m) => (
                   <label
                     key={m.value}
                     style={{
@@ -479,7 +603,7 @@ export default function StudentFeesPage() {
             )}
             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               {translateText(
-                'After you confirm, complete the MoMo prompt on your phone. Finance will mark the payment completed, then you can print your quitus.',
+                'Online checkout is unavailable until MTN and Orange sandbox credentials are configured. No payment will be submitted from this screen.',
               )}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -489,12 +613,9 @@ export default function StudentFeesPage() {
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={payMutation.isPending}
+                disabled
               >
-                <MdPayments />{' '}
-                {payMutation.isPending
-                  ? translateText('Processing…')
-                  : translateText('Confirm payment')}
+                <MdPayments /> {translateText('Checkout unavailable')}
               </button>
             </div>
           </form>
