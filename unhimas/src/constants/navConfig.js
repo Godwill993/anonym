@@ -26,7 +26,7 @@ import {
 } from 'react-icons/md';
 
 /**
- * Role navigation — daily work first, then secondary pages that already exist in App.jsx.
+ * Role navigation - daily work first, then secondary pages that already exist in App.jsx.
  * Capability keys match src/lib/permissions.js; RLS remains the security boundary.
  */
 export const NAV_CONFIG = {
@@ -43,7 +43,7 @@ export const NAV_CONFIG = {
           capability: 'manage_academic_structure',
           children: [
             { key: 'programmes', label: 'Programmes', path: '/admin/programmes', icon: MdSchool, capability: 'manage_academic_structure' },
-            { key: 'batches', label: 'Batches', path: '/admin/batches', icon: MdGroups, capability: 'manage_academic_structure' },
+            { key: 'batches', label: 'Batch', path: '/admin/batches', icon: MdGroups, capability: 'manage_academic_structure' },
             { key: 'years', label: 'Years', path: '/admin/academic-years', icon: MdDateRange, capability: 'manage_academic_structure' },
             { key: 'courses', label: 'Courses', path: '/admin/courses', icon: MdBook, capability: 'manage_academic_structure' },
             { key: 'timetable', label: 'Timetable', path: '/admin/timetable', icon: MdCalendarToday, capability: 'manage_academic_structure' },
