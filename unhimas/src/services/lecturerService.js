@@ -54,7 +54,7 @@ export async function getMyCourses(lecturerId) {
       programmes:programme_id (id, code, name, award, duration_years),
       departments:department_id (name, abbreviation)
     ),
-    semesters:semester_id (id, name, number, is_current, academic_years:academic_year_id (id, name, is_current))
+    semesters:semester_id (id, name, number, semester_type, is_current, academic_years:academic_year_id (id, name, is_current))
   `).eq('lecturer_id', lecturerId).order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
@@ -104,10 +104,8 @@ export async function getOrCreateMarkSubmission(batchCourseId, lecturerId) {
     if (error) throw error;
     submission = data;
   }
-  try {
-    await supabase.rpc('ensure_marks_for_submission', { p_submission_id: submission.id });
-  } catch (err) {
-    console.debug('ensure_marks_for_submission fallback notice:', err);
+  if (submission.status === 'draft' || submission.status === 'returned') {
+    await ensureMarksForSubmission(submission.id);
   }
   return submission;
 }

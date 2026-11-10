@@ -184,7 +184,7 @@ export default function LecturerMarksPage() {
     enabled: !!selectedBcId && !!lecturerId,
   });
 
-  const { data: students = [], isLoading: stuLoading } = useQuery({
+  const { data: batchStudents = [], isLoading: stuLoading } = useQuery({
     queryKey: ['students-in-batch', selectedCourse?.batches?.id],
     queryFn: () => getStudentsInBatch(selectedCourse.batches.id),
     enabled: !!selectedCourse?.batches?.id,
@@ -195,6 +195,18 @@ export default function LecturerMarksPage() {
     queryFn: () => getMarksForSubmission(submission.id),
     enabled: !!submission?.id,
   });
+
+  const isResitCourse = selectedCourse?.semesters?.semester_type === 'resit';
+  const resitStudentIds = useMemo(
+    () => new Set(existingMarks.map((mark) => mark.student_id)),
+    [existingMarks],
+  );
+  const students = useMemo(
+    () => (isResitCourse
+      ? batchStudents.filter((student) => resitStudentIds.has(student.id))
+      : batchStudents),
+    [isResitCourse, batchStudents, resitStudentIds],
+  );
 
   const existingMarksMap = useMemo(() => {
     const map = new Map();
@@ -374,7 +386,7 @@ export default function LecturerMarksPage() {
           <option value="">— Select a course —</option>
           {courses.map((bc) => (
             <option key={bc.id} value={bc.id}>
-              {bc.courses?.code} — {bc.courses?.name} ({bc.batches?.name}, Sem {bc.semesters?.number})
+              {bc.courses?.code} — {bc.courses?.name} ({bc.batches?.name}, {bc.semesters?.semester_type === 'resit' ? 'Resit Period' : `Sem ${bc.semesters?.number}`})
             </option>
           ))}
         </select>
@@ -481,7 +493,9 @@ export default function LecturerMarksPage() {
           ) : students.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon"><MdGrade /></div>
-              <div className="empty-state-title">No students in this batch</div>
+              <div className="empty-state-title">
+                {isResitCourse ? 'No students currently eligible for this resit' : 'No students in this batch'}
+              </div>
             </div>
           ) : (
             <div className="card">

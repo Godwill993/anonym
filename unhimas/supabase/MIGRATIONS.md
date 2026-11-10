@@ -10,7 +10,8 @@ Apply `20261107000000_academic_year_semester_resits.sql` to enable the academic-
 - Semester numbering allows `3` for the Resit Period; `1` and `2` remain the regular semesters.
 - Activating an academic year opens registration for its first semester. Moving forward closes the previous semester's registration and opens the next.
 - Entering the Resit Period creates course offerings from that year's regular semesters.
-- A student can register for a resit offering only when their latest published result for that batch/course is a failure. Resit marks are seeded only for registered, eligible students.
+- A student can register for a resit offering only when their latest published result for that batch/course is a failure.
+- Apply `20261110000000_automatic_resit_mark_roster.sql` after the resit migration so lecturers automatically see every active student whose latest published attempt failed, regardless of course-registration status.
 - Published attempts remain in the academic record; GPA and course-performance summaries use the latest published attempt for each course.
 
 Manage academic years and their semester periods together on the Admin → Structure → Years page. The old `/admin/semesters` URL redirects there.
