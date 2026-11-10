@@ -13,6 +13,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
+import { useTranslation } from '../../i18n';
 
 const COLORS = {
   primary: '#112f42',
@@ -44,20 +45,21 @@ const tooltipStyle = {
 };
 
 function ChartCard({ title, subtitle, children, height = 260 }) {
+  const { translateText } = useTranslation();
   return (
     <div className="card chart-card">
       <div className="card-header">
         <div>
-          <div className="card-title">{title}</div>
+          <div className="card-title">{title ? translateText(title) : ''}</div>
           {subtitle ? (
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-              {subtitle}
+              {translateText(subtitle)}
             </div>
           ) : null}
         </div>
       </div>
       <div className="card-body" style={{ paddingTop: 4, paddingBottom: 8 }}>
-        <div style={{ width: '100%', height }} role="img" aria-label={title}>
+        <div style={{ width: '100%', height }} role="img" aria-label={title ? translateText(title) : ''}>
           {children}
         </div>
       </div>
@@ -66,6 +68,7 @@ function ChartCard({ title, subtitle, children, height = 260 }) {
 }
 
 function EmptyChart({ label }) {
+  const { translateText } = useTranslation();
   return (
     <div
       style={{
@@ -77,15 +80,16 @@ function EmptyChart({ label }) {
         fontSize: '0.875rem',
       }}
     >
-      {label}
+      {label ? translateText(label) : ''}
     </div>
   );
 }
 
 /** Horizontal-ish department enrollment bars */
-export function EnrollmentBarChart({ data = [], emptyLabel = 'No enrollment data' }) {
+export function EnrollmentBarChart({ data = [], emptyLabel }) {
+  const { translateText } = useTranslation();
   const rows = (data || []).filter((d) => d.students > 0 || data.length <= 8);
-  if (!rows.length) return <EmptyChart label={emptyLabel} />;
+  if (!rows.length) return <EmptyChart label={emptyLabel || translateText('No enrollment data')} />;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -105,7 +109,7 @@ export function EnrollmentBarChart({ data = [], emptyLabel = 'No enrollment data
           width={36}
         />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(17,47,66,0.04)' }} />
-        <Bar dataKey="students" name="Students" fill={COLORS.primary} radius={[6, 6, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="students" name={translateText('Students')} fill={COLORS.primary} radius={[6, 6, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -116,10 +120,11 @@ export function StatusPieChart({
   data = [],
   nameKey = 'label',
   valueKey = 'count',
-  emptyLabel = 'No data yet',
+  emptyLabel,
 }) {
+  const { translateText } = useTranslation();
   const rows = (data || []).filter((d) => Number(d[valueKey]) > 0);
-  if (!rows.length) return <EmptyChart label={emptyLabel} />;
+  if (!rows.length) return <EmptyChart label={emptyLabel || translateText('No data yet')} />;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -144,7 +149,7 @@ export function StatusPieChart({
           verticalAlign="bottom"
           height={36}
           iconType="circle"
-          formatter={(value) => <span style={{ fontSize: 12, color: 'var(--color-text)' }}>{value}</span>}
+          formatter={(value) => <span style={{ fontSize: 12, color: 'var(--color-text)' }}>{translateText(value)}</span>}
         />
       </PieChart>
     </ResponsiveContainer>
@@ -152,8 +157,11 @@ export function StatusPieChart({
 }
 
 /** Simple stacked or dual bar for finance snapshot */
-export function FinanceBarChart({ data = [], emptyLabel = 'No fee data' }) {
-  if (!data?.length) return <EmptyChart label={emptyLabel} />;
+export function FinanceBarChart({ data = [], emptyLabel }) {
+  const { translateText, language } = useTranslation();
+  if (!data?.length) return <EmptyChart label={emptyLabel || translateText('No fee data')} />;
+
+  const locale = language === 'fr' ? 'fr-CM' : 'en-CM';
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -172,24 +180,25 @@ export function FinanceBarChart({ data = [], emptyLabel = 'No fee data' }) {
         <Tooltip
           contentStyle={tooltipStyle}
           formatter={(value) =>
-            new Intl.NumberFormat('fr-CM', {
+            new Intl.NumberFormat(locale, {
               style: 'currency',
               currency: 'XAF',
               maximumFractionDigits: 0,
             }).format(Number(value) || 0)
           }
         />
-        <Bar dataKey="invoiced" name="Invoiced" fill={COLORS.blue} radius={[4, 4, 0, 0]} maxBarSize={36} />
-        <Bar dataKey="paid" name="Paid" fill={COLORS.green} radius={[4, 4, 0, 0]} maxBarSize={36} />
-        <Bar dataKey="outstanding" name="Outstanding" fill={COLORS.secondary} radius={[4, 4, 0, 0]} maxBarSize={36} />
+        <Bar dataKey="invoiced" name={translateText('Invoiced')} fill={COLORS.blue} radius={[4, 4, 0, 0]} maxBarSize={36} />
+        <Bar dataKey="paid" name={translateText('Paid')} fill={COLORS.green} radius={[4, 4, 0, 0]} maxBarSize={36} />
+        <Bar dataKey="outstanding" name={translateText('Outstanding')} fill={COLORS.secondary} radius={[4, 4, 0, 0]} maxBarSize={36} />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
 /** Teaching hours trend */
-export function HoursAreaChart({ data = [], emptyLabel = 'No hours recorded' }) {
-  if (!data?.length) return <EmptyChart label={emptyLabel} />;
+export function HoursAreaChart({ data = [], emptyLabel }) {
+  const { translateText } = useTranslation();
+  if (!data?.length) return <EmptyChart label={emptyLabel || translateText('No hours recorded')} />;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -213,7 +222,7 @@ export function HoursAreaChart({ data = [], emptyLabel = 'No hours recorded' }) 
         <Area
           type="monotone"
           dataKey="hours"
-          name="Hours"
+          name={translateText('Hours')}
           stroke={COLORS.teal}
           fill="url(#hoursFill)"
           strokeWidth={2}

@@ -7,11 +7,13 @@ import { toast } from '../../components/common/Toast';
 import { supabase } from '../../lib/supabase';
 import { getBatchCourses } from '../../services/academicService';
 import { getLecturers } from '../../services/peopleService';
+import { useTranslation } from '../../i18n';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function AdminTimetablePage() {
   const queryClient = useQueryClient();
+  const { translateText } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     batch_course_id: '',
@@ -73,11 +75,11 @@ export default function AdminTimetablePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-timetable-slots'] });
-      toast.success('Lecture timetable slot scheduled');
+      toast.success(translateText('Lecture timetable slot scheduled'));
       setIsModalOpen(false);
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to schedule slot');
+      toast.error(err.message || translateText('Failed to schedule slot'));
     },
   });
 
@@ -88,14 +90,14 @@ export default function AdminTimetablePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-timetable-slots'] });
-      toast.success('Timetable slot removed');
+      toast.success(translateText('Timetable slot removed'));
     },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.batch_course_id || !formData.lecturer_id) {
-      toast.error('Course and Lecturer are required');
+      toast.error(translateText('Course and Lecturer are required'));
       return;
     }
     createMutation.mutate({
@@ -105,15 +107,17 @@ export default function AdminTimetablePage() {
   };
 
   return (
-    <AppLayout pageTitle="Timetable">
+    <AppLayout pageTitle={translateText('Timetable')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Lecture Hall Timetable</h1>
-          <p className="page-subtitle">Schedule weekly class sessions with automatic conflict prevention</p>
+          <h1 className="page-title">{translateText('Lecture Hall Timetable')}</h1>
+          <p className="page-subtitle">
+            {translateText('Schedule weekly class sessions with automatic conflict prevention')}
+          </p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-            <MdAdd /> Schedule Slot
+            <MdAdd /> {translateText('Schedule Slot')}
           </button>
         </div>
       </div>
@@ -123,25 +127,31 @@ export default function AdminTimetablePage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Day of Week</th>
-                <th>Time Window</th>
-                <th>Course</th>
-                <th>Batch / Cohort</th>
-                <th>Lecturer</th>
-                <th>Assigned Room</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
+                <th>{translateText('Day of Week')}</th>
+                <th>{translateText('Time Window')}</th>
+                <th>{translateText('Course')}</th>
+                <th>{translateText('Batch / Cohort')}</th>
+                <th>{translateText('Lecturer')}</th>
+                <th>{translateText('Assigned Room')}</th>
+                <th style={{ textAlign: 'right' }}>{translateText('Action')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>Loading timetable slots...</td></tr>
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
+                    {translateText('Loading timetable slots...')}
+                  </td>
+                </tr>
               ) : slots.length === 0 ? (
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdCalendarToday className="empty-state-icon" />
-                      <div className="empty-state-title">No Timetable Slots Scheduled</div>
-                      <div className="empty-state-text">Add lecture hall timetable slots for your student cohorts.</div>
+                      <div className="empty-state-title">{translateText('No Timetable Slots Scheduled')}</div>
+                      <div className="empty-state-text">
+                        {translateText('Add lecture hall timetable slots for your student cohorts.')}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -149,7 +159,7 @@ export default function AdminTimetablePage() {
                 slots.map((slot) => (
                   <tr key={slot.id}>
                     <td>
-                      <span className="badge badge-purple">{DAYS[slot.day_of_week]}</span>
+                      <span className="badge badge-purple">{translateText(DAYS[slot.day_of_week])}</span>
                     </td>
                     <td>
                       <strong>{slot.start_time.slice(0, 5)} – {slot.end_time.slice(0, 5)}</strong>
@@ -159,13 +169,13 @@ export default function AdminTimetablePage() {
                     </td>
                     <td>{slot.batch_courses?.batches?.name} ({slot.batch_courses?.batches?.code})</td>
                     <td>{slot.lecturers?.first_name} {slot.lecturers?.last_name}</td>
-                    <td><span className="badge badge-blue">{slot.room || 'General Hall'}</span></td>
+                    <td><span className="badge badge-blue">{slot.room || translateText('General Hall')}</span></td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         className="btn-icon"
-                        title="Remove slot"
+                        title={translateText('Remove slot')}
                         onClick={() => {
-                          if (window.confirm('Delete this timetable slot?')) {
+                          if (window.confirm(translateText('Delete this timetable slot?'))) {
                             deleteMutation.mutate(slot.id);
                           }
                         }}
@@ -185,11 +195,11 @@ export default function AdminTimetablePage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Schedule Lecture Timetable Slot"
+        title={translateText('Schedule Lecture Timetable Slot')}
         footer={
           <>
             <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
+              {translateText('Cancel')}
             </button>
             <button
               type="button"
@@ -197,21 +207,21 @@ export default function AdminTimetablePage() {
               onClick={handleSubmit}
               disabled={createMutation.isPending}
             >
-              Save Schedule
+              {translateText('Save Schedule')}
             </button>
           </>
         }
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Batch Course *</label>
+            <label className="form-label">{translateText('Batch Course *')}</label>
             <select
               className="form-input"
               value={formData.batch_course_id}
               onChange={(e) => setFormData({ ...formData, batch_course_id: e.target.value })}
               required
             >
-              <option value="">Select course & batch...</option>
+              <option value="">{translateText('Select course & batch...')}</option>
               {batchCourses.map((bc) => (
                 <option key={bc.id} value={bc.id}>
                   {bc.courses?.code} — {bc.courses?.name} ({bc.batches?.name})
@@ -221,14 +231,14 @@ export default function AdminTimetablePage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Lecturer *</label>
+            <label className="form-label">{translateText('Lecturer *')}</label>
             <select
               className="form-input"
               value={formData.lecturer_id}
               onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
               required
             >
-              <option value="">Select lecturer...</option>
+              <option value="">{translateText('Select lecturer...')}</option>
               {lecturers.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.first_name} {l.last_name} ({l.staff_id})
@@ -238,25 +248,25 @@ export default function AdminTimetablePage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Day of Week *</label>
+            <label className="form-label">{translateText('Day of Week *')}</label>
             <select
               className="form-input"
               value={formData.day_of_week}
               onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
             >
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
-              <option value="0">Sunday</option>
+              <option value="1">{translateText('Monday')}</option>
+              <option value="2">{translateText('Tuesday')}</option>
+              <option value="3">{translateText('Wednesday')}</option>
+              <option value="4">{translateText('Thursday')}</option>
+              <option value="5">{translateText('Friday')}</option>
+              <option value="6">{translateText('Saturday')}</option>
+              <option value="0">{translateText('Sunday')}</option>
             </select>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label className="form-label">Start Time *</label>
+              <label className="form-label">{translateText('Start Time *')}</label>
               <input
                 type="time"
                 className="form-input"
@@ -267,7 +277,7 @@ export default function AdminTimetablePage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">End Time *</label>
+              <label className="form-label">{translateText('End Time *')}</label>
               <input
                 type="time"
                 className="form-input"
@@ -279,11 +289,11 @@ export default function AdminTimetablePage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Classroom / Hall</label>
+            <label className="form-label">{translateText('Classroom / Hall')}</label>
             <input
               type="text"
               className="form-input"
-              placeholder="e.g. Amphitheater 200, Lab 3"
+              placeholder={translateText('e.g. Amphitheater 200, Lab 3')}
               value={formData.room}
               onChange={(e) => setFormData({ ...formData, room: e.target.value })}
             />

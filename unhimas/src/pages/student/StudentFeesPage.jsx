@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import {
@@ -105,6 +105,14 @@ export default function StudentFeesPage() {
   const [providerRef, setProviderRef] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
 
+  // Lock refs to strictly prevent double-clicks
+  const isSubmittingPaymentRef = useRef(false);
+  const isCreatingResitRef = useRef(false);
+  const isPrintingQuitusRef = useRef(false);
+  const isPrintingStatementRef = useRef(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const {
     data: studentProfile,
     isLoading: stuLoading,
@@ -165,6 +173,9 @@ export default function StudentFeesPage() {
     onError: (err) => {
       toast.error(err?.message || translateText('Could not create resit invoice'));
     },
+    onSettled: () => {
+      isCreatingResitRef.current = false;
+    },
   });
 
   const payMutation = useMutation({
@@ -185,15 +196,16 @@ export default function StudentFeesPage() {
     onError: (err) => {
       toast.error(err?.message || translateText('Payment submission failed'));
     },
+    onSettled: () => {
+      isSubmittingPaymentRef.current = false;
+    },
   });
 
   function openPay(inv) {
     setPayInvoice(inv);
     const remaining = Number(inv.balance ?? inv.total_amount - inv.amount_paid) || 0;
     setPayAmount(remaining > 0 ? String(remaining) : '');
-    setPayMethod(
-      location.state?.paymentMethod || 'mtn_momo',
-    );
+    setPayMethod(location.state?.paymentMethod || 'mtn_momo');
     setPhone('');
     setProviderRef('');
     setPaymentNotes('');
@@ -201,6 +213,10 @@ export default function StudentFeesPage() {
 
   function handlePaymentSubmit(e) {
     e.preventDefault();
+    if (isSubmittingPaymentRef.current || payMutation.isPending) {
+      return;
+    }
+
     const amountNum = Number(payAmount);
     if (!amountNum || amountNum <= 0) {
       toast.error(translateText('Please enter a valid payment amount'));
@@ -213,6 +229,9 @@ export default function StudentFeesPage() {
       return;
     }
 
+    isSubmittingPaymentRef.current = true;
+    toast.info(translateText('Submitting payment for verification…'));
+
     payMutation.mutate({
       invoiceId: payInvoice.id,
       studentId,
@@ -222,6 +241,82 @@ export default function StudentFeesPage() {
       providerReference: providerRef || null,
       notes: paymentNotes || null,
     });
+  }
+
+  function handleCreateResitInvoice() {
+    if (isCreatingResitRef.current || resitInvoiceMutation.isPending || selectedResitCourseIds.length === 0) {
+      return;
+    }
+    isCreatingResitRef.current = true;
+    toast.info(translateText('Creating resit invoice…'));
+    resitInvoiceMutation.mutate(selectedResitCourseIds);
+  }
+
+  async function handleDownloadReceipt(p) {
+    if (downloadingId) return;
+    setDownloadingId(p.id);
+    toast.info(translateText('Generating official PDF receipt…'));
+    try {
+      await downloadPaymentReceipt(
+        { ...p, student_invoices: p.student_invoices },
+        studentProfile,
+      );
+      toast.success(translateText('Receipt downloaded successfully'));
+    } catch (err) {
+      toast.error(err?.message || translateText('Could not download receipt'));
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
+  function handlePrintQuitusAction(p) {
+    if (isPrintingQuitusRef.current) return;
+    isPrintingQuitusRef.current = true;
+    toast.info(translateText('Opening quitus for printing…'));
+    try {
+      printPaymentQuitus(p, studentProfile);
+    } finally {
+      setTimeout(() => {
+        isPrintingQuitusRef.current = false;
+      }, 1200);
+    }
+  }
+
+  function handlePrintStatementAction() {
+    if (isPrintingStatementRef.current) return;
+    isPrintingStatementRef.current = true;
+    toast.info(translateText('Opening fee statement for printing…'));
+    try {
+      printFeeStatement({
+        student: studentProfile,
+        balance,
+        invoices,
+        payments,
+      });
+      toast.success(translateText('Fee statement generated'));
+    } finally {
+      setTimeout(() => {
+        isPrintingStatementRef.current = false;
+      }, 1200);
+    }
+  }
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    toast.info(translateText('Refreshing financial data…'));
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['student-fee-balance', studentId] }),
+        queryClient.invalidateQueries({ queryKey: ['student-invoices', studentId] }),
+        queryClient.invalidateQueries({ queryKey: ['student-payments', studentId] }),
+      ]);
+      toast.success(translateText('Financial data refreshed'));
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 600);
+    }
   }
 
   if (stuLoading) {
@@ -275,27 +370,17 @@ export default function StudentFeesPage() {
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            onClick={() =>
-              printFeeStatement({
-                student: studentProfile,
-                balance,
-                invoices,
-                payments,
-              })
-            }
+            onClick={handlePrintStatementAction}
           >
             <MdPrint /> {translateText('Fee statement')}
           </button>
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ['student-fee-balance', studentId] });
-              queryClient.invalidateQueries({ queryKey: ['student-invoices', studentId] });
-              queryClient.invalidateQueries({ queryKey: ['student-payments', studentId] });
-            }}
+            disabled={isRefreshing}
+            onClick={handleRefresh}
           >
-            <MdRefresh /> {translateText('Refresh')}
+            <MdRefresh /> {isRefreshing ? translateText('Refreshing…') : translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -394,6 +479,7 @@ export default function StudentFeesPage() {
                     <input
                       type="checkbox"
                       checked={selectedResitCourseIds.includes(course.id)}
+                      disabled={resitInvoiceMutation.isPending}
                       onChange={(event) => {
                         setSelectedResitCourseIds((current) =>
                           event.target.checked
@@ -417,7 +503,7 @@ export default function StudentFeesPage() {
                   selectedResitCourseIds.length === 0 ||
                   resitInvoiceMutation.isPending
                 }
-                onClick={() => resitInvoiceMutation.mutate(selectedResitCourseIds)}
+                onClick={handleCreateResitInvoice}
               >
                 {resitInvoiceMutation.isPending
                   ? translateText('Creating invoice…')
@@ -551,24 +637,19 @@ export default function StudentFeesPage() {
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
-                          onClick={() =>
-                            downloadPaymentReceipt(
-                              { ...p, student_invoices: p.student_invoices },
-                              studentProfile,
-                            ).catch((err) => {
-                              toast.error(
-                                err?.message || translateText('Could not download receipt'),
-                              );
-                            })
-                          }
+                          disabled={downloadingId === p.id}
+                          onClick={() => handleDownloadReceipt(p)}
                           title={translateText('Download receipt')}
                         >
-                          <MdDownload size={14} /> {translateText('Receipt')}
+                          <MdDownload size={14} />{' '}
+                          {downloadingId === p.id
+                            ? translateText('Downloading…')
+                            : translateText('Receipt')}
                         </button>
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
-                          onClick={() => printPaymentQuitus(p, studentProfile)}
+                          onClick={() => handlePrintQuitusAction(p)}
                           title={translateText('Print quitus')}
                         >
                           <MdPrint size={14} /> {translateText('Quitus')}
@@ -594,7 +675,9 @@ export default function StudentFeesPage() {
       {payInvoice && (
         <Modal
           title={translateText('Pay invoice') + ` ${payInvoice.invoice_number}`}
-          onClose={() => setPayInvoice(null)}
+          onClose={() => {
+            if (!payMutation.isPending) setPayInvoice(null);
+          }}
         >
           <form onSubmit={handlePaymentSubmit} className="form-stack">
             <div className="form-group">
@@ -606,6 +689,7 @@ export default function StudentFeesPage() {
                 step="1"
                 className="form-control"
                 value={payAmount}
+                disabled={payMutation.isPending}
                 onChange={(e) => setPayAmount(e.target.value)}
                 required
               />
@@ -650,7 +734,8 @@ export default function StudentFeesPage() {
                         payMethod === m.value
                           ? 'var(--color-bg)'
                           : 'var(--color-surface)',
-                      cursor: 'pointer',
+                      cursor: payMutation.isPending ? 'not-allowed' : 'pointer',
+                      opacity: payMutation.isPending ? 0.7 : 1,
                     }}
                   >
                     <input
@@ -658,6 +743,7 @@ export default function StudentFeesPage() {
                       name="payment-method"
                       value={m.value}
                       checked={payMethod === m.value}
+                      disabled={payMutation.isPending}
                       onChange={(e) => setPayMethod(e.target.value)}
                     />
                     {PAYMENT_METHOD_LOGOS[m.value] ? (
@@ -694,6 +780,7 @@ export default function StudentFeesPage() {
                   className="form-control"
                   placeholder="6XXXXXXXX or +237 6XX XXX XXX"
                   value={phone}
+                  disabled={payMutation.isPending}
                   onChange={(e) => setPhone(e.target.value)}
                   required
                   inputMode="tel"
@@ -724,6 +811,7 @@ export default function StudentFeesPage() {
                     : 'Optional receipt or reference'
                 }
                 value={providerRef}
+                disabled={payMutation.isPending}
                 onChange={(e) => setProviderRef(e.target.value)}
               />
               <p className="form-hint" style={{ marginTop: 4, fontSize: '0.75rem' }}>
@@ -738,6 +826,7 @@ export default function StudentFeesPage() {
                 rows={2}
                 placeholder={translateText('e.g. Deposited by sponsor, tuition installment...')}
                 value={paymentNotes}
+                disabled={payMutation.isPending}
                 onChange={(e) => setPaymentNotes(e.target.value)}
               />
             </div>

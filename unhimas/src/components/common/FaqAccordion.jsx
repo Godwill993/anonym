@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { MdExpandMore } from 'react-icons/md';
+import { useTranslation } from '../../i18n';
 
-export default function FaqAccordion({ items = [], title = 'Frequently Asked Questions' }) {
+export default function FaqAccordion({ items = [], title }) {
+  const { translateText } = useTranslation();
   const [openIndex, setOpenIndex] = useState(null);
 
   const toggle = (idx) => {
@@ -10,9 +12,11 @@ export default function FaqAccordion({ items = [], title = 'Frequently Asked Que
 
   if (!items || items.length === 0) return null;
 
+  const displayTitle = title ? translateText(title) : translateText('Frequently Asked Questions');
+
   return (
     <div className="faq-container" style={{ margin: '1.5rem 0' }}>
-      {title && (
+      {displayTitle && (
         <h3
           style={{
             fontSize: '1rem',
@@ -22,7 +26,7 @@ export default function FaqAccordion({ items = [], title = 'Frequently Asked Que
             letterSpacing: '0.02em',
           }}
         >
-          {title}
+          {displayTitle}
         </h3>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -59,7 +63,7 @@ export default function FaqAccordion({ items = [], title = 'Frequently Asked Que
                   color: 'var(--color-text)',
                 }}
               >
-                <span>{item.question}</span>
+                <span>{item.question ? translateText(item.question) : ''}</span>
                 <MdExpandMore
                   style={{
                     fontSize: '1.25rem',
@@ -82,7 +86,7 @@ export default function FaqAccordion({ items = [], title = 'Frequently Asked Que
                     paddingTop: '0.625rem',
                   }}
                 >
-                  {item.answer}
+                  {item.answer ? translateText(item.answer) : ''}
                 </div>
               )}
             </div>

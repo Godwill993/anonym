@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MdErrorOutline, MdCheckCircleOutline, MdArrowBack } from 'react-icons/md';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
 import '../../styles/components.css';
 
@@ -13,6 +14,7 @@ const schema = z.object({
 });
 
 export default function ForgotPasswordPage() {
+  const { language, toggleLanguage, translateText } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -30,7 +32,7 @@ export default function ForgotPasswordPage() {
     });
 
     if (error) {
-      setServerError('Failed to send reset email. Please try again.');
+      setServerError(translateText('Failed to send reset email. Please try again.'));
     } else {
       setSuccess(true);
     }
@@ -40,22 +42,32 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-card-header">
+        <div className="auth-card-header" style={{ position: 'relative' }}>
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
-            <div className="auth-school-subtitle">Password Recovery</div>
+            <div className="auth-school-subtitle">{translateText('Password Recovery')}</div>
           </div>
+          <button
+            type="button"
+            className="lang-btn"
+            style={{ position: 'absolute', top: 12, right: 12 }}
+            onClick={toggleLanguage}
+            title={translateText('Toggle Language')}
+          >
+            {language === 'en' ? 'FR' : 'EN'}
+          </button>
         </div>
 
         <div className="auth-card-body">
-          <h1 className="auth-title">Reset your password</h1>
+          <h1 className="auth-title">{translateText('Reset your password')}</h1>
 
           {success ? (
             <div className="auth-alert success" role="status">
               <MdCheckCircleOutline style={{ flexShrink: 0, fontSize: '1.2rem' }} />
               <div>
-                <strong>Email sent!</strong> Check your inbox for a password reset link.
+                <strong>{translateText('Email sent!')}</strong>{' '}
+                {translateText('Check your inbox for a password reset link.')}
               </div>
             </div>
           ) : (
@@ -68,12 +80,12 @@ export default function ForgotPasswordPage() {
               )}
 
               <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem' }}>
-                Enter your email address and we'll send you a link to reset your password.
+                {translateText("Enter your email address and we'll send you a link to reset your password.")}
               </p>
 
               <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div className="form-group">
-                  <label htmlFor="email" className="form-label">Email address</label>
+                  <label htmlFor="email" className="form-label">{translateText('Email address')}</label>
                   <input
                     id="email"
                     type="email"
@@ -82,7 +94,9 @@ export default function ForgotPasswordPage() {
                     {...register('email')}
                   />
                   {errors.email && (
-                    <div className="form-error" role="alert"><MdErrorOutline />{errors.email.message}</div>
+                    <div className="form-error" role="alert">
+                      <MdErrorOutline />{translateText(errors.email.message)}
+                    </div>
                   )}
                 </div>
 
@@ -93,8 +107,8 @@ export default function ForgotPasswordPage() {
                   style={{ marginBottom: '1rem' }}
                 >
                   {loading ? (
-                    <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Sending…</>
-                  ) : 'Send reset link'}
+                    <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> {translateText('Sending…')}</>
+                  ) : translateText('Send reset link')}
                 </button>
               </form>
             </>
@@ -102,7 +116,7 @@ export default function ForgotPasswordPage() {
 
           <div style={{ textAlign: 'center' }}>
             <Link to="/login" className="auth-link" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-              <MdArrowBack /> Back to login
+              <MdArrowBack /> {translateText('Back to login')}
             </Link>
           </div>
         </div>

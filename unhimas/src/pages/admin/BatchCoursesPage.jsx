@@ -14,9 +14,11 @@ import {
   getSemesters,
 } from '../../services/academicService';
 import { getLecturers } from '../../services/peopleService';
+import { useTranslation } from '../../i18n';
 
 export default function BatchCoursesPage() {
   const queryClient = useQueryClient();
+  const { translateText } = useTranslation();
   const [search, setSearch] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,11 +61,11 @@ export default function BatchCoursesPage() {
     mutationFn: assignBatchCourse,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
-      toast.success('Course assigned to batch successfully');
+      toast.success(translateText('Course assigned to batch successfully'));
       setIsModalOpen(false);
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to allocate course');
+      toast.error(err.message || translateText('Failed to allocate course'));
     },
   });
 
@@ -71,11 +73,11 @@ export default function BatchCoursesPage() {
     mutationFn: deleteBatchCourse,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batch-courses'] });
-      toast.success('Course unassigned from batch');
+      toast.success(translateText('Course unassigned from batch'));
       setAllocationToDelete(null);
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to remove allocation');
+      toast.error(err.message || translateText('Failed to remove allocation'));
     },
   });
 
@@ -93,7 +95,7 @@ export default function BatchCoursesPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.batch_id || !formData.course_id || !formData.semester_id) {
-      toast.error('Batch, Course, and Semester are required');
+      toast.error(translateText('Batch, Course, and Semester are required'));
       return;
     }
     assignMutation.mutate(formData);
@@ -113,15 +115,17 @@ export default function BatchCoursesPage() {
   });
 
   return (
-    <AppLayout pageTitle="Batch Course Allocations">
+    <AppLayout pageTitle={translateText('Batch Course Allocations')}>
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">Course Allocations</h1>
-          <p className="page-subtitle">Assign curriculum courses to cohorts, semesters, and teaching faculty</p>
+          <h1 className="page-title">{translateText('Course Allocations')}</h1>
+          <p className="page-subtitle">
+            {translateText('Assign curriculum courses to cohorts, semesters, and teaching faculty')}
+          </p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <MdAdd /> Allocate Course to Batch
+            <MdAdd /> {translateText('Allocate Course to Batch')}
           </button>
         </div>
       </div>
@@ -143,7 +147,7 @@ export default function BatchCoursesPage() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search by course code, batch, or lecturer..."
+              placeholder={translateText('Search by course code, batch, or lecturer...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -155,7 +159,7 @@ export default function BatchCoursesPage() {
               value={batchFilter}
               onChange={(e) => setBatchFilter(e.target.value)}
             >
-              <option value="">All Cohorts / Batches</option>
+              <option value="">{translateText('All Cohorts / Batches')}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -169,19 +173,19 @@ export default function BatchCoursesPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Course</th>
-                <th>Cohort / Batch</th>
-                <th>Semester</th>
-                <th>Assigned Lecturer</th>
-                <th>Type</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
+                <th>{translateText('Course')}</th>
+                <th>{translateText('Cohort / Batch')}</th>
+                <th>{translateText('Semester')}</th>
+                <th>{translateText('Assigned Lecturer')}</th>
+                <th>{translateText('Type')}</th>
+                <th style={{ textAlign: 'right' }}>{translateText('Action')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
-                    Loading allocations...
+                    {translateText('Loading allocations...')}
                   </td>
                 </tr>
               ) : filteredAllocations.length === 0 ? (
@@ -189,9 +193,9 @@ export default function BatchCoursesPage() {
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="empty-state">
                       <MdClass className="empty-state-icon" />
-                      <div className="empty-state-title">No Course Allocations Found</div>
+                      <div className="empty-state-title">{translateText('No Course Allocations Found')}</div>
                       <div className="empty-state-text">
-                        Assign courses to student batches and designate teaching lecturers.
+                        {translateText('Assign courses to student batches and designate teaching lecturers.')}
                       </div>
                     </div>
                   </td>
@@ -207,7 +211,7 @@ export default function BatchCoursesPage() {
                         <strong>{bc.courses?.name}</strong>
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {bc.courses?.credit_units} credits
+                        {bc.courses?.credit_units} {translateText('credits')}
                       </div>
                     </td>
                     <td>
@@ -231,18 +235,18 @@ export default function BatchCoursesPage() {
                           </div>
                         </div>
                       ) : (
-                        <span className="badge badge-amber">Unassigned</span>
+                        <span className="badge badge-amber">{translateText('Unassigned')}</span>
                       )}
                     </td>
                     <td>
                       <span className={`badge ${bc.is_compulsory ? 'badge-blue' : 'badge-gray'}`}>
-                        {bc.is_compulsory ? 'Compulsory' : 'Elective'}
+                        {bc.is_compulsory ? translateText('Compulsory') : translateText('Elective')}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         className="btn-icon"
-                        title="Unassign course"
+                        title={translateText('Unassign course')}
                         onClick={() => setAllocationToDelete(bc)}
                         disabled={deleteMutation.isPending}
                         aria-label={`Unassign course ${bc.courses?.code} from batch`}
@@ -262,11 +266,11 @@ export default function BatchCoursesPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Allocate Course to Batch"
+        title={translateText('Allocate Course to Batch')}
         footer={
           <>
             <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
+              {translateText('Cancel')}
             </button>
             <button
               type="button"
@@ -274,21 +278,21 @@ export default function BatchCoursesPage() {
               onClick={handleSubmit}
               disabled={assignMutation.isPending}
             >
-              Allocate Course
+              {translateText('Allocate Course')}
             </button>
           </>
         }
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Select Cohort / Batch *</label>
+            <label className="form-label">{translateText('Select Cohort / Batch *')}</label>
             <select
               className="form-input"
               value={formData.batch_id}
               onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
               required
             >
-              <option value="">Choose batch...</option>
+              <option value="">{translateText('Choose batch...')}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -298,14 +302,14 @@ export default function BatchCoursesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Select Course *</label>
+            <label className="form-label">{translateText('Select Course *')}</label>
             <select
               className="form-input"
               value={formData.course_id}
               onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
               required
             >
-              <option value="">Choose course...</option>
+              <option value="">{translateText('Choose course...')}</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name} ({c.credit_units} cr)
@@ -315,30 +319,30 @@ export default function BatchCoursesPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Semester *</label>
+            <label className="form-label">{translateText('Semester *')}</label>
             <select
               className="form-input"
               value={formData.semester_id}
               onChange={(e) => setFormData({ ...formData, semester_id: e.target.value })}
               required
             >
-              <option value="">Choose semester...</option>
+              <option value="">{translateText('Choose semester...')}</option>
               {semesters.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.academic_years?.name}) {s.is_current ? '• Active' : ''}
+                  {s.name} ({s.academic_years?.name}) {s.is_current ? `• ${translateText('Active')}` : ''}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Teaching Lecturer</label>
+            <label className="form-label">{translateText('Teaching Lecturer')}</label>
             <select
               className="form-input"
               value={formData.lecturer_id}
               onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
             >
-              <option value="">Assign later (Optional)</option>
+              <option value="">{translateText('Assign later (Optional)')}</option>
               {lecturers.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.first_name} {l.last_name} ({l.staff_id})
@@ -356,7 +360,7 @@ export default function BatchCoursesPage() {
               style={{ width: '18px', height: '18px' }}
             />
             <label htmlFor="is_compulsory" style={{ fontSize: '0.875rem', cursor: 'pointer' }}>
-              Compulsory course for this cohort
+              {translateText('Compulsory course for this cohort')}
             </label>
           </div>
         </form>
@@ -367,9 +371,9 @@ export default function BatchCoursesPage() {
         isOpen={Boolean(allocationToDelete)}
         onClose={() => setAllocationToDelete(null)}
         onConfirm={() => allocationToDelete && deleteMutation.mutate(allocationToDelete.id)}
-        title="Unassign Course from Batch"
-        message={`Are you sure you want to remove "${allocationToDelete?.courses?.code} - ${allocationToDelete?.courses?.name}" from batch "${allocationToDelete?.batches?.name}"?`}
-        confirmLabel="Unassign Course"
+        title={translateText('Unassign Course from Batch')}
+        message={`${translateText('Are you sure you want to remove')} "${allocationToDelete?.courses?.code} - ${allocationToDelete?.courses?.name}" ${translateText('from batch')} "${allocationToDelete?.batches?.name}"?`}
+        confirmLabel={translateText('Unassign Course')}
         isDestructive={true}
         isLoading={deleteMutation.isPending}
       />

@@ -7,6 +7,7 @@ import { MdErrorOutline, MdLock, MdVisibility, MdVisibilityOff, MdCheckCircle } 
 import { supabase } from '../../lib/supabase';
 import { clearMustResetPassword } from '../../services/auth';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
 
 const schema = z
@@ -29,15 +30,10 @@ const ROLE_HOME = {
   student:   '/student',
 };
 
-/**
- * SetNewPasswordPage
- *
- * Shown immediately after first login when must_reset_password === true.
- * The user cannot navigate anywhere else until they set a new password.
- */
 export default function SetNewPasswordPage() {
   const navigate = useNavigate();
   const { profile, refetchProfile, signOut } = useAuth();
+  const { language, toggleLanguage, translateText } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -54,7 +50,7 @@ export default function SetNewPasswordPage() {
 
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
-      setServerError('Could not update your password. Please try again.');
+      setServerError(translateText('Could not update your password. Please try again.'));
       setLoading(false);
       return;
     }
@@ -73,16 +69,25 @@ export default function SetNewPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-card-header">
+        <div className="auth-card-header" style={{ position: 'relative' }}>
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div>
             <div className="auth-school-name">UNHIMAS</div>
-            <div className="auth-school-subtitle">Set Your Password</div>
+            <div className="auth-school-subtitle">{translateText('Set Your Password')}</div>
           </div>
+          <button
+            type="button"
+            className="lang-btn"
+            style={{ position: 'absolute', top: 12, right: 12 }}
+            onClick={toggleLanguage}
+            title={translateText('Toggle Language')}
+          >
+            {language === 'en' ? 'FR' : 'EN'}
+          </button>
         </div>
 
         <div className="auth-card-body">
-          <h1 className="auth-title">Create your password</h1>
+          <h1 className="auth-title">{translateText('Create your password')}</h1>
 
           <div
             className="auth-alert"
@@ -98,22 +103,21 @@ export default function SetNewPasswordPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: 'var(--color-primary)' }}>
               <MdLock style={{ flexShrink: 0 }} />
-              Password change required
+              {translateText('Password change required')}
             </div>
             <div style={{ fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--color-text-muted)' }}>
-              Your account was created by the administrator with a temporary password. You must set a
-              personal password before you can access the system.
+              {translateText('Your account was created by the administrator with a temporary password. You must set a personal password before you can access the system.')}
             </div>
             {profile?.role === 'student' && (
               <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                Signed in as: <strong style={{ color: 'var(--color-text)' }}>{profile.full_name}</strong>
-                &nbsp;· Role: Student
+                {translateText('Signed in as:')} <strong style={{ color: 'var(--color-text)' }}>{profile.full_name}</strong>
+                &nbsp;· {translateText('Role: Student')}
               </div>
             )}
             {profile?.role === 'lecturer' && (
               <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                Signed in as: <strong style={{ color: 'var(--color-text)' }}>{profile.full_name}</strong>
-                &nbsp;· Role: Lecturer
+                {translateText('Signed in as:')} <strong style={{ color: 'var(--color-text)' }}>{profile.full_name}</strong>
+                &nbsp;· {translateText('Role: Lecturer')}
               </div>
             )}
           </div>
@@ -128,7 +132,7 @@ export default function SetNewPasswordPage() {
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="form-group">
               <label htmlFor="snp-password" className="form-label">
-                New password
+                {translateText('New password')}
               </label>
               <div className="form-input-wrapper">
                 <input
@@ -136,40 +140,40 @@ export default function SetNewPasswordPage() {
                   type={showPassword ? 'text' : 'password'}
                   className={`form-input with-icon-right ${errors.password ? 'error' : ''}`}
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  placeholder={translateText('At least 8 characters')}
                   {...register('password')}
                 />
                 <button
                   type="button"
                   className="input-icon-right"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? translateText('Hide password') : translateText('Show password')}
                 >
                   {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
                 </button>
               </div>
               {errors.password && (
                 <div className="form-error" role="alert">
-                  <MdErrorOutline /> {errors.password.message}
+                  <MdErrorOutline /> {translateText(errors.password.message)}
                 </div>
               )}
             </div>
 
             <div className="form-group">
               <label htmlFor="snp-confirm" className="form-label">
-                Confirm new password
+                {translateText('Confirm new password')}
               </label>
               <input
                 id="snp-confirm"
                 type={showPassword ? 'text' : 'password'}
                 className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
                 autoComplete="new-password"
-                placeholder="Re-enter your new password"
+                placeholder={translateText('Re-enter your new password')}
                 {...register('confirmPassword')}
               />
               {errors.confirmPassword && (
                 <div className="form-error" role="alert">
-                  <MdErrorOutline /> {errors.confirmPassword.message}
+                  <MdErrorOutline /> {translateText(errors.confirmPassword.message)}
                 </div>
               )}
             </div>
@@ -183,9 +187,9 @@ export default function SetNewPasswordPage() {
                 lineHeight: 1.8,
               }}
             >
-              <li>At least 8 characters</li>
-              <li>At least one uppercase letter (A–Z)</li>
-              <li>At least one number (0–9)</li>
+              <li>{translateText('At least 8 characters')}</li>
+              <li>{translateText('At least one uppercase letter (A–Z)')}</li>
+              <li>{translateText('At least one number (0–9)')}</li>
             </ul>
 
             <button
@@ -196,12 +200,12 @@ export default function SetNewPasswordPage() {
               {loading ? (
                 <>
                   <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                  Saving…
+                  {translateText('Saving…')}
                 </>
               ) : (
                 <>
                   <MdCheckCircle style={{ fontSize: '1.1rem' }} />
-                  Set password & continue
+                  {translateText('Set password & continue')}
                 </>
               )}
             </button>
@@ -220,7 +224,7 @@ export default function SetNewPasswordPage() {
               }}
               onClick={signOut}
             >
-              Sign out instead
+              {translateText('Sign out instead')}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdPayments,
@@ -59,6 +59,15 @@ export default function AdminFeesPage() {
 
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
   const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Lock refs for double-action prevention
+  const isSubmittingCatRef = useRef(false);
+  const isSubmittingStructRef = useRef(false);
+  const isSubmittingInvoiceRef = useRef(false);
+  const isSubmittingBulkRef = useRef(false);
+  const isSubmittingPolicyRef = useRef(false);
+  const isCancellingInvoiceRef = useRef(false);
 
   const [catForm, setCatForm] = useState({ code: '', name: '', description: '', sort_order: 50 });
   const [structForm, setStructForm] = useState({
@@ -130,6 +139,9 @@ export default function AdminFeesPage() {
       queryClient.invalidateQueries({ queryKey: ['fee-categories'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isSubmittingCatRef.current = false;
+    },
   });
 
   const structMutation = useMutation({
@@ -141,6 +153,9 @@ export default function AdminFeesPage() {
       queryClient.invalidateQueries({ queryKey: ['fee-structures'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isSubmittingStructRef.current = false;
+    },
   });
 
   const invoiceMutation = useMutation({
@@ -157,6 +172,9 @@ export default function AdminFeesPage() {
       queryClient.invalidateQueries({ queryKey: ['student-invoices'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isSubmittingInvoiceRef.current = false;
+    },
   });
 
   const cancelInvoiceMutation = useMutation({
@@ -168,6 +186,9 @@ export default function AdminFeesPage() {
       queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isCancellingInvoiceRef.current = false;
+    },
   });
 
   const bulkMutation = useMutation({
@@ -183,6 +204,9 @@ export default function AdminFeesPage() {
       queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isSubmittingBulkRef.current = false;
+    },
   });
 
   const policyMutation = useMutation({
@@ -191,8 +215,12 @@ export default function AdminFeesPage() {
       toast.success(translateText('Fee clearance policy updated'));
       setShowPolicyModal(false);
       queryClient.invalidateQueries({ queryKey: ['fee-clearance-policy'] });
+      queryClient.invalidateQueries({ queryKey: ['fee-clearance-policy-settings'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isSubmittingPolicyRef.current = false;
+    },
   });
 
   const activeStructures = structures.filter((s) => s.is_active);
@@ -208,6 +236,8 @@ export default function AdminFeesPage() {
 
   const submitInvoice = (e) => {
     e.preventDefault();
+    if (isSubmittingInvoiceRef.current || invoiceMutation.isPending) return;
+
     if (!invoiceForm.student_id) {
       toast.error(translateText('Select a student'));
       return;
@@ -216,6 +246,10 @@ export default function AdminFeesPage() {
       toast.error(translateText('Select at least one fee structure'));
       return;
     }
+
+    isSubmittingInvoiceRef.current = true;
+    toast.info(translateText('Issuing invoice…'));
+
     const items = activeStructures
       .filter((s) => invoiceForm.structure_ids.includes(s.id))
       .map((s) => ({
@@ -235,6 +269,8 @@ export default function AdminFeesPage() {
 
   const submitBulk = (e) => {
     e.preventDefault();
+    if (isSubmittingBulkRef.current || bulkMutation.isPending) return;
+
     if (!bulkForm.batch_id) {
       toast.error(translateText('Select a batch'));
       return;
@@ -243,12 +279,83 @@ export default function AdminFeesPage() {
       toast.error(translateText('Select at least one fee structure'));
       return;
     }
+
+    isSubmittingBulkRef.current = true;
+    toast.info(translateText('Generating batch invoices…'));
+
     bulkMutation.mutate({
       batchId: bulkForm.batch_id,
       structureIds: bulkForm.structure_ids,
       notes: bulkForm.notes || null,
       dueDate: bulkForm.due_date || null,
     });
+  };
+
+  const submitCategory = (e) => {
+    e.preventDefault();
+    if (isSubmittingCatRef.current || catMutation.isPending) return;
+    isSubmittingCatRef.current = true;
+    toast.info(translateText('Saving category…'));
+    catMutation.mutate({
+      code: catForm.code.trim().toUpperCase(),
+      name: catForm.name.trim(),
+      description: catForm.description || null,
+      sort_order: Number(catForm.sort_order) || 50,
+    });
+  };
+
+  const submitStructure = (e) => {
+    e.preventDefault();
+    if (isSubmittingStructRef.current || structMutation.isPending) return;
+    isSubmittingStructRef.current = true;
+    toast.info(translateText('Saving fee structure…'));
+    structMutation.mutate({
+      fee_category_id: structForm.fee_category_id,
+      amount: Number(structForm.amount),
+      description: structForm.description || null,
+      is_mandatory: !!structForm.is_mandatory,
+      is_active: true,
+    });
+  };
+
+  const submitPolicy = (e) => {
+    e.preventDefault();
+    if (isSubmittingPolicyRef.current || policyMutation.isPending) return;
+    isSubmittingPolicyRef.current = true;
+    toast.info(translateText('Updating fee policy…'));
+    policyMutation.mutate(policyForm);
+  };
+
+  const handleCancelInvoiceAction = (id) => {
+    if (isCancellingInvoiceRef.current || cancelInvoiceMutation.isPending) return;
+    if (
+      !window.confirm(
+        translateText('Are you sure you want to cancel this unpaid invoice?'),
+      )
+    ) {
+      return;
+    }
+    isCancellingInvoiceRef.current = true;
+    toast.info(translateText('Cancelling invoice…'));
+    cancelInvoiceMutation.mutate(id);
+  };
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    toast.info(translateText('Refreshing fees & invoices…'));
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['fee-categories'] }),
+        queryClient.invalidateQueries({ queryKey: ['fee-structures'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-invoices'] }),
+      ]);
+      toast.success(translateText('Fees & invoices refreshed'));
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 600);
+    }
   };
 
   const filteredInvoices = invoices.filter((inv) => {
@@ -337,13 +444,10 @@ export default function AdminFeesPage() {
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ['fee-categories'] });
-              queryClient.invalidateQueries({ queryKey: ['fee-structures'] });
-              queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
-            }}
+            disabled={isRefreshing}
+            onClick={handleRefresh}
           >
-            <MdRefresh /> {translateText('Refresh')}
+            <MdRefresh /> {isRefreshing ? translateText('Refreshing…') : translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -648,17 +752,9 @@ export default function AdminFeesPage() {
                     className="btn btn-outline"
                     style={{ color: 'var(--color-danger)' }}
                     disabled={cancelInvoiceMutation.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          translateText('Are you sure you want to cancel this unpaid invoice?'),
-                        )
-                      ) {
-                        cancelInvoiceMutation.mutate(inspectInvoice.id);
-                      }
-                    }}
+                    onClick={() => handleCancelInvoiceAction(inspectInvoice.id)}
                   >
-                    <MdCancel /> {translateText('Cancel invoice')}
+                    <MdCancel /> {cancelInvoiceMutation.isPending ? translateText('Cancelling…') : translateText('Cancel invoice')}
                   </button>
                 )}
               <button
@@ -677,15 +773,11 @@ export default function AdminFeesPage() {
       {showPolicyModal && (
         <Modal
           title={translateText('Fee clearance & financial policy')}
-          onClose={() => setShowPolicyModal(false)}
+          onClose={() => {
+            if (!policyMutation.isPending) setShowPolicyModal(false);
+          }}
         >
-          <form
-            className="form-stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              policyMutation.mutate(policyForm);
-            }}
-          >
+          <form className="form-stack" onSubmit={submitPolicy}>
             <div className="alert-banner" style={{ marginBottom: 12 }}>
               <MdInfo size={18} style={{ flexShrink: 0 }} />
               <span>
@@ -699,6 +791,7 @@ export default function AdminFeesPage() {
               <input
                 type="checkbox"
                 checked={policyForm.enabled}
+                disabled={policyMutation.isPending}
                 onChange={(e) =>
                   setPolicyForm((f) => ({ ...f, enabled: e.target.checked }))
                 }
@@ -717,6 +810,7 @@ export default function AdminFeesPage() {
                 <select
                   className="form-control"
                   value={policyForm.minPaidRatio}
+                  disabled={policyMutation.isPending}
                   onChange={(e) =>
                     setPolicyForm((f) => ({ ...f, minPaidRatio: Number(e.target.value) }))
                   }
@@ -738,6 +832,7 @@ export default function AdminFeesPage() {
               <button
                 type="button"
                 className="btn btn-outline"
+                disabled={policyMutation.isPending}
                 onClick={() => setShowPolicyModal(false)}
               >
                 {translateText('Cancel')}
@@ -758,24 +853,19 @@ export default function AdminFeesPage() {
 
       {/* New Fee Category Modal */}
       {showCatModal && (
-        <Modal title={translateText('New fee category')} onClose={() => setShowCatModal(false)}>
-          <form
-            className="form-stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              catMutation.mutate({
-                code: catForm.code.trim().toUpperCase(),
-                name: catForm.name.trim(),
-                description: catForm.description || null,
-                sort_order: Number(catForm.sort_order) || 50,
-              });
-            }}
-          >
+        <Modal
+          title={translateText('New fee category')}
+          onClose={() => {
+            if (!catMutation.isPending) setShowCatModal(false);
+          }}
+        >
+          <form className="form-stack" onSubmit={submitCategory}>
             <div className="form-group">
               <label>Code</label>
               <input
                 className="form-control"
                 value={catForm.code}
+                disabled={catMutation.isPending}
                 onChange={(e) => setCatForm((f) => ({ ...f, code: e.target.value }))}
                 required
                 placeholder="TUITION"
@@ -786,6 +876,7 @@ export default function AdminFeesPage() {
               <input
                 className="form-control"
                 value={catForm.name}
+                disabled={catMutation.isPending}
                 onChange={(e) => setCatForm((f) => ({ ...f, name: e.target.value }))}
                 required
               />
@@ -795,16 +886,22 @@ export default function AdminFeesPage() {
               <textarea
                 className="form-control"
                 value={catForm.description}
+                disabled={catMutation.isPending}
                 onChange={(e) => setCatForm((f) => ({ ...f, description: e.target.value }))}
                 rows={2}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setShowCatModal(false)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={catMutation.isPending}
+                onClick={() => setShowCatModal(false)}
+              >
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={catMutation.isPending}>
-                {translateText('Save')}
+                {catMutation.isPending ? translateText('Saving…') : translateText('Save')}
               </button>
             </div>
           </form>
@@ -813,25 +910,19 @@ export default function AdminFeesPage() {
 
       {/* New Fee Structure Modal */}
       {showStructModal && (
-        <Modal title={translateText('New fee structure')} onClose={() => setShowStructModal(false)}>
-          <form
-            className="form-stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              structMutation.mutate({
-                fee_category_id: structForm.fee_category_id,
-                amount: Number(structForm.amount),
-                description: structForm.description || null,
-                is_mandatory: !!structForm.is_mandatory,
-                is_active: true,
-              });
-            }}
-          >
+        <Modal
+          title={translateText('New fee structure')}
+          onClose={() => {
+            if (!structMutation.isPending) setShowStructModal(false);
+          }}
+        >
+          <form className="form-stack" onSubmit={submitStructure}>
             <div className="form-group">
               <label>{translateText('Category')}</label>
               <select
                 className="form-control"
                 value={structForm.fee_category_id}
+                disabled={structMutation.isPending}
                 onChange={(e) => setStructForm((f) => ({ ...f, fee_category_id: e.target.value }))}
                 required
               >
@@ -854,6 +945,7 @@ export default function AdminFeesPage() {
                 step="1"
                 className="form-control"
                 value={structForm.amount}
+                disabled={structMutation.isPending}
                 onChange={(e) => setStructForm((f) => ({ ...f, amount: e.target.value }))}
                 required
               />
@@ -863,6 +955,7 @@ export default function AdminFeesPage() {
               <input
                 className="form-control"
                 value={structForm.description}
+                disabled={structMutation.isPending}
                 onChange={(e) => setStructForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>
@@ -870,16 +963,22 @@ export default function AdminFeesPage() {
               <input
                 type="checkbox"
                 checked={structForm.is_mandatory}
+                disabled={structMutation.isPending}
                 onChange={(e) => setStructForm((f) => ({ ...f, is_mandatory: e.target.checked }))}
               />
               {translateText('Mandatory')}
             </label>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setShowStructModal(false)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={structMutation.isPending}
+                onClick={() => setShowStructModal(false)}
+              >
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={structMutation.isPending}>
-                {translateText('Save')}
+                {structMutation.isPending ? translateText('Saving…') : translateText('Save')}
               </button>
             </div>
           </form>
@@ -888,13 +987,19 @@ export default function AdminFeesPage() {
 
       {/* Single Invoice Issue Modal */}
       {showInvoiceModal && (
-        <Modal title={translateText('Issue invoice')} onClose={() => setShowInvoiceModal(false)}>
+        <Modal
+          title={translateText('Issue invoice')}
+          onClose={() => {
+            if (!invoiceMutation.isPending) setShowInvoiceModal(false);
+          }}
+        >
           <form className="form-stack" onSubmit={submitInvoice}>
             <div className="form-group">
               <label>{translateText('Student')}</label>
               <select
                 className="form-control"
                 value={invoiceForm.student_id}
+                disabled={invoiceMutation.isPending}
                 onChange={(e) => setInvoiceForm((f) => ({ ...f, student_id: e.target.value }))}
                 required
               >
@@ -918,6 +1023,7 @@ export default function AdminFeesPage() {
                 type="date"
                 className="form-control"
                 value={invoiceForm.due_date}
+                disabled={invoiceMutation.isPending}
                 onChange={(e) => setInvoiceForm((f) => ({ ...f, due_date: e.target.value }))}
               />
             </div>
@@ -927,15 +1033,21 @@ export default function AdminFeesPage() {
                 className="form-control"
                 rows={2}
                 value={invoiceForm.notes}
+                disabled={invoiceMutation.isPending}
                 onChange={(e) => setInvoiceForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setShowInvoiceModal(false)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={invoiceMutation.isPending}
+                onClick={() => setShowInvoiceModal(false)}
+              >
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={invoiceMutation.isPending}>
-                {translateText('Issue')}
+                {invoiceMutation.isPending ? translateText('Issuing…') : translateText('Issue')}
               </button>
             </div>
           </form>
@@ -944,13 +1056,19 @@ export default function AdminFeesPage() {
 
       {/* Bulk Invoices Modal */}
       {showBulkModal && (
-        <Modal title={translateText('Bulk invoices by batch')} onClose={() => setShowBulkModal(false)}>
+        <Modal
+          title={translateText('Bulk invoices by batch')}
+          onClose={() => {
+            if (!bulkMutation.isPending) setShowBulkModal(false);
+          }}
+        >
           <form className="form-stack" onSubmit={submitBulk}>
             <div className="form-group">
               <label>{translateText('Batch')}</label>
               <select
                 className="form-control"
                 value={bulkForm.batch_id}
+                disabled={bulkMutation.isPending}
                 onChange={(e) => setBulkForm((f) => ({ ...f, batch_id: e.target.value }))}
                 required
               >
@@ -972,6 +1090,7 @@ export default function AdminFeesPage() {
                 type="date"
                 className="form-control"
                 value={bulkForm.due_date}
+                disabled={bulkMutation.isPending}
                 onChange={(e) => setBulkForm((f) => ({ ...f, due_date: e.target.value }))}
               />
             </div>
@@ -981,11 +1100,17 @@ export default function AdminFeesPage() {
                 className="form-control"
                 rows={2}
                 value={bulkForm.notes}
+                disabled={bulkMutation.isPending}
                 onChange={(e) => setBulkForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setShowBulkModal(false)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={bulkMutation.isPending}
+                onClick={() => setShowBulkModal(false)}
+              >
                 {translateText('Cancel')}
               </button>
               <button type="submit" className="btn btn-primary" disabled={bulkMutation.isPending}>

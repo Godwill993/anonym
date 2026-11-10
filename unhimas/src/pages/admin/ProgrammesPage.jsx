@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MdSchool, MdInfo } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { getProgrammes } from '../../services/academicService';
+import { useTranslation } from '../../i18n';
 
 /**
  * Read-only list of system programmes (HND / B.Tech / M.Tech).
@@ -9,18 +10,19 @@ import { getProgrammes } from '../../services/academicService';
  * Programme is chosen when creating a batch; students inherit it from the batch.
  */
 export default function ProgrammesPage() {
+  const { translateText } = useTranslation();
   const { data: programmes = [], isLoading, error } = useQuery({
     queryKey: ['admin-programmes-all'],
     queryFn: () => getProgrammes({ activeOnly: false }),
   });
 
   return (
-    <AppLayout>
+    <AppLayout pageTitle={translateText('Programmes')}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Programmes</h1>
+          <h1 className="page-title">{translateText('Programmes')}</h1>
           <p className="page-subtitle">
-            Cameroon higher-education awards used by batches (read-only system defaults)
+            {translateText('Cameroon higher-education awards used by batches (read-only system defaults)')}
           </p>
         </div>
       </div>
@@ -29,17 +31,16 @@ export default function ProgrammesPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <MdInfo style={{ color: 'var(--color-primary)', marginTop: 2, flexShrink: 0 }} />
           <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: 1.45 }}>
-            <strong style={{ color: 'var(--color-text)' }}>How programmes work</strong>
+            <strong style={{ color: 'var(--color-text)' }}>{translateText('How programmes work')}</strong>
             <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
               <li>
-                Typical durations: <strong>HND 2 years</strong> (3 for Biomedical where configured),{' '}
-                <strong>B.Tech 1 year</strong>, <strong>M.Tech 2 years</strong>.
+                {translateText('Typical durations: HND 2 years (3 for Biomedical where configured), B.Tech 1 year, M.Tech 2 years.')}
               </li>
               <li>
-                Set the programme on the <strong>batch</strong>. Students inherit it when they join that batch.
+                {translateText('Set the programme on the batch. Students inherit it when they join that batch.')}
               </li>
               <li>
-                There is no free-form “create programme” workflow — these awards are system defaults.
+                {translateText('There is no free-form “create programme” workflow — these awards are system defaults.')}
               </li>
             </ul>
           </div>
@@ -51,21 +52,23 @@ export default function ProgrammesPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Award</th>
-                <th>Track</th>
-                <th>Duration</th>
-                <th>Status</th>
+                <th>{translateText('Code')}</th>
+                <th>{translateText('Name')}</th>
+                <th>{translateText('Award')}</th>
+                <th>{translateText('Track')}</th>
+                <th>{translateText('Duration')}</th>
+                <th>{translateText('Status')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6}>Loading…</td></tr>
+                <tr>
+                  <td colSpan={6}>{translateText('Loading…')}</td>
+                </tr>
               ) : error ? (
                 <tr>
                   <td colSpan={6} style={{ color: 'var(--color-danger)' }}>
-                    {error.message || 'Failed to load programmes'}
+                    {error.message || translateText('Failed to load programmes')}
                   </td>
                 </tr>
               ) : programmes.length === 0 ? (
@@ -73,9 +76,9 @@ export default function ProgrammesPage() {
                   <td colSpan={6}>
                     <div className="empty-state" style={{ padding: '1.5rem' }}>
                       <MdSchool className="empty-state-icon" />
-                      <div className="empty-state-title">No programmes found</div>
+                      <div className="empty-state-title">{translateText('No programmes found')}</div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                        Seed programmes in the database (HND, B.Tech, M.Tech) if this list is empty.
+                        {translateText('Seed programmes in the database (HND, B.Tech, M.Tech) if this list is empty.')}
                       </p>
                     </div>
                   </td>
@@ -89,12 +92,12 @@ export default function ProgrammesPage() {
                     <td style={{ textTransform: 'capitalize' }}>{p.track || '—'}</td>
                     <td>
                       {p.duration_years != null
-                        ? `${p.duration_years} year${Number(p.duration_years) === 1 ? '' : 's'}`
+                        ? `${p.duration_years} ${Number(p.duration_years) === 1 ? translateText('year') : translateText('years')}`
                         : '—'}
                     </td>
                     <td>
                       <span className={`badge ${p.is_active !== false ? 'badge-success' : 'badge-danger'}`}>
-                        {p.is_active !== false ? 'Active' : 'Inactive'}
+                        {p.is_active !== false ? translateText('Active') : translateText('Inactive')}
                       </span>
                     </td>
                   </tr>

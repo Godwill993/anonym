@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdPayments,
@@ -65,6 +65,14 @@ export default function AdminPaymentsPage() {
   const [rejectPaymentTarget, setRejectPaymentTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Action lock states to prevent double actions
+  const [processingId, setProcessingId] = useState(null);
+  const processingRef = useRef(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const isPrintingQuitusRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Record payment form
   const [recordStudentId, setRecordStudentId] = useState('');
   const [recordInvoiceId, setRecordInvoiceId] = useState('');
@@ -111,6 +119,10 @@ export default function AdminPaymentsPage() {
       }
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      processingRef.current = false;
+      setProcessingId(null);
+    },
   });
 
   const rejectMutation = useMutation({
@@ -123,8 +135,15 @@ export default function AdminPaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
+      if (inspectPayment) {
+        setInspectPayment(null);
+      }
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      processingRef.current = false;
+      setProcessingId(null);
+    },
   });
 
   const recordMutation = useMutation({
@@ -146,7 +165,30 @@ export default function AdminPaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => {
+      isRecordingRef.current = false;
+    },
   });
+
+  const handleApproveAction = (pId) => {
+    if (processingRef.current || completeMutation.isPending) return;
+    processingRef.current = true;
+    setProcessingId(pId);
+    toast.info(translateText('Confirming payment…'));
+    completeMutation.mutate(pId);
+  };
+
+  const handleRejectAction = (e) => {
+    e.preventDefault();
+    if (processingRef.current || rejectMutation.isPending || !rejectPaymentTarget) return;
+    processingRef.current = true;
+    setProcessingId(rejectPaymentTarget.id);
+    toast.info(translateText('Rejecting payment…'));
+    rejectMutation.mutate({
+      id: rejectPaymentTarget.id,
+      reason: rejectReason,
+    });
+  };
 
   const handleStudentSelect = (sId) => {
     setRecordStudentId(sId);
@@ -165,6 +207,8 @@ export default function AdminPaymentsPage() {
 
   const submitRecordPayment = (e) => {
     e.preventDefault();
+    if (isRecordingRef.current || recordMutation.isPending) return;
+
     if (!recordStudentId) {
       toast.error(translateText('Select a student'));
       return;
@@ -178,6 +222,9 @@ export default function AdminPaymentsPage() {
       return;
     }
 
+    isRecordingRef.current = true;
+    toast.info(translateText('Recording payment…'));
+
     recordMutation.mutate({
       studentId: recordStudentId,
       invoiceId: recordInvoiceId,
@@ -189,6 +236,50 @@ export default function AdminPaymentsPage() {
       completeImmediately: recordCompleteImmediately,
       recordedBy: profile?.id,
     });
+  };
+
+  const handleDownloadReceiptAction = async (p) => {
+    if (downloadingId) return;
+    setDownloadingId(p.id);
+    toast.info(translateText('Generating official PDF receipt…'));
+    try {
+      await downloadPaymentReceipt(
+        { ...p, student_invoices: p.student_invoices },
+        p.students,
+      );
+      toast.success(translateText('Receipt downloaded successfully'));
+    } catch (err) {
+      toast.error(err?.message || translateText('Could not download receipt'));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handlePrintQuitusAction = (p) => {
+    if (isPrintingQuitusRef.current) return;
+    isPrintingQuitusRef.current = true;
+    toast.info(translateText('Opening quitus for printing…'));
+    try {
+      printPaymentQuitus(p, p.students);
+    } finally {
+      setTimeout(() => {
+        isPrintingQuitusRef.current = false;
+      }, 1200);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    toast.info(translateText('Refreshing payment records…'));
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      toast.success(translateText('Payment records refreshed'));
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 600);
+    }
   };
 
   // KPIs
@@ -250,9 +341,10 @@ export default function AdminPaymentsPage() {
           <button
             type="button"
             className="btn btn-outline btn-sm"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-payments'] })}
+            disabled={isRefreshing}
+            onClick={handleRefresh}
           >
-            <MdRefresh /> {translateText('Refresh')}
+            <MdRefresh /> {isRefreshing ? translateText('Refreshing…') : translateText('Refresh')}
           </button>
         </div>
       </div>
@@ -373,115 +465,117 @@ export default function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <button
-                        type="button"
-                        style={{
-                          background: 'none',
-                          border: 0,
-                          padding: 0,
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontWeight: 650,
-                          color: 'var(--color-primary)',
-                        }}
-                        onClick={() => setInspectPayment(p)}
-                        title={translateText('Click to view details')}
-                      >
-                        {p.payment_reference}
-                      </button>
-                      {p.receipt_number && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {p.receipt_number}
-                        </div>
-                      )}
-                      {p.provider_reference && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          Trx: {p.provider_reference}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ fontSize: '0.875rem' }}>{studentLabel(p)}</td>
-                    <td>{p.student_invoices?.invoice_number || '—'}</td>
-                    <td style={{ fontWeight: 700 }}>{formatXAF(p.amount)}</td>
-                    <td>{methodLabel(p.method)}</td>
-                    <td>
-                      <span className={`badge ${statusClass(p.status)}`}>
-                        {p.status === 'pending' ? translateText('Pending') : p.status}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.825rem' }}>
-                      {p.paid_at
-                        ? new Date(p.paid_at).toLocaleDateString()
-                        : new Date(p.created_at).toLocaleDateString()}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        {p.status === 'pending' && (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              disabled={completeMutation.isPending}
-                              onClick={() => completeMutation.mutate(p.id)}
-                              title={translateText('Confirm payment and issue receipt')}
-                            >
-                              <MdCheckCircle size={14} /> {translateText('Approve')}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              disabled={rejectMutation.isPending}
-                              onClick={() => {
-                                setRejectPaymentTarget(p);
-                                setRejectReason('');
-                              }}
-                              title={translateText('Reject invalid or duplicate payment')}
-                              style={{ color: 'var(--color-danger)' }}
-                            >
-                              <MdCancel size={14} /> {translateText('Reject')}
-                            </button>
-                          </>
-                        )}
-                        {p.status === 'completed' && (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() =>
-                                downloadPaymentReceipt(
-                                  { ...p, student_invoices: p.student_invoices },
-                                  p.students,
-                                ).catch((err) => toast.error(err.message))
-                              }
-                              title={translateText('Download PDF receipt')}
-                            >
-                              <MdDownload size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => printPaymentQuitus(p, p.students)}
-                              title={translateText('Print quitus')}
-                            >
-                              <MdPrint size={14} />
-                            </button>
-                          </>
-                        )}
+                {filteredPayments.map((p) => {
+                  const isThisProcessing = processingId === p.id;
+                  return (
+                    <tr key={p.id}>
+                      <td>
                         <button
                           type="button"
-                          className="btn btn-outline btn-sm"
+                          style={{
+                            background: 'none',
+                            border: 0,
+                            padding: 0,
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontWeight: 650,
+                            color: 'var(--color-primary)',
+                          }}
                           onClick={() => setInspectPayment(p)}
-                          title={translateText('View full details')}
+                          title={translateText('Click to view details')}
                         >
-                          <MdInfo size={14} />
+                          {p.payment_reference}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        {p.receipt_number && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            {p.receipt_number}
+                          </div>
+                        )}
+                        {p.provider_reference && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            Trx: {p.provider_reference}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ fontSize: '0.875rem' }}>{studentLabel(p)}</td>
+                      <td>{p.student_invoices?.invoice_number || '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{formatXAF(p.amount)}</td>
+                      <td>{methodLabel(p.method)}</td>
+                      <td>
+                        <span className={`badge ${statusClass(p.status)}`}>
+                          {p.status === 'pending' ? translateText('Pending') : p.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.825rem' }}>
+                        {p.paid_at
+                          ? new Date(p.paid_at).toLocaleDateString()
+                          : new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {p.status === 'pending' && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                disabled={isThisProcessing || processingRef.current}
+                                onClick={() => handleApproveAction(p.id)}
+                                title={translateText('Confirm payment and issue receipt')}
+                              >
+                                <MdCheckCircle size={14} />{' '}
+                                {isThisProcessing
+                                  ? translateText('Approving…')
+                                  : translateText('Approve')}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                disabled={isThisProcessing || processingRef.current}
+                                onClick={() => {
+                                  setRejectPaymentTarget(p);
+                                  setRejectReason('');
+                                }}
+                                title={translateText('Reject invalid or duplicate payment')}
+                                style={{ color: 'var(--color-danger)' }}
+                              >
+                                <MdCancel size={14} /> {translateText('Reject')}
+                              </button>
+                            </>
+                          )}
+                          {p.status === 'completed' && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                disabled={downloadingId === p.id}
+                                onClick={() => handleDownloadReceiptAction(p)}
+                                title={translateText('Download PDF receipt')}
+                              >
+                                <MdDownload size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => handlePrintQuitusAction(p)}
+                                title={translateText('Print quitus')}
+                              >
+                                <MdPrint size={14} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setInspectPayment(p)}
+                            title={translateText('View full details')}
+                          >
+                            <MdInfo size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -492,7 +586,9 @@ export default function AdminPaymentsPage() {
       {showRecordModal && (
         <Modal
           title={translateText('Record manual / offline payment')}
-          onClose={() => setShowRecordModal(false)}
+          onClose={() => {
+            if (!recordMutation.isPending) setShowRecordModal(false);
+          }}
         >
           <form className="form-stack" onSubmit={submitRecordPayment}>
             <div className="form-group">
@@ -500,6 +596,7 @@ export default function AdminPaymentsPage() {
               <select
                 className="form-control"
                 value={recordStudentId}
+                disabled={recordMutation.isPending}
                 onChange={(e) => handleStudentSelect(e.target.value)}
                 required
               >
@@ -525,6 +622,7 @@ export default function AdminPaymentsPage() {
                   <select
                     className="form-control"
                     value={recordInvoiceId}
+                    disabled={recordMutation.isPending}
                     onChange={(e) => handleInvoiceSelect(e.target.value)}
                     required
                   >
@@ -552,6 +650,7 @@ export default function AdminPaymentsPage() {
                 step="1"
                 className="form-control"
                 value={recordAmount}
+                disabled={recordMutation.isPending}
                 onChange={(e) => setRecordAmount(e.target.value)}
                 required
               />
@@ -562,6 +661,7 @@ export default function AdminPaymentsPage() {
               <select
                 className="form-control"
                 value={recordMethod}
+                disabled={recordMutation.isPending}
                 onChange={(e) => setRecordMethod(e.target.value)}
               >
                 {PAYMENT_METHODS.map((m) => (
@@ -579,6 +679,7 @@ export default function AdminPaymentsPage() {
                 className="form-control"
                 placeholder="e.g. ECOBANK-99231 or Cashier Receipt #12"
                 value={recordProviderRef}
+                disabled={recordMutation.isPending}
                 onChange={(e) => setRecordProviderRef(e.target.value)}
               />
             </div>
@@ -591,6 +692,7 @@ export default function AdminPaymentsPage() {
                   className="form-control"
                   placeholder="6XXXXXXXX"
                   value={recordPhone}
+                  disabled={recordMutation.isPending}
                   onChange={(e) => setRecordPhone(e.target.value)}
                 />
               </div>
@@ -602,6 +704,7 @@ export default function AdminPaymentsPage() {
                 className="form-control"
                 rows={2}
                 value={recordNotes}
+                disabled={recordMutation.isPending}
                 onChange={(e) => setRecordNotes(e.target.value)}
                 placeholder={translateText('e.g. Received at bursar front-desk')}
               />
@@ -611,6 +714,7 @@ export default function AdminPaymentsPage() {
               <input
                 type="checkbox"
                 checked={recordCompleteImmediately}
+                disabled={recordMutation.isPending}
                 onChange={(e) => setRecordCompleteImmediately(e.target.checked)}
               />
               {translateText('Confirm and issue official receipt immediately')}
@@ -620,6 +724,7 @@ export default function AdminPaymentsPage() {
               <button
                 type="button"
                 className="btn btn-outline"
+                disabled={recordMutation.isPending}
                 onClick={() => setShowRecordModal(false)}
               >
                 {translateText('Cancel')}
@@ -740,22 +845,15 @@ export default function AdminPaymentsPage() {
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() =>
-                      downloadPaymentReceipt(
-                        {
-                          ...inspectPayment,
-                          student_invoices: inspectPayment.student_invoices,
-                        },
-                        inspectPayment.students,
-                      ).catch((err) => toast.error(err.message))
-                    }
+                    disabled={downloadingId === inspectPayment.id}
+                    onClick={() => handleDownloadReceiptAction(inspectPayment)}
                   >
                     <MdDownload /> {translateText('Download receipt')}
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => printPaymentQuitus(inspectPayment, inspectPayment.students)}
+                    onClick={() => handlePrintQuitusAction(inspectPayment)}
                   >
                     <MdPrint /> {translateText('Print quitus')}
                   </button>
@@ -767,6 +865,7 @@ export default function AdminPaymentsPage() {
                     type="button"
                     className="btn btn-outline"
                     style={{ color: 'var(--color-danger)' }}
+                    disabled={processingRef.current || completeMutation.isPending}
                     onClick={() => {
                       setRejectPaymentTarget(inspectPayment);
                       setRejectReason('');
@@ -777,8 +876,8 @@ export default function AdminPaymentsPage() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={completeMutation.isPending}
-                    onClick={() => completeMutation.mutate(inspectPayment.id)}
+                    disabled={processingRef.current || completeMutation.isPending}
+                    onClick={() => handleApproveAction(inspectPayment.id)}
                   >
                     <MdCheckCircle /> {translateText('Mark completed')}
                   </button>
@@ -800,9 +899,11 @@ export default function AdminPaymentsPage() {
       {rejectPaymentTarget && (
         <Modal
           title={translateText('Reject payment') + `: ${rejectPaymentTarget.payment_reference}`}
-          onClose={() => setRejectPaymentTarget(null)}
+          onClose={() => {
+            if (!rejectMutation.isPending) setRejectPaymentTarget(null);
+          }}
         >
-          <div className="form-stack">
+          <form className="form-stack" onSubmit={handleRejectAction}>
             <p>
               {translateText(
                 'Are you sure you want to reject this payment submission? It will be marked as failed and will not credit the student invoice.',
@@ -815,6 +916,7 @@ export default function AdminPaymentsPage() {
                 rows={3}
                 placeholder={translateText('e.g. Transaction ID not found on MoMo portal / Incorrect deposit slip')}
                 value={rejectReason}
+                disabled={rejectMutation.isPending}
                 onChange={(e) => setRejectReason(e.target.value)}
                 required
               />
@@ -823,28 +925,23 @@ export default function AdminPaymentsPage() {
               <button
                 type="button"
                 className="btn btn-outline"
+                disabled={rejectMutation.isPending}
                 onClick={() => setRejectPaymentTarget(null)}
               >
                 {translateText('Cancel')}
               </button>
               <button
-                type="button"
+                type="submit"
                 className="btn btn-primary"
                 style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
                 disabled={rejectMutation.isPending}
-                onClick={() =>
-                  rejectMutation.mutate({
-                    id: rejectPaymentTarget.id,
-                    reason: rejectReason,
-                  })
-                }
               >
                 {rejectMutation.isPending
                   ? translateText('Rejecting…')
                   : translateText('Confirm rejection')}
               </button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
     </AppLayout>

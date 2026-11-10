@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MdArrowBack, MdErrorOutline, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from '../../i18n';
 import logo from '../../assets/unhimas_logo.jpg';
 import '../../styles/components-auth.css';
 
@@ -19,6 +20,7 @@ const schema = z.object({
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { language, toggleLanguage, translateText } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +32,7 @@ export default function ResetPasswordPage() {
     setError('');
     const { error: authError } = await supabase.auth.updateUser({ password });
     if (authError) {
-      setError('The password could not be updated. Please request a new reset link.');
+      setError(translateText('The password could not be updated. Please request a new reset link.'));
       setLoading(false);
       return;
     }
@@ -52,7 +54,7 @@ export default function ResetPasswordPage() {
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          if (!cancelled) setError('This reset link has expired or is invalid. Request another password reset link.');
+          if (!cancelled) setError(translateText('This reset link has expired or is invalid. Request another password reset link.'));
           return;
         }
         if (!cancelled) setReady(true);
@@ -74,7 +76,7 @@ export default function ResetPasswordPage() {
           refresh_token: refreshToken,
         });
         if (sessionError) {
-          if (!cancelled) setError('This reset link has expired or is invalid. Request another password reset link.');
+          if (!cancelled) setError(translateText('This reset link has expired or is invalid. Request another password reset link.'));
           return;
         }
         if (!cancelled) setReady(true);
@@ -93,7 +95,7 @@ export default function ResetPasswordPage() {
         if (cancelled) return;
         const { data: { session } } = await supabase.auth.getSession();
         if (session) setReady(true);
-        else setError('This reset link has expired or is invalid. Request another password reset link.');
+        else setError(translateText('This reset link has expired or is invalid. Request another password reset link.'));
       }, 2500);
     };
 
@@ -102,37 +104,73 @@ export default function ResetPasswordPage() {
       cancelled = true;
       if (authUnsubscribe) authUnsubscribe();
     };
-  }, [searchParams]);
+  }, [searchParams, translateText]);
 
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-card-header">
+        <div className="auth-card-header" style={{ position: 'relative' }}>
           <img src={logo} alt="UNHIMAS logo" className="auth-logo" />
           <div className="auth-school-name">UNHIMAS</div>
-          <div className="auth-school-subtitle">Password Recovery</div>
+          <div className="auth-school-subtitle">{translateText('Password Recovery')}</div>
+          <button
+            type="button"
+            className="lang-btn"
+            style={{ position: 'absolute', top: 12, right: 12 }}
+            onClick={toggleLanguage}
+            title={translateText('Toggle Language')}
+          >
+            {language === 'en' ? 'FR' : 'EN'}
+          </button>
         </div>
         <div className="auth-card-body">
-          <h1 className="auth-title">Create a new password</h1>
+          <h1 className="auth-title">{translateText('Create a new password')}</h1>
           {error && <div className="auth-alert error" role="alert"><MdErrorOutline />{error}</div>}
-          {!ready && !error && <div className="auth-alert" role="status">Verifying reset session…</div>}
-          {ready && <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">New password</label>
-              <div className="form-input-wrapper">
-                <input id="password" type={showPassword ? 'text' : 'password'} className={`form-input with-icon-right ${errors.password ? 'error' : ''}`} autoComplete="new-password" {...register('password')} />
-                <button type="button" className="input-icon-right" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <MdVisibilityOff /> : <MdVisibility />}</button>
+          {!ready && !error && <div className="auth-alert" role="status">{translateText('Verifying reset session…')}</div>}
+          {ready && (
+            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">{translateText('New password')}</label>
+                <div className="form-input-wrapper">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    className={`form-input with-icon-right ${errors.password ? 'error' : ''}`}
+                    autoComplete="new-password"
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    className="input-icon-right"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? translateText('Hide password') : translateText('Show password')}
+                  >
+                    {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
+                  </button>
+                </div>
+                {errors.password && <div className="form-error" role="alert"><MdErrorOutline />{translateText(errors.password.message)}</div>}
               </div>
-              {errors.password && <div className="form-error" role="alert"><MdErrorOutline />{errors.password.message}</div>}
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
-              <input id="confirmPassword" type={showPassword ? 'text' : 'password'} className={`form-input ${errors.confirmPassword ? 'error' : ''}`} autoComplete="new-password" {...register('confirmPassword')} />
-              {errors.confirmPassword && <div className="form-error" role="alert"><MdErrorOutline />{errors.confirmPassword.message}</div>}
-            </div>
-            <button type="submit" className="btn btn-primary btn-full" disabled={loading}>{loading ? 'Updating…' : 'Update password'}</button>
-          </form>}
-          <div style={{ textAlign: 'center', marginTop: '1rem' }}><Link to="/login" className="auth-link"><MdArrowBack /> Back to login</Link></div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="confirmPassword">{translateText('Confirm password')}</label>
+                <input
+                  id="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                  autoComplete="new-password"
+                  {...register('confirmPassword')}
+                />
+                {errors.confirmPassword && <div className="form-error" role="alert"><MdErrorOutline />{translateText(errors.confirmPassword.message)}</div>}
+              </div>
+              <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                {loading ? translateText('Updating…') : translateText('Update password')}
+              </button>
+            </form>
+          )}
+          <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+            <Link to="/login" className="auth-link">
+              <MdArrowBack /> {translateText('Back to login')}
+            </Link>
+          </div>
         </div>
       </div>
     </div>

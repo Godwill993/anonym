@@ -303,6 +303,7 @@ export async function listPayments({ studentId, invoiceId, limit = 100 } = {}) {
 /**
  * Record a payment attempt (typically initiated by a student).
  * Enforces pending status by default under RLS.
+ * Includes server-side duplicate prevention (idempotency guard).
  */
 export async function initiatePayment({
   invoiceId,
@@ -324,6 +325,25 @@ export async function initiatePayment({
   });
   if (!validated.ok) {
     throw new Error(validated.message);
+  }
+
+  // Idempotency: prevent double-clicks from creating duplicate pending payments
+  const { data: recentPending } = await supabase
+    .from('payments')
+    .select('id, payment_reference, created_at, status, amount')
+    .eq('invoice_id', validated.invoiceId)
+    .eq('student_id', validated.studentId)
+    .eq('status', 'pending')
+    .eq('amount', validated.amount)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (recentPending && recentPending.length > 0) {
+    const elapsedMs = Date.now() - new Date(recentPending[0].created_at).getTime();
+    if (elapsedMs < 15000) {
+      // Re-use existing pending payment rather than duplicating
+      return recentPending[0];
+    }
   }
 
   const envAllowsAutoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
@@ -386,6 +406,23 @@ export async function recordAdminPayment({
     throw new Error(validated.message);
   }
 
+  // Idempotency: check if an identical payment was just created within the last 10 seconds
+  const { data: recentPayments } = await supabase
+    .from('payments')
+    .select('id, payment_reference, created_at, status, amount, students:student_id ( email, first_name, last_name )')
+    .eq('invoice_id', validated.invoiceId)
+    .eq('student_id', validated.studentId)
+    .eq('amount', validated.amount)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (recentPayments && recentPayments.length > 0) {
+    const elapsedMs = Date.now() - new Date(recentPayments[0].created_at).getTime();
+    if (elapsedMs < 10000) {
+      return recentPayments[0];
+    }
+  }
+
   let paymentReference;
   try {
     const { data } = await supabase.rpc('generate_payment_reference');
@@ -430,13 +467,14 @@ export async function recordAdminPayment({
 
 /**
  * Admin path to complete a payment (pending -> completed).
+ * Idempotent: returns existing payment if already completed.
  */
 export async function markPaymentCompleted(paymentId, { providerReference, recordedBy } = {}) {
   if (!paymentId) throw new Error('Payment id is required');
 
   const { data: existing, error: findErr } = await supabase
     .from('payments')
-    .select('id, status, payment_reference, amount')
+    .select('id, status, payment_reference, amount, receipt_number')
     .eq('id', paymentId)
     .maybeSingle();
   if (findErr) throw findErr;
@@ -445,7 +483,8 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
   const gate = canCompletePayment(existing.status);
   if (!gate.ok) {
     if (gate.reason === 'already_completed') {
-      throw new Error('This payment is already completed');
+      // Idempotent: already completed, return existing
+      return existing;
     }
     throw new Error(`Cannot complete a payment with status "${existing.status}"`);
   }
@@ -464,7 +503,13 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
     .maybeSingle();
   if (error) throw error;
   if (!data) {
-    throw new Error('Payment status changed concurrently; refresh and try again');
+    // Re-fetch to return latest state if concurrent update succeeded
+    const { data: latest } = await supabase
+      .from('payments')
+      .select('*, students:student_id ( email, first_name, last_name )')
+      .eq('id', paymentId)
+      .maybeSingle();
+    return latest || existing;
   }
 
   const email = data?.students?.email;
@@ -481,13 +526,14 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
 
 /**
  * Admin path to reject / mark a pending payment as failed.
+ * Idempotent: returns existing payment if already failed.
  */
 export async function markPaymentFailed(paymentId, { reason, recordedBy } = {}) {
   if (!paymentId) throw new Error('Payment id is required');
 
   const { data: existing, error: findErr } = await supabase
     .from('payments')
-    .select('id, status, notes')
+    .select('id, status, notes, payment_reference')
     .eq('id', paymentId)
     .maybeSingle();
   if (findErr) throw findErr;
@@ -496,7 +542,7 @@ export async function markPaymentFailed(paymentId, { reason, recordedBy } = {}) 
   const gate = canFailPayment(existing.status);
   if (!gate.ok) {
     if (gate.reason === 'already_failed') {
-      throw new Error('This payment is already marked as failed');
+      return existing;
     }
     throw new Error(`Cannot reject a payment with status "${existing.status}"`);
   }
@@ -519,7 +565,12 @@ export async function markPaymentFailed(paymentId, { reason, recordedBy } = {}) 
     .maybeSingle();
   if (error) throw error;
   if (!data) {
-    throw new Error('Payment status changed concurrently; refresh and try again');
+    const { data: latest } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .maybeSingle();
+    return latest || existing;
   }
   return data;
 }

@@ -38,9 +38,11 @@ import {
   isProgrammePeriodComplete,
   resolveProgrammeEndAcademicYear,
 } from '../../lib/programmeAcademicYear';
+import { useTranslation } from '../../i18n';
 
 export default function BatchesPage() {
   const queryClient = useQueryClient();
+  const { translateText } = useTranslation();
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDeptFilter = searchParams.get('department') || '';
@@ -91,51 +93,51 @@ export default function BatchesPage() {
     mutationFn: createBatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      toast.success('Batch created');
+      toast.success(translateText('Batch created'));
       setIsModalOpen(false);
     },
-    onError: (err) => toast.error(err.message || 'Failed to create batch'),
+    onError: (err) => toast.error(err.message || translateText('Failed to create batch')),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }) => updateBatch(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      toast.success('Batch updated');
+      toast.success(translateText('Batch updated'));
       setIsModalOpen(false);
       setEditingBatch(null);
     },
-    onError: (err) => toast.error(err.message || 'Failed to update batch'),
+    onError: (err) => toast.error(err.message || translateText('Failed to update batch')),
   });
 
   const completeMutation = useMutation({
     mutationFn: ({ batchId, result }) => markBatchProgrammeCompleted(batchId, result),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
-      toast.success('Programme completion recorded');
+      toast.success(translateText('Programme completion recorded'));
       setCompleteBatch(null);
     },
-    onError: (err) => toast.error(err.message || 'Failed to complete programme'),
+    onError: (err) => toast.error(err.message || translateText('Failed to complete programme')),
   });
 
   const assignCourseMutation = useMutation({
     mutationFn: (payload) => assignBatchCourse(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batch-courses', programmeBatch?.id] });
-      toast.success('Course assigned');
+      toast.success(translateText('Course assigned'));
       setAddCourseOpen(false);
       setCourseForm({ course_id: '', semester_id: '' });
     },
-    onError: (err) => toast.error(err.message || 'Failed to assign course'),
+    onError: (err) => toast.error(err.message || translateText('Failed to assign course')),
   });
 
   const removeCourseMutation = useMutation({
     mutationFn: (id) => deleteBatchCourse(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batch-courses', programmeBatch?.id] });
-      toast.success('Course removed');
+      toast.success(translateText('Course removed'));
     },
-    onError: (err) => toast.error(err.message || 'Failed to remove course'),
+    onError: (err) => toast.error(err.message || translateText('Failed to remove course')),
   });
 
   const openAdd = () => {
@@ -195,23 +197,23 @@ export default function BatchesPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.department_id || !formData.academic_year_id) {
-      toast.error('Name, department, and school year are required');
+      toast.error(translateText('Name, department, and school year are required'));
       return;
     }
     if (!formData.programme_id) {
-      toast.error('Programme is required (HND, B.Tech, or M.Tech). Students inherit it from this batch.');
+      toast.error(translateText('Programme is required (HND, B.Tech, or M.Tech). Students inherit it from this batch.'));
       return;
     }
     if (durationLoading) {
-      toast.error('Wait for the programme duration to finish loading');
+      toast.error(translateText('Wait for the programme duration to finish loading'));
       return;
     }
     if (durationError) {
-      toast.error(durationError.message || 'Could not load the effective programme duration');
+      toast.error(durationError.message || translateText('Could not load the effective programme duration'));
       return;
     }
     if (!endAcademicYear) {
-      toast.error('Add the required future academic years before creating this cohort.');
+      toast.error(translateText('Add the required future academic years before creating this cohort.'));
       return;
     }
     const dept = departments.find((d) => d.id === formData.department_id);
@@ -245,16 +247,16 @@ export default function BatchesPage() {
   });
 
   return (
-    <AppLayout>
+    <AppLayout pageTitle={translateText('Batches')}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Batches</h1>
+          <h1 className="page-title">{translateText('Batches')}</h1>
           <p className="page-subtitle">
-            Stable student cohorts spanning their programme start and end academic years
+            {translateText('Stable student cohorts spanning their programme start and end academic years')}
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={openAdd}>
-          <MdAdd /> Add Batch
+          <MdAdd /> {translateText('Add Batch')}
         </button>
       </div>
 
@@ -265,8 +267,8 @@ export default function BatchesPage() {
               className="form-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search batch, level, department…"
-              aria-label="Search batch, level, department…"
+              placeholder={translateText('Search batch, level, department…')}
+              aria-label={translateText('Search batch, level, department…')}
             />
           </div>
           <div style={{ minWidth: 200 }}>
@@ -281,9 +283,9 @@ export default function BatchesPage() {
                   setSearchParams({});
                 }
               }}
-              aria-label="Department"
+              aria-label={translateText('Department')}
             >
-              <option value="">All departments</option>
+              <option value="">{translateText('All departments')}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
@@ -297,19 +299,19 @@ export default function BatchesPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Department</th>
-                <th>Programme</th>
-                <th>Programme years</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{translateText('Name')}</th>
+                <th>{translateText('Department')}</th>
+                <th>{translateText('Programme')}</th>
+                <th>{translateText('Programme years')}</th>
+                <th>{translateText('Status')}</th>
+                <th>{translateText('Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6}>Loading…</td></tr>
+                <tr><td colSpan={6}>{translateText('Loading…')}</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6}>No batches found</td></tr>
+                <tr><td colSpan={6}>{translateText('No batches found')}</td></tr>
               ) : (
                 filtered.map((batch) => (
                   <tr key={batch.id}>
@@ -324,33 +326,33 @@ export default function BatchesPage() {
                     <td>
                       {getProgrammeAcademicYearRangeLabel(batch) || batch.level_name || '—'}
                       {isCompletionEligible(batch) && (
-                        <span className="badge badge-amber" style={{ marginLeft: 6 }}>Programme ended</span>
+                        <span className="badge badge-amber" style={{ marginLeft: 6 }}>{translateText('Programme ended')}</span>
                       )}
                     </td>
                     <td>
                       <span className={`badge ${batch.is_active !== false ? 'badge-success' : 'badge-danger'}`}>
-                        {batch.is_active !== false ? 'Active' : 'Inactive'}
+                        {batch.is_active !== false ? translateText('Active') : translateText('Inactive')}
                       </span>
                     </td>
                     <td>
                       <RowActionsMenu
-                        ariaLabel="Batch actions"
+                        ariaLabel={translateText('Batch actions')}
                         items={[
                           {
                             id: 'edit',
-                            label: 'Edit',
+                            label: translateText('Edit'),
                             icon: <MdEdit />,
                             onClick: () => openEdit(batch),
                           },
                           {
                             id: 'programme',
-                            label: 'Manage courses',
+                            label: translateText('Manage courses'),
                             icon: <MdMenuBook />,
                             onClick: () => setProgrammeBatch(batch),
                           },
                           {
                             id: 'complete',
-                            label: 'Mark programme completed',
+                            label: translateText('Mark programme completed'),
                             icon: <MdCheckCircle />,
                             onClick: async () => {
                               try {
@@ -358,13 +360,13 @@ export default function BatchesPage() {
                                 if (!isFinalYear) {
                                   toast.error(
                                     source === 'rpc'
-                                      ? 'This cohort programme period has not ended yet (server check).'
-                                      : 'This cohort programme period has not ended yet.',
+                                      ? translateText('This cohort programme period has not ended yet (server check).')
+                                      : translateText('This cohort programme period has not ended yet.'),
                                   );
                                   return;
                                 }
                               } catch (err) {
-                                toast.error(err.message || 'Could not verify final year');
+                                toast.error(err.message || translateText('Could not verify final year'));
                                 return;
                               }
                               setCompleteBatch(batch);
@@ -374,7 +376,7 @@ export default function BatchesPage() {
                           },
                           {
                             id: 'toggle',
-                            label: batch.is_active !== false ? 'Deactivate' : 'Activate',
+                            label: batch.is_active !== false ? translateText('Deactivate') : translateText('Activate'),
                             icon: batch.is_active !== false ? <MdToggleOn /> : <MdToggleOff />,
                             onClick: () =>
                               updateMutation.mutate({
@@ -395,7 +397,7 @@ export default function BatchesPage() {
 
       {isModalOpen && (
         <Modal
-          title={editingBatch ? 'Edit Batch' : 'Add Batch'}
+          title={editingBatch ? translateText('Edit Batch') : translateText('Add Batch')}
           onClose={() => {
             setIsModalOpen(false);
             setEditingBatch(null);
@@ -403,7 +405,7 @@ export default function BatchesPage() {
         >
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Name *</label>
+              <label className="form-label">{translateText('Name *')}</label>
               <input
                 className="form-input"
                 value={formData.name}
@@ -412,35 +414,35 @@ export default function BatchesPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Department *</label>
+              <label className="form-label">{translateText('Department *')}</label>
               <select
                 className="form-input"
                 value={formData.department_id}
                 onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
                 required
               >
-                <option value="">Select department</option>
+                <option value="">{translateText('Select department')}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Programme start academic year *</label>
+              <label className="form-label">{translateText('Programme start academic year *')}</label>
               <select
                 className="form-input"
                 value={formData.academic_year_id}
                 onChange={(e) => setFormData({ ...formData, academic_year_id: e.target.value })}
                 required
               >
-                <option value="">Select start year</option>
+                <option value="">{translateText('Select start year')}</option>
                 {academicYears.map((y) => (
                   <option key={y.id} value={y.id}>{y.name}</option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Programme *</label>
+              <label className="form-label">{translateText('Programme *')}</label>
               <select
                 className="form-input"
                 value={formData.programme_id}
@@ -450,7 +452,7 @@ export default function BatchesPage() {
                 }}
                 required
               >
-                <option value="">Select programme</option>
+                <option value="">{translateText('Select programme')}</option>
                 {programmes.map((p) => {
                   const duration = p.id === formData.programme_id
                     ? effectiveDuration ?? p.duration_years
@@ -458,23 +460,23 @@ export default function BatchesPage() {
                   return (
                     <option key={p.id} value={p.id}>
                       {p.code} — {p.name}
-                      {duration != null ? ` (${duration} yr${Number(duration) === 1 ? '' : 's'})` : ''}
+                      {duration != null ? ` (${duration} ${Number(duration) === 1 ? translateText('yr') : translateText('yrs')})` : ''}
                     </option>
                   );
                 })}
               </select>
               <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
-                Students inherit this programme from the batch. The effective duration sets the cohort end year.
-                {effectiveDuration != null && ` Effective duration: ${effectiveDuration} academic year(s).`}
+                {translateText('Students inherit this programme from the batch. The effective duration sets the cohort end year.')}
+                {effectiveDuration != null && ` ${translateText('Effective duration:')} ${effectiveDuration} ${translateText('academic year(s).')}`}
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Programme end academic year</label>
+                <label className="form-label">{translateText('Programme end academic year')}</label>
                 <input
                   className="form-input"
-                  value={durationLoading ? 'Calculating…' : (endAcademicYear?.name || '')}
-                  placeholder="Select programme, department, and start year"
+                  value={durationLoading ? translateText('Calculating…') : (endAcademicYear?.name || '')}
+                  placeholder={translateText('Select programme, department, and start year')}
                   readOnly
                 />
                 {durationError && (
@@ -485,12 +487,12 @@ export default function BatchesPage() {
                 {!endAcademicYear && !durationLoading && !durationError
                   && formData.academic_year_id && formData.programme_id && formData.department_id && (
                   <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
-                    Add missing future sessions in <Link to="/admin/academic-years">Academic Years</Link>.
+                    {translateText('Add missing future sessions in')} <Link to="/admin/academic-years">{translateText('Academic Years')}</Link>.
                   </p>
                 )}
               </div>
               <div className="form-group">
-                <label className="form-label">Level name</label>
+                <label className="form-label">{translateText('Level name')}</label>
                 <input
                   className="form-input"
                   value={formData.level_name}
@@ -499,7 +501,7 @@ export default function BatchesPage() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Batch number</label>
+                <label className="form-label">{translateText('Batch number')}</label>
                 <input
                   type="number"
                   min={1}
@@ -510,9 +512,11 @@ export default function BatchesPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+                {translateText('Cancel')}
+              </button>
               <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingBatch ? 'Save changes' : 'Create batch'}
+                {editingBatch ? translateText('Save changes') : translateText('Create batch')}
               </button>
             </div>
           </form>
@@ -520,24 +524,24 @@ export default function BatchesPage() {
       )}
 
       {programmeBatch && (
-        <Modal title={`Courses — ${programmeBatch.name}`} onClose={() => setProgrammeBatch(null)}>
+        <Modal title={`${translateText('Courses')} — ${programmeBatch.name}`} onClose={() => setProgrammeBatch(null)}>
           <div style={{ marginBottom: 12 }}>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => setAddCourseOpen(true)}>
-              <MdAdd /> Assign course
+              <MdAdd /> {translateText('Assign course')}
             </button>
           </div>
           {programmeLoading ? (
-            <p>Loading…</p>
+            <p>{translateText('Loading…')}</p>
           ) : batchCourses.length === 0 ? (
-            <p style={{ color: 'var(--color-text-muted)' }}>No courses assigned to this batch.</p>
+            <p style={{ color: 'var(--color-text-muted)' }}>{translateText('No courses assigned to this batch.')}</p>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Course</th>
-                    <th>Semester</th>
+                    <th>{translateText('Code')}</th>
+                    <th>{translateText('Course')}</th>
+                    <th>{translateText('Semester')}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -552,6 +556,7 @@ export default function BatchesPage() {
                           type="button"
                           className="btn btn-sm btn-outline"
                           onClick={() => removeCourseMutation.mutate(bc.id)}
+                          title={translateText('Remove course')}
                         >
                           <MdDelete />
                         </button>
@@ -566,28 +571,28 @@ export default function BatchesPage() {
       )}
 
       {addCourseOpen && programmeBatch && (
-        <Modal title="Assign course" onClose={() => setAddCourseOpen(false)}>
+        <Modal title={translateText('Assign course')} onClose={() => setAddCourseOpen(false)}>
           <div className="form-group">
-            <label className="form-label">Course</label>
+            <label className="form-label">{translateText('Course')}</label>
             <select
               className="form-input"
               value={courseForm.course_id}
               onChange={(e) => setCourseForm({ ...courseForm, course_id: e.target.value })}
             >
-              <option value="">Select…</option>
+              <option value="">{translateText('Select…')}</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Semester</label>
+            <label className="form-label">{translateText('Semester')}</label>
             <select
               className="form-input"
               value={courseForm.semester_id}
               onChange={(e) => setCourseForm({ ...courseForm, semester_id: e.target.value })}
             >
-              <option value="">Select…</option>
+              <option value="">{translateText('Select…')}</option>
               {semesters
                 .filter((semester) => isAcademicYearInProgrammeRange(semester.academic_years, programmeBatch))
                 .map((s) => (
@@ -598,13 +603,14 @@ export default function BatchesPage() {
             </select>
             {!semesters.some((semester) => isAcademicYearInProgrammeRange(semester.academic_years, programmeBatch)) && (
               <p className="form-hint">
-                No semesters are configured within this programme period. Add them in{' '}
-                <Link to="/admin/academic-years">Academic Years</Link>.
+                {translateText('No semesters are configured within this programme period. Add them in')} <Link to="/admin/academic-years">{translateText('Academic Years')}</Link>.
               </p>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setAddCourseOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setAddCourseOpen(false)}>
+              {translateText('Cancel')}
+            </button>
             <button
               type="button"
               className="btn btn-primary"
@@ -618,38 +624,39 @@ export default function BatchesPage() {
                 })
               }
             >
-              Assign
+              {translateText('Assign')}
             </button>
           </div>
         </Modal>
       )}
 
       {completeBatch && (
-        <Modal title="Mark programme completed" onClose={() => setCompleteBatch(null)}>
+        <Modal title={translateText('Mark programme completed')} onClose={() => setCompleteBatch(null)}>
           <p>
-            Mark all active students in <strong>{completeBatch.name}</strong> as having completed{' '}
-            {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : 'their programme'}.
+            {translateText('Mark all active students in')} <strong>{completeBatch.name}</strong> {translateText('as having completed')}{' '}
+            {completeBatch.programmes ? <code>{completeBatch.programmes.code}</code> : translateText('their programme')}.
           </p>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-            Completion is available after the cohort's programme end academic year has finished.
-            Requires migration <code>20261104200000_batch_programme_year_range.sql</code> on Supabase.
+            {translateText("Completion is available after the cohort's programme end academic year has finished. Requires migration 20261104200000_batch_programme_year_range.sql on Supabase.")}
           </p>
           <div className="form-group">
-            <label className="form-label">Result</label>
+            <label className="form-label">{translateText('Result')}</label>
             <select className="form-input" value={completeResult} onChange={(e) => setCompleteResult(e.target.value)}>
-              <option value="pass">Pass</option>
-              <option value="fail_or_exit">Fail / exit</option>
+              <option value="pass">{translateText('Pass')}</option>
+              <option value="fail_or_exit">{translateText('Fail / exit')}</option>
             </select>
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setCompleteBatch(null)}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setCompleteBatch(null)}>
+              {translateText('Cancel')}
+            </button>
             <button
               type="button"
               className="btn btn-primary"
               disabled={completeMutation.isPending}
               onClick={() => completeMutation.mutate({ batchId: completeBatch.id, result: completeResult })}
             >
-              Confirm
+              {translateText('Confirm')}
             </button>
           </div>
         </Modal>
