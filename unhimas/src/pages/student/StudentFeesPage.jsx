@@ -10,6 +10,9 @@ import {
   MdRefresh,
   MdInfo,
   MdDownload,
+  MdPrint,
+  MdAccountBalance,
+  MdPendingActions,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
@@ -24,13 +27,18 @@ import {
   getStudentFeeBalance,
   formatXAF,
   PAYMENT_METHODS,
+  initiatePayment,
   createStudentResitInvoice,
 } from '../../services/feesService';
 import {
   getCurrentSemesterForStudent,
   listBatchCoursesForSemester,
 } from '../../services/courseRegistrationService';
-import { downloadPaymentReceipt } from '../../utils/studentDocuments';
+import {
+  downloadPaymentReceipt,
+  printPaymentQuitus,
+  printFeeStatement,
+} from '../../utils/studentDocuments';
 import mtnMomoLogo from '../../assets/mtnMomo.png';
 import orangeOmLogo from '../../assets/orangeOm.png';
 
@@ -91,9 +99,11 @@ export default function StudentFeesPage() {
   );
   const [selectedResitCourseIds, setSelectedResitCourseIds] = useState([]);
   const [payMethod, setPayMethod] = useState(
-    location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
+    location.state?.paymentMethod || 'mtn_momo',
   );
   const [phone, setPhone] = useState('');
+  const [providerRef, setProviderRef] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
 
   const {
     data: studentProfile,
@@ -116,7 +126,7 @@ export default function StudentFeesPage() {
 
   const { data: invoices = [], isLoading: invLoading } = useQuery({
     queryKey: ['student-invoices', studentId],
-    queryFn: () => listInvoices({ studentId, limit: 30 }),
+    queryFn: () => listInvoices({ studentId, limit: 50 }),
     enabled: !!studentId,
   });
 
@@ -139,7 +149,7 @@ export default function StudentFeesPage() {
 
   const { data: payments = [], isLoading: payLoading } = useQuery({
     queryKey: ['student-payments', studentId],
-    queryFn: () => listPayments({ studentId, limit: 30 }),
+    queryFn: () => listPayments({ studentId, limit: 50 }),
     enabled: !!studentId,
   });
 
@@ -157,14 +167,61 @@ export default function StudentFeesPage() {
     },
   });
 
+  const payMutation = useMutation({
+    mutationFn: initiatePayment,
+    onSuccess: (res) => {
+      toast.success(
+        `${translateText('Payment submitted successfully')} (${res.payment_reference}). ${translateText('Awaiting administrative verification.')}`,
+      );
+      setPayInvoice(null);
+      setPayAmount('');
+      setPhone('');
+      setProviderRef('');
+      setPaymentNotes('');
+      queryClient.invalidateQueries({ queryKey: ['student-invoices', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['student-payments', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['student-fee-balance', studentId] });
+    },
+    onError: (err) => {
+      toast.error(err?.message || translateText('Payment submission failed'));
+    },
+  });
+
   function openPay(inv) {
     setPayInvoice(inv);
     const remaining = Number(inv.balance ?? inv.total_amount - inv.amount_paid) || 0;
     setPayAmount(remaining > 0 ? String(remaining) : '');
     setPayMethod(
-      location.state?.paymentMethod === 'orange_money' ? 'orange_money' : 'mtn_momo',
+      location.state?.paymentMethod || 'mtn_momo',
     );
     setPhone('');
+    setProviderRef('');
+    setPaymentNotes('');
+  }
+
+  function handlePaymentSubmit(e) {
+    e.preventDefault();
+    const amountNum = Number(payAmount);
+    if (!amountNum || amountNum <= 0) {
+      toast.error(translateText('Please enter a valid payment amount'));
+      return;
+    }
+
+    const remaining = Number(payInvoice.balance ?? payInvoice.total_amount - payInvoice.amount_paid) || 0;
+    if (amountNum > remaining) {
+      toast.error(translateText('Amount cannot exceed outstanding invoice balance'));
+      return;
+    }
+
+    payMutation.mutate({
+      invoiceId: payInvoice.id,
+      studentId,
+      amount: amountNum,
+      method: payMethod,
+      phoneNumber: phone || null,
+      providerReference: providerRef || null,
+      notes: paymentNotes || null,
+    });
   }
 
   if (stuLoading) {
@@ -189,7 +246,7 @@ export default function StudentFeesPage() {
   }
 
   const outstanding = Number(balance?.outstanding_balance ?? 0);
-  const needsMoMoPhone = payMethod === 'mtn_momo' || payMethod === 'orange_money';
+  const isMoMo = payMethod === 'mtn_momo' || payMethod === 'orange_money';
   const visibleInvoices =
     paymentType === 'all'
       ? invoices
@@ -211,10 +268,24 @@ export default function StudentFeesPage() {
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Fees & Payments')}</h1>
           <p className="page-subtitle">
-            {translateText('View your fee balance and invoices.')}
+            {translateText('View your fee balance, submit payments, and download official receipts.')}
           </p>
         </div>
-        <div className="page-header-actions">
+        <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() =>
+              printFeeStatement({
+                student: studentProfile,
+                balance,
+                invoices,
+                payments,
+              })
+            }
+          >
+            <MdPrint /> {translateText('Fee statement')}
+          </button>
           <button
             type="button"
             className="btn btn-outline btn-sm"
@@ -269,7 +340,7 @@ export default function StudentFeesPage() {
         <MdInfo size={18} style={{ flexShrink: 0 }} />
         <span>
           {translateText(
-            'MTN MoMo and Orange Money checkout is not configured yet. You can prepare invoices, but online payment is unavailable until gateway setup is complete.',
+            'Payments submitted via Mobile Money or Bank deposit are reviewed and confirmed by the university finance administration. Receipts are issued automatically upon confirmation.',
           )}
         </span>
       </div>
@@ -440,7 +511,7 @@ export default function StudentFeesPage() {
               <MdPayments color="var(--color-primary)" /> {translateText('Payment history')}
             </span>
           </div>
-          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 480, overflowY: 'auto' }}>
             {payLoading ? (
               <div className="empty-state">{translateText('Loading payments…')}</div>
             ) : payments.length === 0 ? (
@@ -450,18 +521,23 @@ export default function StudentFeesPage() {
               </div>
             ) : (
               payments.map((p) => (
-                <div key={p.id} className="list-row">
+                <div key={p.id} className="list-row" style={{ alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
                       {formatXAF(p.amount)}
                       <span className={`badge ${statusBadge(p.status)}`} style={{ marginLeft: 8 }}>
-                        {p.status}
+                        {p.status === 'pending' ? translateText('Pending verification') : p.status}
                       </span>
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
                       {p.payment_reference}
                       {p.receipt_number ? ` · ${p.receipt_number}` : ''}
                     </div>
+                    {p.provider_reference && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                        {translateText('Transaction Ref')}: <strong>{p.provider_reference}</strong>
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                       {p.method?.replace('_', ' ')} ·{' '}
                       {p.paid_at
@@ -469,25 +545,45 @@ export default function StudentFeesPage() {
                         : new Date(p.created_at).toLocaleString()}
                     </div>
                   </div>
-                  {p.status === 'completed' && (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() =>
-                        downloadPaymentReceipt(
-                          { ...p, student_invoices: p.student_invoices },
-                          studentProfile,
-                        ).catch((err) => {
-                          toast.error(
-                            err?.message || translateText('Could not download receipt'),
-                          );
-                        })
-                      }
-                      title={translateText('Download receipt')}
-                    >
-                      <MdDownload size={14} /> {translateText('Download receipt')}
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {p.status === 'completed' && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() =>
+                            downloadPaymentReceipt(
+                              { ...p, student_invoices: p.student_invoices },
+                              studentProfile,
+                            ).catch((err) => {
+                              toast.error(
+                                err?.message || translateText('Could not download receipt'),
+                              );
+                            })
+                          }
+                          title={translateText('Download receipt')}
+                        >
+                          <MdDownload size={14} /> {translateText('Receipt')}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => printPaymentQuitus(p, studentProfile)}
+                          title={translateText('Print quitus')}
+                        >
+                          <MdPrint size={14} /> {translateText('Quitus')}
+                        </button>
+                      </>
+                    )}
+                    {p.status === 'pending' && (
+                      <span
+                        className="badge badge-warning"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.75rem' }}
+                      >
+                        <MdPendingActions size={13} /> {translateText('Under review')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -500,9 +596,9 @@ export default function StudentFeesPage() {
           title={translateText('Pay invoice') + ` ${payInvoice.invoice_number}`}
           onClose={() => setPayInvoice(null)}
         >
-          <form onSubmit={(event) => event.preventDefault()} className="form-stack" noValidate>
+          <form onSubmit={handlePaymentSubmit} className="form-stack">
             <div className="form-group">
-              <label>{translateText('Amount (XAF)')}</label>
+              <label>{translateText('Payment amount (XAF)')}</label>
               <input
                 type="number"
                 min="1"
@@ -514,9 +610,13 @@ export default function StudentFeesPage() {
                 required
               />
               <p className="form-hint">
-                {translateText('Enter any amount up to the outstanding invoice balance.')}
+                {translateText('Outstanding balance')}:{' '}
+                <strong>
+                  {formatXAF(Number(payInvoice.balance ?? payInvoice.total_amount - payInvoice.amount_paid))}
+                </strong>
               </p>
             </div>
+
             <fieldset
               className="form-group"
               style={{ border: 0, padding: 0, marginInline: 0 }}
@@ -527,18 +627,18 @@ export default function StudentFeesPage() {
                 aria-label={translateText('Payment method')}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                   gap: 8,
                 }}
               >
-                {PAYMENT_METHODS.filter((method) => PAYMENT_METHOD_LOGOS[method.value]).map((m) => (
+                {PAYMENT_METHODS.map((m) => (
                   <label
                     key={m.value}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
-                      minHeight: 52,
+                      minHeight: 48,
                       padding: '8px 10px',
                       border: `1px solid ${
                         payMethod === m.value
@@ -560,25 +660,30 @@ export default function StudentFeesPage() {
                       checked={payMethod === m.value}
                       onChange={(e) => setPayMethod(e.target.value)}
                     />
-                    {PAYMENT_METHOD_LOGOS[m.value] && (
+                    {PAYMENT_METHOD_LOGOS[m.value] ? (
                       <img
                         src={PAYMENT_METHOD_LOGOS[m.value]}
                         alt=""
                         aria-hidden="true"
                         style={{
-                          width: 36,
-                          height: 36,
+                          width: 28,
+                          height: 28,
                           objectFit: 'contain',
                           flexShrink: 0,
                         }}
                       />
+                    ) : m.value === 'bank' ? (
+                      <MdAccountBalance size={22} color="var(--color-primary)" />
+                    ) : (
+                      <MdPayments size={22} color="var(--color-text-muted)" />
                     )}
-                    <span>{m.label}</span>
+                    <span style={{ fontSize: '0.85rem' }}>{m.label}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
-            {needsMoMoPhone && (
+
+            {isMoMo && (
               <div className="form-group">
                 <label>
                   <MdPhoneAndroid style={{ verticalAlign: 'middle' }} />{' '}
@@ -594,28 +699,81 @@ export default function StudentFeesPage() {
                   inputMode="tel"
                   autoComplete="tel"
                 />
-                <p className="form-hint" style={{ marginTop: 6, fontSize: '0.75rem' }}>
-                  {translateText(
-                    'Enter a Cameroon mobile number starting with 6 (nine digits).',
-                  )}
+                <p className="form-hint" style={{ marginTop: 4, fontSize: '0.75rem' }}>
+                  {translateText('Enter Cameroon 9-digit mobile number starting with 6.')}
                 </p>
               </div>
             )}
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+
+            <div className="form-group">
+              <label>
+                {isMoMo
+                  ? translateText('Transaction ID / SMS reference')
+                  : payMethod === 'bank'
+                  ? translateText('Bank slip reference / Deposit number')
+                  : translateText('Receipt / Transaction reference')}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder={
+                  isMoMo
+                    ? 'e.g. 192837465'
+                    : payMethod === 'bank'
+                    ? 'e.g. ECOBANK-DEP-9921'
+                    : 'Optional receipt or reference'
+                }
+                value={providerRef}
+                onChange={(e) => setProviderRef(e.target.value)}
+              />
+              <p className="form-hint" style={{ marginTop: 4, fontSize: '0.75rem' }}>
+                {translateText('Provide the reference received from the network or bank teller.')}
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label>{translateText('Notes / Remarks (optional)')}</label>
+              <textarea
+                className="form-control"
+                rows={2}
+                placeholder={translateText('e.g. Deposited by sponsor, tuition installment...')}
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+              />
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--color-text-muted)',
+                background: 'var(--color-bg)',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
               {translateText(
-                'Online checkout is unavailable until MTN and Orange sandbox credentials are configured. No payment will be submitted from this screen.',
+                'Once submitted, this payment will be flagged as Pending. An administrator will verify the funds and issue your official receipt (Quitus).',
               )}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setPayInvoice(null)}>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setPayInvoice(null)}
+                disabled={payMutation.isPending}
+              >
                 {translateText('Cancel')}
               </button>
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled
+                disabled={payMutation.isPending}
               >
-                <MdPayments /> {translateText('Checkout unavailable')}
+                <MdPayments />{' '}
+                {payMutation.isPending
+                  ? translateText('Submitting…')
+                  : translateText('Submit payment')}
               </button>
             </div>
           </form>

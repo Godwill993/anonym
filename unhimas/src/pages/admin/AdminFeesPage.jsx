@@ -7,6 +7,10 @@ import {
   MdCategory,
   MdReceiptLong,
   MdGroups,
+  MdSearch,
+  MdPolicy,
+  MdCancel,
+  MdInfo,
 } from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import Modal from '../../components/common/Modal';
@@ -21,8 +25,12 @@ import {
   upsertFeeCategory,
   upsertFeeStructure,
   createInvoice,
+  cancelInvoice,
   bulkCreateInvoices,
   formatXAF,
+  getFeeClearanceSetting,
+  updateFeeClearanceSetting,
+  INVOICE_STATUSES,
 } from '../../services/feesService';
 
 function statusBadgeClass(status) {
@@ -41,10 +49,17 @@ export default function AdminFeesPage() {
   const { translateText } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
+
   const [showCatModal, setShowCatModal] = useState(false);
   const [showStructModal, setShowStructModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [inspectInvoice, setInspectInvoice] = useState(null);
+
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+
   const [catForm, setCatForm] = useState({ code: '', name: '', description: '', sort_order: 50 });
   const [structForm, setStructForm] = useState({
     fee_category_id: '',
@@ -65,6 +80,11 @@ export default function AdminFeesPage() {
     due_date: '',
   });
 
+  const [policyForm, setPolicyForm] = useState({
+    enabled: true,
+    minPaidRatio: 1,
+  });
+
   const { data: categories = [], isLoading: catLoading } = useQuery({
     queryKey: ['fee-categories'],
     queryFn: () => listFeeCategories(),
@@ -77,7 +97,7 @@ export default function AdminFeesPage() {
 
   const { data: invoices = [], isLoading: invLoading } = useQuery({
     queryKey: ['admin-invoices'],
-    queryFn: () => listInvoices({ limit: 40 }),
+    queryFn: () => listInvoices({ limit: 100 }),
   });
 
   const { data: students = [] } = useQuery({
@@ -90,6 +110,15 @@ export default function AdminFeesPage() {
     queryKey: ['batches-for-bulk'],
     queryFn: () => getBatches(),
     enabled: showBulkModal,
+  });
+
+  const { data: clearancePolicy } = useQuery({
+    queryKey: ['fee-clearance-policy'],
+    queryFn: async () => {
+      const pol = await getFeeClearanceSetting();
+      setPolicyForm({ enabled: pol.enabled, minPaidRatio: pol.minPaidRatio });
+      return pol;
+    },
   });
 
   const catMutation = useMutation({
@@ -130,6 +159,17 @@ export default function AdminFeesPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const cancelInvoiceMutation = useMutation({
+    mutationFn: (id) => cancelInvoice(id),
+    onSuccess: () => {
+      toast.success(translateText('Invoice cancelled'));
+      setInspectInvoice(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const bulkMutation = useMutation({
     mutationFn: bulkCreateInvoices,
     onSuccess: (summary) => {
@@ -141,6 +181,16 @@ export default function AdminFeesPage() {
       setBulkForm({ batch_id: '', structure_ids: [], notes: '', due_date: '' });
       queryClient.invalidateQueries({ queryKey: ['admin-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['student-fee-balance'] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const policyMutation = useMutation({
+    mutationFn: updateFeeClearanceSetting,
+    onSuccess: () => {
+      toast.success(translateText('Fee clearance policy updated'));
+      setShowPolicyModal(false);
+      queryClient.invalidateQueries({ queryKey: ['fee-clearance-policy'] });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -201,6 +251,21 @@ export default function AdminFeesPage() {
     });
   };
 
+  const filteredInvoices = invoices.filter((inv) => {
+    if (invoiceStatusFilter && inv.status !== invoiceStatusFilter) return false;
+    if (invoiceSearch.trim()) {
+      const q = invoiceSearch.toLowerCase();
+      const s = inv.students;
+      const sName = `${s?.first_name || ''} ${s?.last_name || ''}`.toLowerCase();
+      const sMat = (s?.matricule || '').toLowerCase();
+      const iNum = (inv.invoice_number || '').toLowerCase();
+      if (!sName.includes(q) && !sMat.includes(q) && !iNum.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   const structureChecklist = (selectedIds, onToggle) => (
     <div
       style={{
@@ -250,10 +315,13 @@ export default function AdminFeesPage() {
         <div className="page-header-left">
           <h1 className="page-title">{translateText('Fees & Invoices')}</h1>
           <p className="page-subtitle">
-            {translateText('Manage fee categories, structures, and student invoices')}
+            {translateText('Manage fee categories, structures, student billing, and clearance policies')}
           </p>
         </div>
-        <div className="page-header-actions">
+        <div className="page-header-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowPolicyModal(true)}>
+            <MdPolicy /> {translateText('Clearance policy')}
+          </button>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCatModal(true)}>
             <MdCategory /> {translateText('Category')}
           </button>
@@ -344,22 +412,60 @@ export default function AdminFeesPage() {
         </div>
       )}
 
-      <div className="section-heading">
+      <div className="section-heading" style={{ marginTop: '2rem' }}>
         <h2>{translateText('Recent invoices')}</h2>
-        <span className="section-meta">{invoices.length}</span>
+        <span className="section-meta">{filteredInvoices.length}</span>
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: 12 }}>
           <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <MdPayments color="var(--color-primary)" aria-hidden="true" />{' '}
             {translateText('Ledger')}
           </span>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <MdSearch
+                size={18}
+                style={{
+                  position: 'absolute',
+                  left: 10,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--color-text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                className="form-control"
+                style={{ paddingLeft: 32, width: 220, height: 36 }}
+                placeholder={translateText('Search invoice or student…')}
+                value={invoiceSearch}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
+              />
+            </div>
+
+            <select
+              className="form-control"
+              style={{ width: 'auto', minWidth: 140, height: 36 }}
+              value={invoiceStatusFilter}
+              onChange={(e) => setInvoiceStatusFilter(e.target.value)}
+            >
+              <option value="">{translateText('All statuses')}</option>
+              {INVOICE_STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {st.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+
         <div style={{ overflowX: 'auto' }}>
           {invLoading ? (
             <div className="empty-state">{translateText('Loading…')}</div>
-          ) : invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-title">{translateText('No invoices')}</div>
               <p className="empty-state-text">
@@ -376,12 +482,31 @@ export default function AdminFeesPage() {
                   <th>{translateText('Total')}</th>
                   <th>{translateText('Paid')}</th>
                   <th>{translateText('Balance')}</th>
+                  <th>{translateText('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
+                {filteredInvoices.map((inv) => (
                   <tr key={inv.id}>
-                    <td style={{ fontWeight: 650 }}>{inv.invoice_number}</td>
+                    <td>
+                      <button
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 0,
+                          padding: 0,
+                          cursor: 'pointer',
+                          fontWeight: 650,
+                          color: 'var(--color-primary)',
+                        }}
+                        onClick={() => setInspectInvoice(inv)}
+                      >
+                        {inv.invoice_number}
+                      </button>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {inv.issue_date}
+                      </div>
+                    </td>
                     <td>
                       {inv.students
                         ? `${inv.students.first_name} ${inv.students.last_name}`
@@ -396,6 +521,16 @@ export default function AdminFeesPage() {
                     <td>{formatXAF(inv.total_amount)}</td>
                     <td>{formatXAF(inv.amount_paid)}</td>
                     <td style={{ fontWeight: 700 }}>{formatXAF(inv.balance)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setInspectInvoice(inv)}
+                        title={translateText('View details')}
+                      >
+                        <MdInfo size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -404,6 +539,224 @@ export default function AdminFeesPage() {
         </div>
       </div>
 
+      {/* Inspect Invoice Modal */}
+      {inspectInvoice && (
+        <Modal
+          title={`${translateText('Invoice')} ${inspectInvoice.invoice_number}`}
+          onClose={() => setInspectInvoice(null)}
+        >
+          <div className="form-stack">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <span className="entity-card-meta">{translateText('Student')}</span>
+                <div style={{ fontWeight: 650 }}>
+                  {inspectInvoice.students
+                    ? `${inspectInvoice.students.first_name} ${inspectInvoice.students.last_name}`
+                    : '—'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  {inspectInvoice.students?.matricule}
+                </div>
+              </div>
+              <div>
+                <span className="entity-card-meta">{translateText('Status')}</span>
+                <div>
+                  <span className={`badge ${statusBadgeClass(inspectInvoice.status)}`}>
+                    {inspectInvoice.status}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <span className="entity-card-meta">{translateText('Issue date')}</span>
+                <div>{inspectInvoice.issue_date || '—'}</div>
+              </div>
+              <div>
+                <span className="entity-card-meta">{translateText('Due date')}</span>
+                <div>{inspectInvoice.due_date || '—'}</div>
+              </div>
+              <div>
+                <span className="entity-card-meta">{translateText('Total amount')}</span>
+                <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>
+                  {formatXAF(inspectInvoice.total_amount)}
+                </div>
+              </div>
+              <div>
+                <span className="entity-card-meta">{translateText('Remaining balance')}</span>
+                <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-danger)' }}>
+                  {formatXAF(inspectInvoice.balance)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <span className="entity-card-meta">{translateText('Line items')}</span>
+              <table className="data-table" style={{ marginTop: 6 }}>
+                <thead>
+                  <tr>
+                    <th>{translateText('Description')}</th>
+                    <th>{translateText('Qty')}</th>
+                    <th>{translateText('Unit Amount')}</th>
+                    <th>{translateText('Total')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(inspectInvoice.invoice_items || []).map((it, idx) => (
+                    <tr key={idx}>
+                      <td>{it.description}</td>
+                      <td>{it.quantity}</td>
+                      <td>{formatXAF(it.unit_amount)}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {formatXAF(Number(it.quantity || 1) * Number(it.unit_amount || 0))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {inspectInvoice.notes && (
+              <div style={{ marginTop: 8 }}>
+                <span className="entity-card-meta">{translateText('Notes')}</span>
+                <div
+                  style={{
+                    background: 'var(--color-bg)',
+                    padding: 8,
+                    borderRadius: 6,
+                    fontSize: '0.85rem',
+                    marginTop: 4,
+                  }}
+                >
+                  {inspectInvoice.notes}
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'flex-end',
+                marginTop: 16,
+                borderTop: '1px solid var(--color-border)',
+                paddingTop: 12,
+              }}
+            >
+              {inspectInvoice.status !== 'cancelled' &&
+                Number(inspectInvoice.amount_paid || 0) === 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ color: 'var(--color-danger)' }}
+                    disabled={cancelInvoiceMutation.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          translateText('Are you sure you want to cancel this unpaid invoice?'),
+                        )
+                      ) {
+                        cancelInvoiceMutation.mutate(inspectInvoice.id);
+                      }
+                    }}
+                  >
+                    <MdCancel /> {translateText('Cancel invoice')}
+                  </button>
+                )}
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setInspectInvoice(null)}
+              >
+                {translateText('Close')}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Fee Clearance Policy Modal */}
+      {showPolicyModal && (
+        <Modal
+          title={translateText('Fee clearance & financial policy')}
+          onClose={() => setShowPolicyModal(false)}
+        >
+          <form
+            className="form-stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              policyMutation.mutate(policyForm);
+            }}
+          >
+            <div className="alert-banner" style={{ marginBottom: 12 }}>
+              <MdInfo size={18} style={{ flexShrink: 0 }} />
+              <span>
+                {translateText(
+                  'Fee clearance controls whether students can view official exam results, generate transcripts, or register for courses based on their fee balances.',
+                )}
+              </span>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={policyForm.enabled}
+                onChange={(e) =>
+                  setPolicyForm((f) => ({ ...f, enabled: e.target.checked }))
+                }
+              />
+              <div>
+                <strong>{translateText('Enforce fee clearance')}</strong>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  {translateText('Block results and transcripts if student has unpaid fees.')}
+                </div>
+              </div>
+            </label>
+
+            {policyForm.enabled && (
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label>{translateText('Minimum required paid ratio')}</label>
+                <select
+                  className="form-control"
+                  value={policyForm.minPaidRatio}
+                  onChange={(e) =>
+                    setPolicyForm((f) => ({ ...f, minPaidRatio: Number(e.target.value) }))
+                  }
+                >
+                  <option value={1}>100% — {translateText('Full balance cleared')}</option>
+                  <option value={0.75}>75% — {translateText('At least 75% of fees paid')}</option>
+                  <option value={0.5}>50% — {translateText('At least 50% of fees paid')}</option>
+                  <option value={0.25}>25% — {translateText('At least 25% of fees paid')}</option>
+                </select>
+                <p className="form-hint">
+                  {translateText(
+                    'Students who have paid at or above this proportion of their invoiced fees will be permitted to access results.',
+                  )}
+                </p>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowPolicyModal(false)}
+              >
+                {translateText('Cancel')}
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={policyMutation.isPending}
+              >
+                {policyMutation.isPending
+                  ? translateText('Saving…')
+                  : translateText('Save policy')}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* New Fee Category Modal */}
       {showCatModal && (
         <Modal title={translateText('New fee category')} onClose={() => setShowCatModal(false)}>
           <form
@@ -458,6 +811,7 @@ export default function AdminFeesPage() {
         </Modal>
       )}
 
+      {/* New Fee Structure Modal */}
       {showStructModal && (
         <Modal title={translateText('New fee structure')} onClose={() => setShowStructModal(false)}>
           <form
@@ -532,6 +886,7 @@ export default function AdminFeesPage() {
         </Modal>
       )}
 
+      {/* Single Invoice Issue Modal */}
       {showInvoiceModal && (
         <Modal title={translateText('Issue invoice')} onClose={() => setShowInvoiceModal(false)}>
           <form className="form-stack" onSubmit={submitInvoice}>
@@ -587,6 +942,7 @@ export default function AdminFeesPage() {
         </Modal>
       )}
 
+      {/* Bulk Invoices Modal */}
       {showBulkModal && (
         <Modal title={translateText('Bulk invoices by batch')} onClose={() => setShowBulkModal(false)}>
           <form className="form-stack" onSubmit={submitBulk}>

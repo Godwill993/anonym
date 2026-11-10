@@ -5,6 +5,7 @@
  */
 
 export const COMPLETABLE_STATUSES = Object.freeze(['pending']);
+export const FAILABLE_STATUSES = Object.freeze(['pending']);
 
 export const ALLOWED_PAYMENT_METHODS = Object.freeze([
   'mtn_momo',
@@ -27,6 +28,25 @@ export function canCompletePayment(status) {
     return { ok: false, reason: 'already_completed' };
   }
   if (!COMPLETABLE_STATUSES.includes(s)) {
+    return { ok: false, reason: `invalid_status:${s || 'unknown'}` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Whether a payment row may be transitioned to failed (rejected).
+ * @param {string|null|undefined} status
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function canFailPayment(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'failed') {
+    return { ok: false, reason: 'already_failed' };
+  }
+  if (s === 'completed') {
+    return { ok: false, reason: 'already_completed' };
+  }
+  if (!FAILABLE_STATUSES.includes(s)) {
     return { ok: false, reason: `invalid_status:${s || 'unknown'}` };
   }
   return { ok: true };
@@ -107,8 +127,9 @@ export function isPlausibleCameroonMobile(value) {
  *   amount?: number|string,
  *   method?: string,
  *   phoneNumber?: string|null,
+ *   providerReference?: string|null,
  * }} payload
- * @returns {{ ok: true, amount: number, method: string, phoneNumber: string|null, invoiceId: string, studentId: string } | { ok: false, message: string }}
+ * @returns {{ ok: true, amount: number, method: string, phoneNumber: string|null, invoiceId: string, studentId: string, providerReference: string|null } | { ok: false, message: string }}
  */
 export function validatePaymentInitiation(payload) {
   if (!payload || typeof payload !== 'object') {
@@ -155,5 +176,9 @@ export function validatePaymentInitiation(payload) {
     phoneNumber = normalizeCameroonPhone(phoneNumber);
   }
 
-  return { ok: true, amount, method, phoneNumber, invoiceId, studentId };
+  const providerReference = payload.providerReference
+    ? String(payload.providerReference).trim() || null
+    : null;
+
+  return { ok: true, amount, method, phoneNumber, invoiceId, studentId, providerReference };
 }

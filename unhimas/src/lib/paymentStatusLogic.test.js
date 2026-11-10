@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canCompletePayment,
+  canFailPayment,
   amountsMatch,
   validatePaymentCompletion,
   validatePaymentInitiation,
@@ -15,6 +16,15 @@ describe('canCompletePayment', () => {
     assert.equal(canCompletePayment('completed').ok, false);
     assert.equal(canCompletePayment('failed').ok, false);
     assert.equal(canCompletePayment('').ok, false);
+  });
+});
+
+describe('canFailPayment', () => {
+  it('allows pending only', () => {
+    assert.equal(canFailPayment('pending').ok, true);
+    assert.equal(canFailPayment('completed').ok, false);
+    assert.equal(canFailPayment('failed').ok, false);
+    assert.equal(canFailPayment('').ok, false);
   });
 });
 
@@ -76,18 +86,20 @@ describe('Cameroon phone helpers', () => {
 });
 
 describe('validatePaymentInitiation', () => {
-  it('accepts a normal MoMo attempt with phone', () => {
+  it('accepts a normal MoMo attempt with phone and provider reference', () => {
     const r = validatePaymentInitiation({
       invoiceId: 'inv-1',
       studentId: 'stu-1',
       amount: 15000,
       method: 'mtn_momo',
       phoneNumber: '+237 670 00 00 00',
+      providerReference: 'MTN-TRX-12345',
     });
     assert.equal(r.ok, true);
     assert.equal(r.amount, 15000);
     assert.equal(r.method, 'mtn_momo');
     assert.equal(r.phoneNumber, '670000000');
+    assert.equal(r.providerReference, 'MTN-TRX-12345');
   });
 
   it('requires phone for MoMo methods', () => {
@@ -100,15 +112,17 @@ describe('validatePaymentInitiation', () => {
     assert.equal(r.ok, false);
   });
 
-  it('does not require phone for cash', () => {
+  it('does not require phone for cash or bank', () => {
     const r = validatePaymentInitiation({
       invoiceId: 'inv-1',
       studentId: 'stu-1',
       amount: 5000,
-      method: 'cash',
+      method: 'bank',
+      providerReference: 'ECOBANK-SLIP-999',
     });
     assert.equal(r.ok, true);
     assert.equal(r.phoneNumber, null);
+    assert.equal(r.providerReference, 'ECOBANK-SLIP-999');
   });
 
   it('rejects missing invoice or student', () => {

@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MdSettings, MdSave, MdGrade, MdCheckCircle } from 'react-icons/md';
+import {
+  MdSettings,
+  MdSave,
+  MdGrade,
+  MdCheckCircle,
+  MdPayments,
+  MdPolicy,
+} from 'react-icons/md';
 import AppLayout from '../../components/layout/AppLayout';
 import { toast } from '../../components/common/Toast';
 import { gradeBadgeClass } from '../../lib/grading';
@@ -9,6 +16,10 @@ import {
   updateSystemSettings,
   getGradingScale,
 } from '../../services/operationsService';
+import {
+  getFeeClearanceSetting,
+  updateFeeClearanceSetting,
+} from '../../services/feesService';
 
 function SettingsForm({ settings, onSave, isPending }) {
   const [formData, setFormData] = useState(() => ({
@@ -175,6 +186,59 @@ function SettingsForm({ settings, onSave, isPending }) {
   );
 }
 
+function FinancialPolicyForm({ policy, onSave, isPending }) {
+  const [enabled, setEnabled] = useState(policy?.enabled !== false);
+  const [minPaidRatio, setMinPaidRatio] = useState(policy?.minPaidRatio ?? 1);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ enabled, minPaidRatio: Number(minPaidRatio) });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="form-stack">
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+        />
+        <div>
+          <strong style={{ fontSize: '0.9rem' }}>Enforce Fee Clearance</strong>
+          <div className="form-hint">
+            Require students to meet tuition clearance before viewing official results, downloading transcripts, or registering for semester courses.
+          </div>
+        </div>
+      </label>
+
+      {enabled && (
+        <div className="form-group" style={{ marginTop: 12 }}>
+          <label className="form-label">Minimum Invoiced Proportion Paid Required</label>
+          <select
+            className="form-input"
+            value={minPaidRatio}
+            onChange={(e) => setMinPaidRatio(Number(e.target.value))}
+          >
+            <option value={1}>100% — Full fee clearance required (0 balance)</option>
+            <option value={0.75}>75% — At least 75% of invoiced fees paid</option>
+            <option value={0.5}>50% — At least 50% of invoiced fees paid</option>
+            <option value={0.25}>25% — At least 25% of invoiced fees paid</option>
+          </select>
+          <div className="form-hint">
+            Allows partial installment allowances for student exam registration and official portal access.
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="submit" className="btn btn-primary" disabled={isPending}>
+          <MdSave /> Save Financial Policy
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function SettingsPage() {
   const queryClient = useQueryClient();
 
@@ -188,6 +252,11 @@ export default function SettingsPage() {
     queryFn: getGradingScale,
   });
 
+  const { data: clearancePolicy, isLoading: policyLoading } = useQuery({
+    queryKey: ['fee-clearance-policy-settings'],
+    queryFn: getFeeClearanceSetting,
+  });
+
   const updateMutation = useMutation({
     mutationFn: (updates) => updateSystemSettings(settings?.id, updates),
     onSuccess: () => {
@@ -196,6 +265,18 @@ export default function SettingsPage() {
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update settings');
+    },
+  });
+
+  const policyMutation = useMutation({
+    mutationFn: updateFeeClearanceSetting,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fee-clearance-policy-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['fee-clearance-policy'] });
+      toast.success('Financial fee clearance policy saved successfully');
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to update financial policy');
     },
   });
 
@@ -214,9 +295,9 @@ export default function SettingsPage() {
     <AppLayout pageTitle="Settings">
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">System Settings & Academic Policy</h1>
+          <h1 className="page-title">System Settings & Institutional Policy</h1>
           <p className="page-subtitle">
-            Configure mark weighting, exam eligibility thresholds, and grading scale
+            Configure mark weighting, exam eligibility thresholds, financial clearance, and grading scale
           </p>
         </div>
       </div>
@@ -242,61 +323,83 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MdGrade /> Official GPA Grading Scale (4.00 Basis)
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MdPayments color="var(--color-primary)" /> Financial & Fee Clearance Policy
+              </div>
+            </div>
+            <div className="card-body">
+              {policyLoading ? (
+                <div>Loading policy...</div>
+              ) : (
+                <FinancialPolicyForm
+                  key={clearancePolicy ? `${clearancePolicy.enabled}-${clearancePolicy.minPaidRatio}` : 'pol'}
+                  policy={clearancePolicy}
+                  onSave={(data) => policyMutation.mutate(data)}
+                  isPending={policyMutation.isPending}
+                />
+              )}
             </div>
           </div>
-          <div className="card-body" style={{ padding: '0.5rem 0' }}>
-            <div className="table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Score Range</th>
-                    <th>Letter Grade</th>
-                    <th>Grade Point</th>
-                    <th>Classification</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {defaultScale.map((scale, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <strong>
-                          {scale.min_score}% – {scale.max_score}%
-                        </strong>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${gradeBadgeClass(scale.grade)}`}
-                          style={{ fontSize: '0.85rem' }}
-                        >
-                          {scale.grade}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{Number(scale.grade_point).toFixed(2)}</strong>
-                      </td>
-                      <td style={{ color: 'var(--color-text-muted)' }}>{scale.remark}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MdGrade /> Official GPA Grading Scale (4.00 Basis)
+              </div>
             </div>
-            <div
-              style={{
-                padding: '1rem',
-                fontSize: '0.78rem',
-                color: 'var(--color-text-muted)',
-                borderTop: '1px solid var(--color-border)',
-              }}
-            >
-              <MdCheckCircle
-                style={{ color: '#10B981', verticalAlign: 'middle', marginRight: '4px' }}
-              />
-              Grade points and letter grades are applied automatically by database stored
-              procedures upon mark entry.
+            <div className="card-body" style={{ padding: '0.5rem 0' }}>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Score Range</th>
+                      <th>Letter Grade</th>
+                      <th>Grade Point</th>
+                      <th>Classification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {defaultScale.map((scale, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <strong>
+                            {scale.min_score}% – {scale.max_score}%
+                          </strong>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${gradeBadgeClass(scale.grade)}`}
+                            style={{ fontSize: '0.85rem' }}
+                          >
+                            {scale.grade}
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{Number(scale.grade_point).toFixed(2)}</strong>
+                        </td>
+                        <td style={{ color: 'var(--color-text-muted)' }}>{scale.remark}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  fontSize: '0.78rem',
+                  color: 'var(--color-text-muted)',
+                  borderTop: '1px solid var(--color-border)',
+                }}
+              >
+                <MdCheckCircle
+                  style={{ color: '#10B981', verticalAlign: 'middle', marginRight: '4px' }}
+                />
+                Grade points and letter grades are applied automatically by database stored
+                procedures upon mark entry.
+              </div>
             </div>
           </div>
         </div>

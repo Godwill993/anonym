@@ -2,8 +2,10 @@ import { supabase } from '../lib/supabase';
 import { notifyInvoiceIssued, notifyPaymentReceived } from './notificationService';
 import {
   canCompletePayment,
+  canFailPayment,
   validatePaymentInitiation,
 } from '../lib/paymentStatusLogic';
+import { normalizeFeeClearancePolicy } from '../lib/feeClearanceLogic';
 
 /** Format XAF amounts for display */
 export function formatXAF(amount) {
@@ -18,7 +20,7 @@ export function formatXAF(amount) {
 export const PAYMENT_METHODS = [
   { value: 'mtn_momo', label: 'MTN Mobile Money' },
   { value: 'orange_money', label: 'Orange Money' },
-  { value: 'bank', label: 'Bank Transfer' },
+  { value: 'bank', label: 'Bank Transfer / Deposit' },
   { value: 'cash', label: 'Cash' },
   { value: 'other', label: 'Other' },
 ];
@@ -182,6 +184,31 @@ export async function createInvoice({ studentId, academicYearId, semesterId, ite
   return full;
 }
 
+export async function cancelInvoice(invoiceId, { notes } = {}) {
+  if (!invoiceId) throw new Error('Invoice id is required');
+  const inv = await getInvoice(invoiceId);
+  if (!inv) throw new Error('Invoice not found');
+  if (Number(inv.amount_paid) > 0) {
+    throw new Error('Cannot cancel an invoice with payments applied. Reconcile or refund payments first.');
+  }
+  const updatedNotes = notes
+    ? (inv.notes ? `${inv.notes} | Cancelled: ${notes}` : `Cancelled: ${notes}`)
+    : (inv.notes || 'Cancelled by administrator');
+
+  const { data, error } = await supabase
+    .from('student_invoices')
+    .update({
+      status: 'cancelled',
+      notes: updatedNotes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', invoiceId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function bulkCreateInvoices({
   batchId,
   structureIds,
@@ -251,18 +278,18 @@ export async function bulkCreateInvoices({
 
 // ── Payments ────────────────────────────────────────────────
 
-export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
+export async function listPayments({ studentId, invoiceId, limit = 100 } = {}) {
   let q = supabase
     .from('payments')
     .select(`
       *,
       student_invoices (
-        id, invoice_number, total_amount, balance,
+        id, invoice_number, total_amount, balance, status,
         academic_years ( name ),
         semesters ( name ),
         invoice_items ( description, quantity, unit_amount )
       ),
-      students ( id, matricule, first_name, last_name )
+      students ( id, matricule, first_name, last_name, email )
     `)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -274,11 +301,8 @@ export async function listPayments({ studentId, invoiceId, limit = 50 } = {}) {
 }
 
 /**
- * Record a payment attempt.
- * Students may only create pending payments (DB RLS also enforces this).
- * completeImmediately is only honoured when the explicit env flag is set
- * (normally used for admin cash / test environments).
- * MTN / Orange require a plausible Cameroon mobile number.
+ * Record a payment attempt (typically initiated by a student).
+ * Enforces pending status by default under RLS.
  */
 export async function initiatePayment({
   invoiceId,
@@ -286,6 +310,7 @@ export async function initiatePayment({
   amount,
   method,
   phoneNumber,
+  providerReference,
   notes,
   completeImmediately = false,
 }) {
@@ -295,13 +320,12 @@ export async function initiatePayment({
     amount,
     method,
     phoneNumber,
+    providerReference,
   });
   if (!validated.ok) {
     throw new Error(validated.message);
   }
 
-  // Defense-in-depth: never allow client-side forced completion unless the
-  // deployment explicitly opts in via environment variable.
   const envAllowsAutoComplete = import.meta.env.VITE_PAYMENTS_AUTO_COMPLETE === 'true';
   const shouldComplete = Boolean(completeImmediately && envAllowsAutoComplete);
 
@@ -321,6 +345,7 @@ export async function initiatePayment({
     method: validated.method,
     status: shouldComplete ? 'completed' : 'pending',
     phone_number: validated.phoneNumber,
+    provider_reference: validated.providerReference || null,
     notes: notes ? String(notes).trim() || null : null,
     paid_at: shouldComplete ? new Date().toISOString() : null,
   };
@@ -335,8 +360,76 @@ export async function initiatePayment({
 }
 
 /**
- * Admin (or trusted client) path to complete a payment.
- * Mirrors payment-webhook rules: only pending → completed.
+ * Admin path to record offline/cash/bank payments directly.
+ * Can complete immediately or save as pending.
+ */
+export async function recordAdminPayment({
+  invoiceId,
+  studentId,
+  amount,
+  method = 'cash',
+  phoneNumber,
+  providerReference,
+  notes,
+  completeImmediately = true,
+  recordedBy,
+}) {
+  const validated = validatePaymentInitiation({
+    invoiceId,
+    studentId,
+    amount,
+    method,
+    phoneNumber,
+    providerReference,
+  });
+  if (!validated.ok) {
+    throw new Error(validated.message);
+  }
+
+  let paymentReference;
+  try {
+    const { data } = await supabase.rpc('generate_payment_reference');
+    paymentReference = data;
+  } catch {
+    paymentReference = `PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-6)}`;
+  }
+
+  const nowIso = new Date().toISOString();
+  const payload = {
+    payment_reference: paymentReference,
+    invoice_id: validated.invoiceId,
+    student_id: validated.studentId,
+    amount: validated.amount,
+    method: validated.method,
+    status: completeImmediately ? 'completed' : 'pending',
+    phone_number: validated.phoneNumber,
+    provider_reference: validated.providerReference || null,
+    notes: notes ? String(notes).trim() || null : null,
+    recorded_by: recordedBy || null,
+    paid_at: completeImmediately ? nowIso : null,
+  };
+
+  const { data, error } = await supabase
+    .from('payments')
+    .insert(payload)
+    .select('*, students:student_id ( email, first_name, last_name )')
+    .single();
+  if (error) throw error;
+
+  if (completeImmediately && data?.students?.email) {
+    void notifyPaymentReceived({
+      email: data.students.email,
+      paymentReference: data.payment_reference,
+      amountLabel: formatXAF(data.amount),
+      receiptNumber: data.receipt_number,
+    });
+  }
+
+  return data;
+}
+
+/**
+ * Admin path to complete a payment (pending -> completed).
  */
 export async function markPaymentCompleted(paymentId, { providerReference, recordedBy } = {}) {
   if (!paymentId) throw new Error('Payment id is required');
@@ -366,7 +459,7 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
       paid_at: new Date().toISOString(),
     })
     .eq('id', paymentId)
-    .eq('status', 'pending') // optimistic concurrency — same as webhook
+    .eq('status', 'pending')
     .select('*, students:student_id ( email, first_name, last_name )')
     .maybeSingle();
   if (error) throw error;
@@ -382,6 +475,51 @@ export async function markPaymentCompleted(paymentId, { providerReference, recor
       amountLabel: formatXAF(data.amount),
       receiptNumber: data.receipt_number,
     });
+  }
+  return data;
+}
+
+/**
+ * Admin path to reject / mark a pending payment as failed.
+ */
+export async function markPaymentFailed(paymentId, { reason, recordedBy } = {}) {
+  if (!paymentId) throw new Error('Payment id is required');
+
+  const { data: existing, error: findErr } = await supabase
+    .from('payments')
+    .select('id, status, notes')
+    .eq('id', paymentId)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (!existing) throw new Error('Payment not found');
+
+  const gate = canFailPayment(existing.status);
+  if (!gate.ok) {
+    if (gate.reason === 'already_failed') {
+      throw new Error('This payment is already marked as failed');
+    }
+    throw new Error(`Cannot reject a payment with status "${existing.status}"`);
+  }
+
+  const rejectionNote = reason ? String(reason).trim() : 'Rejected by administrator';
+  const updatedNotes = existing.notes
+    ? `${existing.notes} | Rejected: ${rejectionNote}`
+    : `Rejected: ${rejectionNote}`;
+
+  const { data, error } = await supabase
+    .from('payments')
+    .update({
+      status: 'failed',
+      notes: updatedNotes,
+      recorded_by: recordedBy || null,
+    })
+    .eq('id', paymentId)
+    .eq('status', 'pending')
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error('Payment status changed concurrently; refresh and try again');
   }
   return data;
 }
@@ -407,4 +545,63 @@ export async function getMyFeeBalance(profileId) {
   if (sErr) throw sErr;
   if (!student) return null;
   return getStudentFeeBalance(student.id);
+}
+
+// ── Financial System Settings ───────────────────────────────
+
+export async function getFeeClearanceSetting() {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'fee_clearance_required')
+      .maybeSingle();
+    if (error || !data) return { enabled: true, minPaidRatio: 1 };
+    return normalizeFeeClearancePolicy(data.value || {});
+  } catch {
+    return { enabled: true, minPaidRatio: 1 };
+  }
+}
+
+export async function updateFeeClearanceSetting({ enabled, minPaidRatio }) {
+  const policy = normalizeFeeClearancePolicy({ enabled, minPaidRatio });
+  const { data, error } = await supabase
+    .from('system_settings')
+    .upsert({
+      key: 'fee_clearance_required',
+      value: { enabled: policy.enabled, min_paid_ratio: policy.minPaidRatio },
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return policy;
+}
+
+export async function getPaymentsAutoCompleteSetting() {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'payments_auto_complete')
+      .maybeSingle();
+    if (error || !data) return false;
+    return Boolean(data.value?.enabled);
+  } catch {
+    return false;
+  }
+}
+
+export async function updatePaymentsAutoCompleteSetting(enabled) {
+  const { data, error } = await supabase
+    .from('system_settings')
+    .upsert({
+      key: 'payments_auto_complete',
+      value: { enabled: Boolean(enabled) },
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return Boolean(enabled);
 }
