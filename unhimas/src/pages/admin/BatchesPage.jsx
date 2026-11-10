@@ -26,9 +26,11 @@ import {
   getBatchCourses,
   assignBatchCourse,
   deleteBatchCourse,
-  resolveProgrammeEndAcademicYear,
 } from '../../services/academicService';
-import { getProgrammeAcademicYearRangeLabel } from '../../lib/programmeAcademicYear';
+import {
+  getProgrammeAcademicYearRangeLabel,
+  resolveProgrammeEndAcademicYear,
+} from '../../lib/programmeAcademicYear';
 import { useTranslation } from '../../i18n';
 
 export default function BatchesPage() {
