@@ -362,9 +362,9 @@ export default function AcademicYearsPage() {
               {translateText('Cancel')}
             </button>
             <button
-              type="button"
+              type="submit"
+              form="semester-date-form"
               className="btn btn-primary"
-              onClick={saveSemesterDates}
               disabled={updateDatesMutation.isPending}
             >
               {updateDatesMutation.isPending ? translateText('Saving…') : translateText('Save dates')}
@@ -372,7 +372,7 @@ export default function AcademicYearsPage() {
           </>
         }
       >
-        <form onSubmit={saveSemesterDates}>
+        <form id="semester-date-form" onSubmit={saveSemesterDates}>
           <p className="academic-year-form-hint">
             {translateText('Set both dates, or leave both blank if the period dates are not scheduled yet.')}
           </p>
@@ -412,9 +412,9 @@ export default function AcademicYearsPage() {
               {translateText('Cancel')}
             </button>
             <button
-              type="button"
+              type="submit"
+              form="academic-year-create-form"
               className="btn btn-primary"
-              onClick={handleSubmit}
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? translateText('Creating…') : translateText('Create Academic Year')}
@@ -422,7 +422,7 @@ export default function AcademicYearsPage() {
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form id="academic-year-create-form" onSubmit={handleSubmit}>
           <p className="academic-year-form-hint">
             {translateText('First Semester, Second Semester, and Resit Period will be created automatically.')}
           </p>

@@ -81,7 +81,12 @@ export default function BatchesPage() {
   });
 
   const selectedProgramme = programmes.find((p) => p.id === formData.programme_id) || null;
-  const { data: effectiveDuration, isLoading: durationLoading } = useQuery({
+  const {
+    data: effectiveDuration,
+    isLoading: durationLoading,
+    error: durationError,
+    refetch: refetchDuration,
+  } = useQuery({
     queryKey: ['effective-programme-duration', formData.programme_id, formData.department_id],
     queryFn: () => getEffectiveProgrammeDuration(formData.programme_id, formData.department_id),
     enabled: isModalOpen && Boolean(formData.programme_id && formData.department_id),
@@ -173,6 +178,10 @@ export default function BatchesPage() {
     }
     if (durationLoading) {
       toast.error(translateText('Please wait'));
+      return;
+    }
+    if (durationError) {
+      toast.error(durationError.message || translateText('Could not determine programme duration'));
       return;
     }
     if (!endAcademicYear) {
@@ -385,6 +394,31 @@ export default function BatchesPage() {
                 ))}
               </select>
             </div>
+            {durationLoading && (
+              <p role="status" className="form-hint">
+                {translateText('Calculating programme end academic year…')}
+              </p>
+            )}
+            {durationError && (
+              <div role="alert" className="form-hint">
+                <span>
+                  {durationError.message || translateText('Could not determine programme duration')}
+                </span>{' '}
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => refetchDuration()}>
+                  {translateText('Retry')}
+                </button>
+              </div>
+            )}
+            {!durationLoading && !durationError && formData.programme_id && formData.academic_year_id && !endAcademicYear && (
+              <p role="alert" className="form-hint">
+                {translateText('Add the required future academic years before creating this batch.')}
+              </p>
+            )}
+            {endAcademicYear && (
+              <p role="status" className="form-hint">
+                {translateText('Programme end academic year')}: {endAcademicYear.name}
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>
                 {translateText('Cancel')}

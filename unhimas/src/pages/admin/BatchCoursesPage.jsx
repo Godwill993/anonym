@@ -273,9 +273,9 @@ export default function BatchCoursesPage() {
               {translateText('Cancel')}
             </button>
             <button
-              type="button"
+              type="submit"
+              form="batch-course-allocation-form"
               className="btn btn-primary"
-              onClick={handleSubmit}
               disabled={assignMutation.isPending}
             >
               {translateText('Allocate Course')}
@@ -283,7 +283,7 @@ export default function BatchCoursesPage() {
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form id="batch-course-allocation-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">{translateText('Select Cohort / Batch *')}</label>
             <select

@@ -202,9 +202,9 @@ export default function AdminTimetablePage() {
               {translateText('Cancel')}
             </button>
             <button
-              type="button"
+              type="submit"
+              form="admin-timetable-slot-form"
               className="btn btn-primary"
-              onClick={handleSubmit}
               disabled={createMutation.isPending}
             >
               {translateText('Save Schedule')}
@@ -212,7 +212,7 @@ export default function AdminTimetablePage() {
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form id="admin-timetable-slot-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">{translateText('Batch Course *')}</label>
             <select
