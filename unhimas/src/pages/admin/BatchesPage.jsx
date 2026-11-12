@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdAdd,
@@ -28,6 +28,7 @@ import {
   deleteBatchCourse,
 } from '../../services/academicService';
 import {
+  getProgrammeEndAcademicYearStartYear,
   getProgrammeAcademicYearRangeLabel,
   resolveProgrammeEndAcademicYear,
 } from '../../lib/programmeAcademicYear';
@@ -41,6 +42,7 @@ export default function BatchesPage() {
   const selectedDeptFilter = searchParams.get('department') || '';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
+  const [submissionError, setSubmissionError] = useState('');
   const [programmeBatch, setProgrammeBatch] = useState(null);
   const [addCourseOpen, setAddCourseOpen] = useState(false);
   const [courseForm, setCourseForm] = useState({ course_id: '', semester_id: '' });
@@ -51,7 +53,7 @@ export default function BatchesPage() {
     programme_id: '',
     name: '',
     level_name: '',
-    batch_number: 1,
+    batch_number: '1',
   });
 
   const { data: batches = [], isLoading } = useQuery({
@@ -59,7 +61,12 @@ export default function BatchesPage() {
     queryFn: () => getBatches(selectedDeptFilter || null),
   });
   const { data: departments = [] } = useQuery({ queryKey: ['admin-departments'], queryFn: getDepartments });
-  const { data: academicYears = [] } = useQuery({ queryKey: ['admin-academic-years'], queryFn: getAcademicYears });
+  const {
+    data: academicYears = [],
+    isLoading: academicYearsLoading,
+    error: academicYearsError,
+    refetch: refetchAcademicYears,
+  } = useQuery({ queryKey: ['admin-academic-years'], queryFn: getAcademicYears });
   const { data: programmes = [] } = useQuery({
     queryKey: ['admin-programmes-active'],
     queryFn: () => getProgrammes({ activeOnly: true }),
@@ -96,15 +103,25 @@ export default function BatchesPage() {
     formData.academic_year_id,
     effectiveDuration,
   );
+  const requiredEndYear = getProgrammeEndAcademicYearStartYear(
+    academicYears,
+    formData.academic_year_id,
+    effectiveDuration,
+  );
 
   const createMutation = useMutation({
     mutationFn: createBatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
       toast.success(translateText('Batch created'));
+      setSubmissionError('');
       setIsModalOpen(false);
     },
-    onError: (err) => toast.error(err.message || translateText('Failed to create batch')),
+    onError: (err) => {
+      const message = err.message || translateText('Failed to create batch');
+      setSubmissionError(message);
+      toast.error(message);
+    },
   });
 
   const updateMutation = useMutation({
@@ -112,10 +129,15 @@ export default function BatchesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-batches'] });
       toast.success(translateText('Batch updated'));
+      setSubmissionError('');
       setIsModalOpen(false);
       setEditingBatch(null);
     },
-    onError: (err) => toast.error(err.message || translateText('Failed to update batch')),
+    onError: (err) => {
+      const message = err.message || translateText('Failed to update batch');
+      setSubmissionError(message);
+      toast.error(message);
+    },
   });
 
   const assignCourseMutation = useMutation({
@@ -140,6 +162,7 @@ export default function BatchesPage() {
 
   const openAdd = () => {
     setEditingBatch(null);
+    setSubmissionError('');
     const defaultProg = programmes.find((p) => p.code === 'HND') || programmes[0] || null;
     const currentYear = academicYears.find((y) => y.is_current) || academicYears[0] || null;
     setFormData({
@@ -148,56 +171,87 @@ export default function BatchesPage() {
       programme_id: defaultProg?.id || '',
       name: '',
       level_name: '',
-      batch_number: 1,
+      batch_number: '1',
     });
     setIsModalOpen(true);
   };
 
   const openEdit = (batch) => {
     setEditingBatch(batch);
+    setSubmissionError('');
     setFormData({
       department_id: batch.department_id || '',
       academic_year_id: batch.academic_year_id || '',
       programme_id: batch.programme_id || '',
       name: batch.name || '',
       level_name: batch.level_name || '',
-      batch_number: batch.batch_number || 1,
+      batch_number: batch.batch_number || '1',
     });
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.department_id || !formData.academic_year_id) {
-      toast.error(translateText('Name, department, and school year are required'));
+    setSubmissionError('');
+    if (
+      !formData.name.trim()
+      || !formData.department_id
+      || !formData.academic_year_id
+      || !String(formData.batch_number).trim()
+    ) {
+      const message = translateText('Name, department, school year, and batch number are required');
+      setSubmissionError(message);
+      toast.error(message);
       return;
     }
     if (!formData.programme_id) {
-      toast.error(translateText('Programme is required'));
+      const message = translateText('Programme is required');
+      setSubmissionError(message);
+      toast.error(message);
       return;
     }
     if (durationLoading) {
-      toast.error(translateText('Please wait'));
+      const message = translateText('Please wait');
+      setSubmissionError(message);
+      toast.error(message);
+      return;
+    }
+    if (academicYearsLoading) {
+      const message = translateText('Academic years are still loading');
+      setSubmissionError(message);
+      toast.error(message);
+      return;
+    }
+    if (academicYearsError) {
+      const message = academicYearsError.message || translateText('Could not load academic years');
+      setSubmissionError(message);
+      toast.error(message);
       return;
     }
     if (durationError) {
-      toast.error(durationError.message || translateText('Could not determine programme duration'));
+      const message = durationError.message || translateText('Could not determine programme duration');
+      setSubmissionError(message);
+      toast.error(message);
       return;
     }
     if (!endAcademicYear) {
-      toast.error(translateText('Add the required future academic years before creating this batch.'));
+      const message = translateText('Add the required future academic years before creating this batch.');
+      setSubmissionError(message);
+      toast.error(message);
       return;
     }
     const dept = departments.find((d) => d.id === formData.department_id);
+    const startAcademicYear = academicYears.find((year) => year.id === formData.academic_year_id);
     const payload = {
       ...formData,
       programme_id: formData.programme_id,
       programme_end_academic_year_id: endAcademicYear.id,
       year_of_study: null,
-      batch_number: Number(formData.batch_number) || 1,
+      batch_number: String(formData.batch_number).trim(),
       departmentAbbr: dept?.abbreviation || null,
       programmeCode: selectedProgramme?.code || null,
       programme: selectedProgramme,
+      academicYearStartDate: startAcademicYear?.start_date || null,
     };
     if (editingBatch) {
       updateMutation.mutate({ id: editingBatch.id, updates: payload });
@@ -338,15 +392,25 @@ export default function BatchesPage() {
           onClose={() => {
             setIsModalOpen(false);
             setEditingBatch(null);
+            setSubmissionError('');
           }}
         >
-          <form onSubmit={handleSubmit}>
+          <form noValidate onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">{translateText('Name')} *</label>
               <input
                 className="form-input"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{translateText('Batch number')} *</label>
+              <input
+                className="form-input"
+                value={formData.batch_number}
+                onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
                 required
               />
             </div>
@@ -409,18 +473,57 @@ export default function BatchesPage() {
                 </button>
               </div>
             )}
-            {!durationLoading && !durationError && formData.programme_id && formData.academic_year_id && !endAcademicYear && (
-              <p role="alert" className="form-hint">
-                {translateText('Add the required future academic years before creating this batch.')}
-              </p>
+            {academicYearsError && (
+              <div role="alert" className="form-hint">
+                <span>{academicYearsError.message || translateText('Could not load academic years')}</span>{' '}
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => refetchAcademicYears()}
+                >
+                  {translateText('Retry')}
+                </button>
+              </div>
             )}
+            {!academicYearsLoading && !academicYearsError && !durationLoading && !durationError
+              && formData.programme_id && formData.academic_year_id && !endAcademicYear && (
+                <div role="alert" className="form-hint">
+                  <p>
+                    {requiredEndYear
+                      ? `${translateText('This programme requires an academic year starting in')} ${requiredEndYear}.`
+                      : translateText('Could not determine the required programme end academic year. Check that the selected start year has a start date and the programme has a valid duration.')}
+                  </p>
+                  {requiredEndYear && (
+                    <Link
+                      className="btn btn-outline btn-sm"
+                      to="/admin/academic-years"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {translateText('Create academic year')}
+                    </Link>
+                  )}
+                </div>
+              )}
             {endAcademicYear && (
               <p role="status" className="form-hint">
                 {translateText('Programme end academic year')}: {endAcademicYear.name}
               </p>
             )}
+            {submissionError && (
+              <p role="alert" className="form-hint">
+                {submissionError}
+              </p>
+            )}
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setSubmissionError('');
+                }}
+              >
                 {translateText('Cancel')}
               </button>
               <button
@@ -428,7 +531,9 @@ export default function BatchesPage() {
                 className="btn btn-primary"
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {editingBatch ? translateText('Save') : translateText('Create batch')}
+                {createMutation.isPending || updateMutation.isPending
+                  ? translateText('Saving…')
+                  : editingBatch ? translateText('Save') : translateText('Create batch')}
               </button>
             </div>
           </form>

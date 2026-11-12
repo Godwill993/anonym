@@ -1,5 +1,5 @@
-/** Resolve the academic-year row that ends a cohort's programme. */
-export function resolveProgrammeEndAcademicYear(academicYears, startAcademicYearId, durationYears) {
+/** Return the calendar year in which the programme's final academic year must start. */
+export function getProgrammeEndAcademicYearStartYear(academicYears, startAcademicYearId, durationYears) {
   const duration = Math.ceil(Number(durationYears));
   if (!startAcademicYearId || !Number.isFinite(duration) || duration < 1) return null;
 
@@ -9,9 +9,22 @@ export function resolveProgrammeEndAcademicYear(academicYears, startAcademicYear
   const startIndex = orderedYears.findIndex((year) => year.id === startAcademicYearId);
   if (startIndex < 0) return null;
 
-  const startYear = Number(orderedYears[startIndex].start_date.slice(0, 4));
-  const endYear = startYear + duration - 1;
-  return orderedYears.find((year) => Number(year.start_date.slice(0, 4)) === endYear) || null;
+  return Number(orderedYears[startIndex].start_date.slice(0, 4)) + duration - 1;
+}
+
+/** Resolve the academic-year row that ends a cohort's programme. */
+export function resolveProgrammeEndAcademicYear(academicYears, startAcademicYearId, durationYears) {
+  const endYear = getProgrammeEndAcademicYearStartYear(
+    academicYears,
+    startAcademicYearId,
+    durationYears,
+  );
+  if (endYear == null) return null;
+  return (academicYears || []).find(
+    (year) => year?.id
+      && Number.isFinite(Date.parse(year.start_date))
+      && Number(String(year.start_date).slice(0, 4)) === endYear,
+  ) || null;
 }
 
 /** Whether the programme end session has finished; supports legacy annual batches. */

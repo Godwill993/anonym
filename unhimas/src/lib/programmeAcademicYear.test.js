@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  getProgrammeEndAcademicYearStartYear,
   isAcademicYearInProgrammeRange,
   isProgrammePeriodComplete,
   resolveProgrammeEndAcademicYear,
@@ -20,11 +21,14 @@ describe('programme academic-year ranges', () => {
   it('resolves multi-year programmes by ordered academic sessions', () => {
     assert.equal(resolveProgrammeEndAcademicYear(academicYears, '2025', 2)?.id, '2026');
     assert.equal(resolveProgrammeEndAcademicYear(academicYears, '2025', 3)?.id, '2027');
+    assert.equal(getProgrammeEndAcademicYearStartYear(academicYears, '2025', 3), 2027);
   });
 
   it('returns null when the required future session is not configured', () => {
     assert.equal(resolveProgrammeEndAcademicYear(academicYears, '2026', 3), null);
     assert.equal(resolveProgrammeEndAcademicYear(academicYears, 'missing', 2), null);
+    assert.equal(getProgrammeEndAcademicYearStartYear(academicYears, 'missing', 2), null);
+    assert.equal(getProgrammeEndAcademicYearStartYear(academicYears, '2026', 3), 2028);
   });
 
   it('does not skip a missing academic year when resolving the programme end', () => {

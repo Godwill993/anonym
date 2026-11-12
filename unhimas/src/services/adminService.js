@@ -40,16 +40,19 @@ export async function getAdminOverviewStats() {
 export async function getDepartmentEnrollment() {
   const { data, error } = await supabase
     .from('departments')
-    .select('id, name, abbreviation, students:students(count)')
+    .select('id, name, abbreviation, batches(students(count))')
     .order('name');
 
   if (error) throw error;
 
-  return (data || []).map((d) => ({
-    id: d.id,
-    name: d.abbreviation || d.name,
-    fullName: d.name,
-    students: d.students?.[0]?.count ?? 0,
+  return (data || []).map((department) => ({
+    id: department.id,
+    name: department.abbreviation || department.name,
+    fullName: department.name,
+    students: (department.batches || []).reduce(
+      (total, batch) => total + (batch.students?.[0]?.count ?? 0),
+      0,
+    ),
   }));
 }
 
